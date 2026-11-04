@@ -1,0 +1,70 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 打印工具链
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: 编译 arm64 可执行文件
+        run: |
+          set -eux
+          SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          APP=build/Payload/GSJilu.app
+          mkdir -p "$APP"
+          clang -target arm64-apple-ios15.0 \
+                -isysroot "$SDK" \
+                -fobjc-arc -O2 -Wall -Inative \
+                -framework UIKit -framework Foundation \
+                -framework QuartzCore -framework CoreGraphics \
+                native/*.m \
+                -o "$APP/GSJilu"
+          codesign -f -s - "$APP/GSJilu" || echo "ad-hoc 签名失败，不阻塞（自签时会重签）"
+
+      - name: 组装 App 包
+        run: |
+          set -eux
+          APP=build/Payload/GSJilu.app
+          cp shell/Info.plist "$APP/Info.plist"
+          cp shell/icons/AppIcon60x60@2x.png "$APP/"
+          cp shell/icons/AppIcon60x60@3x.png "$APP/"
+          printf 'APPL????' > "$APP/PkgInfo"
+          VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" shell/Info.plist)
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          echo "版本号: $VER"
+
+      - name: 校验产物
+        run: |
+          set -eux
+          APP=build/Payload/GSJilu.app
+          lipo -info "$APP/GSJilu"
+          file "$APP/GSJilu"
+          plutil -lint "$APP/Info.plist"
+
+      - name: 打成 ipa
+        run: |
+          set -eux
+          cd build
+          zip -qry "../工时记录-$VER-unsigned.ipa" Payload
+          cd ..
+          ls -l *.ipa
+
+      - name: 上传 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workhours-ipa
+          path: 工时记录-*.ipa
+          if-no-files-found: error
+          retention-days: 90
