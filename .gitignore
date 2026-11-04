@@ -1,0 +1,7 @@
+build-native/
+out/
+*.o
+*.o.tmp
+Payload/
+.DS_Store
+*.ipa
