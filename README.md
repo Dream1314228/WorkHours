@@ -56,6 +56,14 @@ SDKROOT=/path/to/iPhoneOS27.2.sdk ./build_native.sh
 
 脚本逐个编译 `native/*.m`，用 `ld64.lld` 链接成 arm64 可执行文件，做 ad-hoc 签名，再把 `Payload` 打成未签名 ipa，输出到 `out/`。装到未越狱设备上需要自己用 AltStore、Sideloadly 这类工具重签。
 
+## 云端自动编译
+
+没有 Mac 也能出包。仓库自带 `.github/workflows/build-ipa.yml`：推到 `main` 或者手动触发，GitHub 会分配一台临时 Mac（预装 Xcode），编译、组装、打成未签名 ipa，然后作为 artifact 上传。
+
+产物在 **Actions → 某次运行 → 页面底部的 Artifacts** 里，下载下来是一个 zip，里面有 `工时记录-x.y.z-unsigned.ipa`。artifact 默认保留 90 天。
+
+公开仓库的 macOS runner 不花钱；私有仓库要算额度，而且 macOS 是按 10 倍时长扣的。
+
 ## 已知限制
 
 - 只有 iOS 端，没有 Android，没有云端同步
