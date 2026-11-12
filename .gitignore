@@ -1,7 +1,16 @@
-build-native/
-out/
-*.o
-*.o.tmp
-Payload/
-.DS_Store
+# Xcode build products
+DerivedData/
+build/
+dist/
 *.ipa
+
+# User-specific Xcode data. Shared schemes under xcshareddata stay tracked.
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
