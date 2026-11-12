@@ -2,6 +2,40 @@ import SwiftUI
 import UniformTypeIdentifiers
 import UIKit
 
+// MARK: - Helpers
+
+// GSSafeAreaTop() is defined in Common.swift.
+
+func GSMotionEnabled(_ store: GSStore, reduceMotion: Bool) -> Bool {
+    store.animations && !reduceMotion
+}
+
+struct GSPressButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.97
+    private var animatedOverride: Bool? = nil
+    @EnvironmentObject var store: GSStore
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
+    init(animated: Bool, scale: CGFloat = 0.97) {
+        self.animatedOverride = animated
+        self.scale = scale
+    }
+
+    init(scale: CGFloat = 0.97) {
+        self.animatedOverride = nil
+        self.scale = scale
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        let on = animatedOverride ?? GSMotionEnabled(store, reduceMotion: reduceMotion)
+        return configuration.label
+            .scaleEffect(on && configuration.isPressed ? scale : 1)
+            .animation(on ? .easeOut(duration: 0.16) : nil, value: configuration.isPressed)
+    }
+}
+
+// MARK: - Existing Views
+
 struct GSCard<Content: View>: View {
     var padding: CGFloat = 18
     @ViewBuilder var content: () -> Content
@@ -21,17 +55,18 @@ struct GSHeaderBlock: View {
     var title: String
     var subtitle: String?
     var trailing: AnyView? = nil
+    var topInset: CGFloat = 0
     @EnvironmentObject var store: GSStore
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: topInset == 0 ? .bottomLeading : .topLeading) {
             LinearGradient(
                 colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
             Circle().fill(Color.white.opacity(0.10)).frame(width: 160, height: 160).offset(x: 180, y: -40)
             Circle().fill(Color.white.opacity(0.08)).frame(width: 90, height: 90).offset(x: 40, y: -50)
-            HStack(alignment: .bottom) {
+            HStack(alignment: topInset == 0 ? .bottom : .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title).font(.system(size: 28, weight: .bold)).foregroundColor(.white)
                     if let subtitle = subtitle {
@@ -42,10 +77,21 @@ struct GSHeaderBlock: View {
                 if let trailing = trailing { trailing }
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 16)
+            .modifier(GSHeaderContentPadding(topInset: topInset))
         }
         .frame(maxWidth: .infinity)
         .clipShape(GSHeaderShape(radius: store.headerRadius))
+    }
+}
+
+private struct GSHeaderContentPadding: ViewModifier {
+    var topInset: CGFloat
+    func body(content: Content) -> some View {
+        if topInset == 0 {
+            content.padding(.bottom, 16)
+        } else {
+            content.padding(.top, topInset + 14)
+        }
     }
 }
 
@@ -218,50 +264,163 @@ struct GSDocumentPicker: UIViewControllerRepresentable {
     }
 }
 
+// MARK: - Glass Tab Bar
+
+struct GSGlassBarBackground: View {
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 26, style: .continuous) }
+
+    var body: some View {
+        // Liquid Glass is iOS 26+. Prefer `.regular.interactive()`; if an SDK build
+        // rejects `.interactive()`, switch the iOS 26 branch to `.glassEffect(.regular, in: shape)`.
+        if #available(iOS 26.0, *) {
+            shape.fill(Color.clear)
+                .glassEffect(.regular.interactive(), in: shape)
+        } else {
+            shape.fill(.ultraThinMaterial)
+        }
+    }
+}
+
 struct GSGlassTabBar: View {
     @Binding var selected: Int
     @EnvironmentObject var store: GSStore
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     private let titles = ["记录", "统计", "排班", "我的"]
     private let icons = ["calendar", "chart.bar.fill", "square.grid.2x2", "person.fill"]
 
+    @State private var dragging = false
+    @State private var dragIndex = 0
+    @State private var dragX: CGFloat?
+    @State private var bouncingIcon: Int?
+    @State private var bounceWork: DispatchWorkItem?
+
+    private var motionOn: Bool { GSMotionEnabled(store, reduceMotion: reduceMotion) }
+    private var highlightIndex: Int { dragging ? dragIndex : selected }
+
     var body: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<4, id: \.self) { i in
-                Button {
-                    GSHaptic()
-                    withAnimation(.easeOut(duration: 0.26)) { selected = i }
-                } label: {
-                    VStack(spacing: 2) {
-                        Image(systemName: icons[i])
-                            .font(.system(size: 18, weight: .semibold))
-                        Text(titles[i]).font(.system(size: 10, weight: .semibold))
+        GeometryReader { geo in
+            let width = max(geo.size.width, 1)
+            let tabWidth = width / 4
+
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(GSTheme.softColor(for: store.themeKey))
+                    .frame(width: tabWidth - 12, height: geo.size.height - 12)
+                    .offset(x: CGFloat(selected) * tabWidth + 6, y: 6)
+                    .opacity(dragging ? 0 : 1)
+                    .animation(motionOn ? .spring(response: 0.26, dampingFraction: 0.84) : nil, value: selected)
+
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(GSTheme.softColor(for: store.themeKey))
+                    .frame(width: tabWidth - 12, height: geo.size.height - 12)
+                    .offset(x: dragPillOffset(tabWidth: tabWidth), y: 6)
+                    .opacity(dragging ? 1 : 0)
+
+                HStack(spacing: 0) {
+                    ForEach(0..<4, id: \.self) { i in
+                        Button {
+                            selectTab(i, hapticIfChanged: true)
+                        } label: {
+                            VStack(spacing: 2) {
+                                Image(systemName: icons[i])
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .scaleEffect(bouncingIcon == i ? 0.86 : 1)
+                                Text(titles[i])
+                                    .font(.system(size: 11, weight: highlightIndex == i ? .semibold : .medium))
+                            }
+                            .foregroundColor(highlightIndex == i ? GSTheme.color(for: store.themeKey) : GSTextSecondary())
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .foregroundColor(selected == i ? GSTheme.color(for: store.themeKey) : GSTextSecondary())
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
                 }
-                .buttonStyle(.plain)
+                .frame(width: geo.size.width, height: geo.size.height)
             }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 10)
+                    .onChanged { value in
+                        let idx = tabIndex(at: value.location.x, width: width)
+                        if !dragging {
+                            dragging = true
+                            dragIndex = idx
+                            dragX = clampDragX(value.location.x, tabWidth: tabWidth, width: width)
+                            return
+                        }
+                        dragX = clampDragX(value.location.x, tabWidth: tabWidth, width: width)
+                        if idx != dragIndex {
+                            dragIndex = idx
+                            GSHaptic()
+                        }
+                    }
+                    .onEnded { value in
+                        let idx = tabIndex(at: value.location.x, width: width)
+                        dragging = false
+                        dragX = nil
+                        selectTab(idx, hapticIfChanged: false)
+                    }
+            )
         }
-        .padding(.horizontal, 6)
         .frame(height: 64)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color.black.opacity(0.10), radius: 16, x: 0, y: 6)
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color.white.opacity(0.6), lineWidth: 0.5)
-        )
+        .background(GSGlassBarBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .shadow(color: Color.black.opacity(0.14), radius: 24, x: 0, y: 10)
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
     }
+
+    private func tabIndex(at x: CGFloat, width: CGFloat) -> Int {
+        let w = max(1, width / 4)
+        return min(3, max(0, Int(floor(max(0, min(width - 0.001, x)) / w))))
+    }
+
+    private func selectTab(_ i: Int, hapticIfChanged: Bool) {
+        if hapticIfChanged && i != selected { GSHaptic() }
+        if motionOn {
+            bounceWork?.cancel()
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.84)) {
+                bouncingIcon = i
+            }
+            selected = i
+            let work = DispatchWorkItem {
+                withAnimation(.spring(response: 0.22, dampingFraction: 0.62)) {
+                    self.bouncingIcon = nil
+                }
+            }
+            bounceWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.26, execute: work)
+        } else {
+            bounceWork?.cancel()
+            bouncingIcon = nil
+            selected = i
+        }
+    }
+
+    private func dragPillOffset(tabWidth: CGFloat) -> CGFloat {
+        if let dragX = dragX {
+            return dragX - (tabWidth - 12) / 2
+        }
+        return CGFloat(selected) * tabWidth + 6
+    }
+
+    private func clampDragX(_ x: CGFloat, tabWidth: CGFloat, width: CGFloat) -> CGFloat {
+        min(max(x, tabWidth / 2), width - tabWidth / 2)
+    }
 }
+
+// MARK: - Row Button & Field Row
 
 struct GSRowButton: View {
     var icon: String
     var title: String
     var color: Color
     var action: () -> Void
+    @EnvironmentObject var store: GSStore
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
@@ -278,7 +437,7 @@ struct GSRowButton: View {
             .frame(height: 54)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(GSPressButtonStyle(animated: GSMotionEnabled(store, reduceMotion: reduceMotion)))
     }
 }
 

@@ -59,7 +59,7 @@ struct EditorView: View {
         return ZStack(alignment: .bottom) {
             LinearGradient(colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)], startPoint: .top, endPoint: .bottom)
             HStack {
-                Text(String(format: "%ld月%ld日 · %@", c.month, c.day, GSDate.weekdayName(date)))
+                Text(verbatim: String(format: "%ld月%ld日 · %@", c.month, c.day, GSDate.weekdayName(date)))
                     .font(.system(size: 17, weight: .bold)).foregroundColor(.white)
                 Spacer()
                 Button { onClose() } label: {
@@ -71,7 +71,7 @@ struct EditorView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
         }
-        .frame(height: 88)
+        .frame(height: GSSafeAreaTop() + 52)
         .clipShape(GSHeaderShape(radius: store.headerRadius))
         .ignoresSafeArea(edges: .top)
     }
@@ -273,7 +273,7 @@ struct EditorView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: store.cardRadius, style: .continuous))
     }
 
     private var btCard: some View {
@@ -330,7 +330,7 @@ struct EditorView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: store.cardRadius, style: .continuous))
     }
 
     private var noteCard: some View {
@@ -381,7 +381,7 @@ struct EditorView: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: store.cardRadius, style: .continuous))
     }
 
     private func setup() {

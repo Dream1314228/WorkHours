@@ -16,7 +16,9 @@ struct ExtrasView: View {
             ZStack(alignment: .bottom) {
                 LinearGradient(colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)], startPoint: .top, endPoint: .bottom)
                 HStack {
-                    Text("补扣管理 · \(month)月").font(.system(size: 17, weight: .bold)).foregroundColor(.white)
+                    Text(verbatim: "补扣管理 · \(month)月")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
                     Spacer()
                     Button { onClose() } label: {
                         Image(systemName: "xmark").foregroundColor(.white)
@@ -26,7 +28,7 @@ struct ExtrasView: View {
                 }
                 .padding(.horizontal, 20).padding(.bottom, 12)
             }
-            .frame(height: 88)
+            .frame(height: GSSafeAreaTop() + 52)
             .clipShape(GSHeaderShape(radius: store.headerRadius))
             .ignoresSafeArea(edges: .top)
 
@@ -71,6 +73,7 @@ struct ExtrasView: View {
                                 .frame(maxWidth: .infinity).frame(height: 40)
                                 .background(GSTheme.color(for: store.themeKey))
                                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .buttonStyle(GSPressButtonStyle())
                         }
                     }
                     GSCard {
@@ -78,7 +81,10 @@ struct ExtrasView: View {
                             Button("导入上月补助和扣款") {
                                 store.importLastMonthBoth(year: year, month: month)
                                 toast.show("已导入上月补助和扣款")
-                            }.font(.system(size: 14, weight: .semibold)).foregroundColor(GSTheme.color(for: store.themeKey))
+                            }
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(GSTheme.color(for: store.themeKey))
+                            .buttonStyle(GSPressButtonStyle())
                             Text("同时导入上月的补贴和扣款；新月份打开 App 时也会自动带入。")
                                 .font(.system(size: 11)).foregroundColor(GSTextSecondary())
                         }
@@ -89,6 +95,7 @@ struct ExtrasView: View {
             }
         }
         .background(GSPageBackground().ignoresSafeArea())
+        .ignoresSafeArea(edges: .top)
     }
 
     private func list(kindName: String, items: [[String: Any]], isBonus: Bool) -> some View {

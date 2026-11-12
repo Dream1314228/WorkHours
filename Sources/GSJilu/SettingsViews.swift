@@ -32,6 +32,7 @@ struct SettingsPage: View {
         }
         .background(GSPageBackground().ignoresSafeArea())
         .navigationBarTitle(title, displayMode: .inline)
+        .navigationBarHidden(false)
     }
 }
 
@@ -816,6 +817,7 @@ struct WageCalculatorView: View {
         }
         .background(GSPageBackground().ignoresSafeArea())
         .navigationBarTitle("工资计算器", displayMode: .inline)
+        .navigationBarHidden(false)
         .onAppear {
             fields[0] = GSNum(GSJSONNumber(project["base"]))
         }

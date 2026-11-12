@@ -15,8 +15,8 @@ struct MeView: View {
         NavigationView {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 14) {
-                    GSHeaderBlock(title: "我的", subtitle: "工时记录 · 本地数据")
-                        .frame(height: 140)
+                    GSHeaderBlock(title: "我的", subtitle: "工时记录 · 本地数据", topInset: GSSafeAreaTop())
+                        .frame(height: GSSafeAreaTop() + 100)
                     profile.padding(.horizontal, 18).offset(y: -8)
                     section("记录与薪资")
                     menu([
@@ -42,6 +42,7 @@ struct MeView: View {
             }
             .ignoresSafeArea(edges: .top)
             .background(GSPageBackground().ignoresSafeArea())
+            .navigationBarHidden(true)
             .background(
                 NavigationLink(destination: SettingsPage(page: page ?? "record"), isActive: Binding(
                     get: { page != nil },

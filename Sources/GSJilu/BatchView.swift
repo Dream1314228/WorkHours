@@ -73,7 +73,7 @@ struct BatchView: View {
             if confirmClear {
                 return Alert(
                     title: Text("批量清空工时"),
-                    message: Text("将删除选中的 \(selected.count) 天记录，不能撤销。"),
+                    message: Text(verbatim: String(format: "将删除选中的 %d 天记录，不能撤销。", selected.count)),
                     primaryButton: .destructive(Text("清空")) { doClear() },
                     secondaryButton: .cancel(Text("取消"))
                 )
@@ -90,7 +90,7 @@ struct BatchView: View {
                         Image(systemName: "chevron.left").foregroundColor(GSTheme.color(for: store.themeKey)).frame(width: 30, height: 30)
                     }
                     Spacer()
-                    Text("\(year)年\(month)月").font(.system(size: 16, weight: .bold))
+                    Text(verbatim: String(format: "%d年%d月", year, month)).font(.system(size: 16, weight: .bold))
                     Spacer()
                     Button { let c = GSDate.monthAdd(year: year, month: month, delta: 1); year = c.year; month = c.month } label: {
                         Image(systemName: "chevron.right").foregroundColor(GSTheme.color(for: store.themeKey)).frame(width: 30, height: 30)
@@ -108,7 +108,7 @@ struct BatchView: View {
                     Button("全月") { selectWholeMonth() }.font(.system(size: 12, weight: .semibold)).foregroundColor(GSTheme.color(for: store.themeKey))
                     Button("清空") { selected.removeAll() }.font(.system(size: 12, weight: .semibold)).foregroundColor(GSTextSecondary())
                     Spacer()
-                    Text("已选 \(selected.count) 天").font(.system(size: 12)).foregroundColor(GSTextSecondary())
+                    Text(verbatim: String(format: "已选 %d 天", selected.count)).font(.system(size: 12)).foregroundColor(GSTextSecondary())
                 }
             }
         }
@@ -138,7 +138,7 @@ struct BatchView: View {
                                 GSHaptic()
                             } label: {
                                 ZStack(alignment: .bottom) {
-                                    Text("\(index)")
+                                    Text(verbatim: String(format: "%d", index))
                                         .font(.system(size: 13, weight: on ? .bold : .regular))
                                         .foregroundColor(on ? .white : GSTextPrimary())
                                         .frame(maxWidth: .infinity, minHeight: 36)

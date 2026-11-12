@@ -6,6 +6,7 @@ struct StatsView: View {
     @State private var year: Int = GSDate.gregorian.component(.year, from: Date())
     @State private var month: Int = GSDate.gregorian.component(.month, from: Date())
     @State private var showExtras = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let st = store.monthStats(year: year, month: month, usePeriod: true)
@@ -35,13 +36,22 @@ struct StatsView: View {
                 subtitle: "\(year)年 · \(st["label"] as? String ?? "")",
                 trailing: AnyView(
                     HStack(spacing: 12) {
-                        Button { changeMonth(-1) } label: { Image(systemName: "chevron.left").foregroundColor(.white) }
-                        Text("\(month)月").font(.system(size: 22, weight: .bold)).foregroundColor(.white)
-                        Button { changeMonth(1) } label: { Image(systemName: "chevron.right").foregroundColor(.white) }
+                        Button { changeMonth(-1) } label: {
+                            Image(systemName: "chevron.left").foregroundColor(.white)
+                        }
+                        .buttonStyle(GSPressButtonStyle())
+                        Text(verbatim: "\(month)月")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(.white)
+                        Button { changeMonth(1) } label: {
+                            Image(systemName: "chevron.right").foregroundColor(.white)
+                        }
+                        .buttonStyle(GSPressButtonStyle())
                     }
-                )
+                ),
+                topInset: GSSafeAreaTop()
             )
-            .frame(height: 150)
+            .frame(height: GSSafeAreaTop() + 100)
         }
     }
 
@@ -125,7 +135,10 @@ struct StatsView: View {
                     Button("复制报表") {
                         UIPasteboard.general.string = store.reportText(year: year, month: month)
                         toast.show("报表已复制")
-                    }.font(.system(size: 13, weight: .medium)).foregroundColor(GSTheme.color(for: store.themeKey))
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(GSTheme.color(for: store.themeKey))
+                    .buttonStyle(GSPressButtonStyle())
                 }
                 if keys.isEmpty {
                     Text("本月还没有记录").font(.system(size: 14)).foregroundColor(GSTextSecondary())
@@ -171,7 +184,10 @@ struct StatsView: View {
                 HStack {
                     Text("本期补扣明细").font(.system(size: 16, weight: .bold)).foregroundColor(GSTextPrimary())
                     Spacer()
-                    Button("管理") { showExtras = true }.font(.system(size: 14, weight: .semibold)).foregroundColor(GSTheme.color(for: store.themeKey))
+                    Button("管理") { showExtras = true }
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(GSTheme.color(for: store.themeKey))
+                        .buttonStyle(GSPressButtonStyle())
                 }
                 Text(String(format: "月度补贴 +%@ · %ld 笔    月度扣款 -%@ · %ld 笔", GSMoney(bsSum), bs.count, GSMoney(dsSum), ds.count))
                     .font(.system(size: 12)).foregroundColor(GSTextSecondary())
@@ -228,7 +244,13 @@ struct StatsView: View {
 
     private func changeMonth(_ delta: Int) {
         let c = GSDate.monthAdd(year: year, month: month, delta: delta)
-        year = c.year; month = c.month
+        if GSMotionEnabled(store, reduceMotion: reduceMotion) {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.84)) {
+                year = c.year; month = c.month
+            }
+        } else {
+            year = c.year; month = c.month
+        }
         GSHaptic()
     }
 }

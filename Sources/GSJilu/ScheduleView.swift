@@ -1,14 +1,14 @@
-
 import SwiftUI
 
 struct ScheduleView: View {
     @EnvironmentObject var store: GSStore
-    @State private var boardView = false
+    @State private var boardView = true
     @State private var year: Int = GSDate.gregorian.component(.year, from: Date())
     @State private var month: Int = GSDate.gregorian.component(.month, from: Date())
     @State private var selectedDate: String = GSDate.todayKey()
     @State private var palette: String = GSStore.shared.stringSetting("currentClass", default: "1")
     @EnvironmentObject var toast: GSToastCenter
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shareURL: URL?
 
     var body: some View {
@@ -16,12 +16,6 @@ struct ScheduleView: View {
         return ScrollView(showsIndicators: false) {
             VStack(spacing: 14) {
                 header(st)
-                Picker("", selection: $boardView) {
-                    Text("排班").tag(false)
-                    Text("看板").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 18)
                 if boardView { board(st) } else { schedule }
                 Color.clear.frame(height: 20)
             }
@@ -32,6 +26,14 @@ struct ScheduleView: View {
             set: { shareURL = $0?.url }
         )) { item in
             GSShareSheet(items: [item.url])
+        }
+    }
+
+    private func animate(_ action: @escaping () -> Void) {
+        if GSMotionEnabled(store, reduceMotion: reduceMotion) {
+            withAnimation(.spring(response: 0.26, dampingFraction: 0.84)) { action() }
+        } else {
+            action()
         }
     }
 
@@ -53,74 +55,205 @@ struct ScheduleView: View {
             let p = store.plan(for: GSDate.dayKey(year, month, d))
             if !p.isEmpty { classSet.insert(p) }
         }
+
         let title = boardView ? "\(year) 年度" : "\(year) 年 \(month) 月"
         let big = boardView ? "¥\(GSNum(GSJSONNumber(st["pay"])))" : "排班计划"
         let sub = boardView
             ? String(format: "时薪 %.0f元  ·  %ld年 %@ 天出勤", GSJSONNumber(st["avg"]), year, GSNum(GSJSONNumber(st["days"])))
             : "已排 \(planned) 天 · 未排 \(dim - planned) 天 · 点日期切换班次"
-        return VStack(spacing: 0) {
-            GSHeaderBlock(title: title, subtitle: sub, trailing: AnyView(
-                HStack(spacing: 10) {
+
+        let metrics: [(String, String)]
+        if boardView {
+            metrics = [
+                ("总工时", "\(GSNum(GSJSONNumber(st["hours"])))H"),
+                ("出勤", "\(GSNum(GSJSONNumber(st["days"])))天"),
+                ("平均时薪", String(format: "%.0f元", GSJSONNumber(st["avg"]))),
+                ("加班", "\(GSNum(GSJSONNumber(st["ot"])))H")
+            ]
+        } else {
+            metrics = [
+                ("已排", "\(planned)天"),
+                ("未排", "\(dim - planned)天"),
+                ("班次数", "\(classSet.count)"),
+                ("已记录", "\(recorded)天")
+            ]
+        }
+
+        let height = GSSafeAreaTop() + 258
+
+        return ZStack(alignment: .top) {
+            LinearGradient(colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)], startPoint: .top, endPoint: .bottom)
+                .frame(height: height)
+                .clipShape(GSHeaderShape(radius: store.headerRadius))
+                .ignoresSafeArea(edges: .top)
+
+            VStack(spacing: 10) {
+                HStack(spacing: 8) {
                     if boardView {
-                        Button { year -= 1 } label: { Image(systemName: "chevron.left").foregroundColor(.white) }
-                        Button { year += 1 } label: { Image(systemName: "chevron.right").foregroundColor(.white) }
+                        Button {
+                            GSHaptic()
+                            animate { year -= 1 }
+                        } label: {
+                            Image(systemName: "chevron.left").foregroundColor(.white)
+                        }
+                        .buttonStyle(GSPressButtonStyle())
+
+                        Text(verbatim: title)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+
+                        Button {
+                            GSHaptic()
+                            animate { year += 1 }
+                        } label: {
+                            Image(systemName: "chevron.right").foregroundColor(.white)
+                        }
+                        .buttonStyle(GSPressButtonStyle())
+
+                        Spacer()
+
+                        Text(verbatim: "ANNUAL")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.92))
+                            .padding(.horizontal, 10)
+                            .frame(height: 22)
+                            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.white.opacity(0.25), lineWidth: 1))
+                    } else {
+                        Text(verbatim: title)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
                     }
                 }
-            )).frame(height: 130)
-            HStack(spacing: 8) {
-                if boardView {
-                    headerStat("\(GSNum(GSJSONNumber(st["hours"])))H", "总工时")
-                    headerStat("\(GSNum(GSJSONNumber(st["days"])))天", "出勤")
-                    headerStat(String(format: "%.0f元", GSJSONNumber(st["avg"])), "平均时薪")
-                    headerStat("\(GSNum(GSJSONNumber(st["ot"])))H", "加班")
-                } else {
-                    headerStat("\(planned)天", "已排")
-                    headerStat("\(dim - planned)天", "未排")
-                    headerStat("\(classSet.count)", "班次数")
-                    headerStat("\(recorded)天", "已记录")
-                }
+
+                Text(verbatim: big)
+                    .font(.system(size: 45, weight: .bold))
+                    .foregroundColor(.white)
+
+                Text(verbatim: sub)
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.92))
+
+                metricBar(metrics)
+                    .frame(height: 62)
+
+                segmentedControl
             }
             .padding(.horizontal, 18)
-            .offset(y: 14)
-            .padding(.bottom, 14)
+            .padding(.top, GSSafeAreaTop() + 14)
+            .padding(.bottom, 16)
+            .frame(height: height, alignment: .top)
         }
     }
 
-    private func headerStat(_ v: String, _ l: String) -> some View {
-        VStack(spacing: 2) {
-            Text(v).font(.system(size: 14, weight: .bold)).foregroundColor(GSTextPrimary()).lineLimit(1).minimumScaleFactor(0.7)
-            Text(l).font(.system(size: 10)).foregroundColor(GSTextSecondary())
+    private func metricBar(_ items: [(String, String)]) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { i, item in
+                VStack(spacing: 3) {
+                    Text(verbatim: item.1)
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
+                    Text(verbatim: item.0)
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.92))
+                }
+                .frame(maxWidth: .infinity)
+
+                if i < items.count - 1 {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.18))
+                        .frame(width: 0.5, height: 30)
+                }
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color.white)
+        .padding(.horizontal, 6)
+        .background(Color.black.opacity(0.09))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.white.opacity(0.18), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var segmentedControl: some View {
+        HStack(spacing: 4) {
+            segmentButton("排班", selected: !boardView) {
+                GSHaptic()
+                animate { boardView = false }
+            }
+            segmentButton("看板", selected: boardView) {
+                GSHaptic()
+                animate { boardView = true }
+            }
+        }
+        .padding(4)
+        .background(Color.black.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(color: store.cardShadow ? Color.black.opacity(0.05) : .clear, radius: 6, x: 0, y: 2)
+        .frame(height: 40)
+    }
+
+    private func segmentButton(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            if !selected { action() }
+        } label: {
+            Text(verbatim: title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(selected ? GSTheme.color(for: store.themeKey) : .white.opacity(0.92))
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
+                .background(selected ? Color.white : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 
     private var schedule: some View {
         GSCard {
             VStack(spacing: 14) {
                 HStack {
-                    Button { let c = GSDate.monthAdd(year: year, month: month, delta: -1); year = c.year; month = c.month; selectedDate = GSDate.dayKey(year, month, 1) } label: {
+                    Button {
+                        animate {
+                            let c = GSDate.monthAdd(year: year, month: month, delta: -1)
+                            year = c.year
+                            month = c.month
+                            selectedDate = GSDate.dayKey(year, month, 1)
+                        }
+                    } label: {
                         Image(systemName: "chevron.left").foregroundColor(GSTextPrimary())
                             .frame(width: 34, height: 34).background(Color.white).clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .buttonStyle(GSPressButtonStyle())
+
                     Spacer()
-                    Text("\(year)年 \(month)月").font(.system(size: 16, weight: .bold)).foregroundColor(GSTextPrimary())
+
+                    Text(verbatim: "\(year)年 \(month)月")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(GSTextPrimary())
+
                     Spacer()
-                    Button { let c = GSDate.monthAdd(year: year, month: month, delta: 1); year = c.year; month = c.month; selectedDate = GSDate.dayKey(year, month, 1) } label: {
+
+                    Button {
+                        animate {
+                            let c = GSDate.monthAdd(year: year, month: month, delta: 1)
+                            year = c.year
+                            month = c.month
+                            selectedDate = GSDate.dayKey(year, month, 1)
+                        }
+                    } label: {
                         Image(systemName: "chevron.right").foregroundColor(GSTextPrimary())
                             .frame(width: 34, height: 34).background(Color.white).clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .buttonStyle(GSPressButtonStyle())
                 }
+
                 GSMonthCalendar(year: year, month: month, selectedDate: $selectedDate) { key in
                     assignPlan(key)
                 }
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text("排班标记 · 先选班次，再点日期").font(.system(size: 12, weight: .medium)).foregroundColor(GSTextSecondary())
                     Text("当前：\((store.classItem(id: palette)?["name"] as? String) ?? "未选班次") · 点日期排班")
                         .font(.system(size: 11)).foregroundColor(GSTextSecondary())
+
                     HStack(spacing: 6) {
                         ForEach(Array(store.classes.enumerated()), id: \.offset) { _, c in
                             let on = palette == (c["id"] as? String)
@@ -137,6 +270,7 @@ struct ScheduleView: View {
                             }
                             .buttonStyle(.plain)
                         }
+
                         Button("清除") {
                             store.setPlan("", for: selectedDate)
                             toast.show("已清除")
@@ -149,6 +283,7 @@ struct ScheduleView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                 }
+
                 Text("排班只做标记，不会自动生成工时；记录页仍按实际工时算工资。")
                     .font(.system(size: 11)).foregroundColor(GSTextSecondary())
             }
@@ -169,6 +304,7 @@ struct ScheduleView: View {
         let totalOT = GSJSONNumber(st["ot"]), totalPay = GSJSONNumber(st["pay"])
         var weekendH = 0.0, holidayH = 0.0, normalH = 0.0, overtimeH = 0.0, bestH = 0.0, maxPay = 0.0, minPay = 0.0
         var activeMonths = 0, bestMonth = 0, bestPayMonth = 0, lowestPayMonth = 0
+
         for (i, m) in months.enumerated() {
             let h = GSJSONNumber(m["hours"])
             normalH += GSJSONNumber(m["zb"])
@@ -183,6 +319,7 @@ struct ScheduleView: View {
             }
             if h > bestH { bestH = h; bestMonth = i + 1 }
         }
+
         let avgDaily = totalDays > 0 ? totalH / totalDays : 0
         let avgMonth = activeMonths > 0 ? totalH / Double(activeMonths) : 0
         let avgMonthPay = activeMonths > 0 ? totalPay / Double(activeMonths) : 0
@@ -207,6 +344,7 @@ struct ScheduleView: View {
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(GSBorderColor(), lineWidth: 0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
+            .buttonStyle(GSPressButtonStyle())
             .padding(.horizontal, 18)
 
             GSCard {
@@ -301,7 +439,7 @@ struct ScheduleView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                             .background(GSColorHex("#E7EDF6"))
                             .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
-                            Text("\(i+1)").font(.system(size: 10)).foregroundColor(GSTextSecondary())
+                            Text(verbatim: "\(i+1)").font(.system(size: 10)).foregroundColor(GSTextSecondary())
                         }
                         .frame(maxWidth: .infinity)
                     }
@@ -412,7 +550,9 @@ struct ScheduleView: View {
                         let m = i < months.count ? months[i] : [:]
                         VStack(alignment: .leading, spacing: 2) {
                             HStack {
-                                Text("\(i+1)月").font(.system(size: 14, weight: .semibold)).foregroundColor(GSTextPrimary())
+                                Text(verbatim: "\(i+1)月")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(GSTextPrimary())
                                 Spacer()
                                 Text(GSMoney(GSJSONNumber(m["pay"]))).font(.system(size: 14, weight: .bold)).foregroundColor(GSTextPrimary())
                             }

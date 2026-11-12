@@ -3,12 +3,14 @@ import SwiftUI
 struct RecordView: View {
     @EnvironmentObject var store: GSStore
     @EnvironmentObject var toast: GSToastCenter
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var year: Int
     @State private var month: Int
     @State private var selectedDate: String
     @State private var showEditor = false
     @State private var showBatch = false
     @State private var confirmDelete = false
+    @State private var appeared = false
 
     init() {
         var d = Date()
@@ -24,21 +26,70 @@ struct RecordView: View {
         _month = State(initialValue: c.month)
     }
 
+    private var motionEnabled: Bool {
+        GSMotionEnabled(store, reduceMotion: reduceMotion)
+    }
+
     var monthStats: [String: Any] {
         store.monthStats(year: year, month: month, usePeriod: false)
     }
 
+    private var hasRecord: Bool {
+        store.record(for: selectedDate) != nil
+    }
+
+    private var isToday: Bool {
+        selectedDate == GSDate.todayKey()
+    }
+
+    private var floatingButtons: some View {
+        HStack(spacing: 8) {
+            if !hasRecord && !isToday {
+                todayButton
+            }
+            if !hasRecord {
+                fab("记一笔", "plus") { showEditor = true }
+            } else if !isToday {
+                fab("回今天", "arrow.uturn.backward") { goToday() }
+            }
+        }
+    }
+
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 14) {
+            VStack(spacing: 0) {
                 header
-                calendarCard
+
+                Color.clear.frame(height: 14)
+                calendarArea
+                    .recordEntrance(index: 0, appeared: appeared, animate: motionEnabled)
+
+                Color.clear.frame(height: 14)
                 dayCard
+                    .id(selectedDate)
+                    .transition(.opacity)
+                    .recordEntrance(index: 1, appeared: appeared, animate: motionEnabled)
+
+                Color.clear.frame(height: 12)
                 timelineCard
+                    .recordEntrance(index: 2, appeared: appeared, animate: motionEnabled)
+
+                Color.clear.frame(height: 12)
+                toolRow
+                    .recordEntrance(index: 3, appeared: appeared, animate: motionEnabled)
+
                 Color.clear.frame(height: 24)
             }
         }
         .ignoresSafeArea(edges: .top)
+        .onAppear {
+            appeared = true
+        }
+        .overlay(alignment: .bottomTrailing) {
+            floatingButtons
+                .padding(.trailing, 20)
+                .padding(.bottom, 10)
+        }
         .fullScreenCover(isPresented: $showEditor) {
             EditorView(date: selectedDate) { showEditor = false }
                 .environmentObject(store)
@@ -70,72 +121,91 @@ struct RecordView: View {
 
     private var header: some View {
         let st = monthStats
-        return ZStack(alignment: .bottom) {
-            GSHeaderBlock(
-                title: "\(year)年",
-                subtitle: GSDate.relativeDay(selectedDate),
-                trailing: AnyView(
-                    Text("\(month)月")
+        let top = GSSafeAreaTop()
+        return ZStack {
+            LinearGradient(
+                colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            Circle().fill(Color.white.opacity(0.10)).frame(width: 160, height: 160).offset(x: 180, y: -40)
+            Circle().fill(Color.white.opacity(0.08)).frame(width: 90, height: 90).offset(x: 40, y: -50)
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Text(verbatim: String(format: "%d年", year))
                         .font(.system(size: 28, weight: .bold))
                         .foregroundColor(.white)
+                    Text(GSDate.relativeDay(selectedDate))
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundColor(Color.white.opacity(0.92))
+                    Spacer()
+                    Button { changeMonth(-1) } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(RecordPressStyle(animate: motionEnabled))
+
+                    Text(verbatim: String(format: "%d月", month))
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white)
+
+                    Button { changeMonth(1) } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 30, height: 30)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(RecordPressStyle(animate: motionEnabled))
+                }
+                .padding(.top, top + 12)
+                .padding(.horizontal, 20)
+                Spacer(minLength: 0)
+                HStack(spacing: 0) {
+                    headerMetric(GSNum(GSJSONNumber(st["days"])), "出勤")
+                    headerMetric(GSNum(GSJSONNumber(st["hours"])), "工时")
+                    headerMetric(GSMoney(GSJSONNumber(st["pay"])), "工资")
+                }
+                .padding(.horizontal, 6)
+                .frame(height: 72)
+                .background(Color.black.opacity(0.09))
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.white.opacity(0.18), lineWidth: 1)
                 )
-            )
-            .frame(height: 150)
-            HStack(spacing: 8) {
-                headerMetric(GSNum(GSJSONNumber(st["days"])), "出勤")
-                headerMetric(GSNum(GSJSONNumber(st["hours"])), "工时")
-                headerMetric(GSMoney(GSJSONNumber(st["pay"])), "工资")
+                .padding(.horizontal, 20)
+                .padding(.bottom, 20)
             }
-            .padding(.horizontal, 18)
-            .offset(y: 18)
         }
-        .padding(.bottom, 18)
+        .frame(maxWidth: .infinity)
+        .frame(height: top + 170)
+        .clipShape(GSHeaderShape(radius: store.headerRadius))
     }
 
     private func headerMetric(_ value: String, _ label: String) -> some View {
         VStack(spacing: 2) {
-            Text(value).font(.system(size: 16, weight: .bold)).foregroundColor(GSTextPrimary()).lineLimit(1).minimumScaleFactor(0.7)
-            Text(label).font(.system(size: 11)).foregroundColor(GSTextSecondary())
+            Text(value)
+                .font(.system(size: 19, weight: .bold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.system(size: 11, weight: .regular))
+                .foregroundColor(Color.white.opacity(0.92))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: store.cardShadow ? Color.black.opacity(0.06) : .clear, radius: 8, x: 0, y: 3)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var calendarCard: some View {
-        GSCard(padding: 10) {
-            VStack(spacing: 8) {
-                HStack {
-                    Button { changeMonth(-1) } label: {
-                        Image(systemName: "chevron.left").foregroundColor(GSTheme.color(for: store.themeKey)).frame(width: 30, height: 30)
-                    }
-                    Spacer()
-                    Text("\(year)年\(month)月").font(.system(size: 16, weight: .bold)).foregroundColor(GSTextPrimary())
-                    Spacer()
-                    Button { changeMonth(1) } label: {
-                        Image(systemName: "chevron.right").foregroundColor(GSTheme.color(for: store.themeKey)).frame(width: 30, height: 30)
-                    }
-                }
-                GSMonthCalendar(year: year, month: month, selectedDate: $selectedDate) { key in
-                    selectedDate = key
-                    let c = GSDate.components(from: key)
-                    year = c.year; month = c.month
-                }
-                HStack {
-                    Button("批量设置工时") { showBatch = true }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(GSTheme.color(for: store.themeKey))
-                    Spacer()
-                    Button("删除当前工时") { if store.record(for: selectedDate) != nil { confirmDelete = true } }
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(store.record(for: selectedDate) != nil ? GSDangerColor() : GSTextTertiary())
-                        .opacity(store.record(for: selectedDate) != nil ? 1 : 0.38)
-                }
-                .padding(.horizontal, 6)
-            }
+    private var calendarArea: some View {
+        GSMonthCalendar(year: year, month: month, selectedDate: $selectedDate) { key in
+            selectDate(key)
         }
+        .padding(10)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: store.cardRadius, style: .continuous))
         .padding(.horizontal, 18)
     }
 
@@ -147,11 +217,10 @@ struct RecordView: View {
             GSCard {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .lastTextBaseline, spacing: 6) {
-                        Text(String(format: "%02ld-%02ld", c.month, c.day))
+                        Text(verbatim: String(format: "%02ld-%02ld", c.month, c.day))
                             .font(.system(size: 19, weight: .bold)).foregroundColor(GSTextPrimary())
-                        if store.showLunar {
-                            Text("农 " + GSLunar.full(d)).font(.system(size: 11)).foregroundColor(GSColorHex("#5D6B82"))
-                        }
+                        Text(verbatim: "农 " + GSLunar.full(d))
+                            .font(.system(size: 11)).foregroundColor(GSColorHex("#5D6B82"))
                         Spacer()
                         Text(GSMoney(store.dayPay(rec))).font(.system(size: 22, weight: .bold)).foregroundColor(GSMoneyColor())
                     }
@@ -166,18 +235,6 @@ struct RecordView: View {
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                    }
-                    HStack {
-                        if rec == nil {
-                            fab("记一笔", "plus") { showEditor = true }
-                        } else if selectedDate != GSDate.todayKey() {
-                            fab("回今天", "arrow.uturn.backward") { goToday() }
-                        }
-                        if selectedDate != GSDate.todayKey() && rec == nil {
-                            Button("回到今天") { goToday() }
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(GSTheme.color(for: store.themeKey))
-                        }
                     }
                 }
             }
@@ -206,18 +263,83 @@ struct RecordView: View {
         }
     }
 
+    private var toolRow: some View {
+        HStack(spacing: 8) {
+            Button { showBatch = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.plus")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("批量设置工时")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(GSTheme.color(for: store.themeKey))
+                .frame(maxWidth: .infinity)
+                .frame(height: 34)
+                .background(GSTheme.softColor(for: store.themeKey))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(RecordPressStyle(animate: motionEnabled))
+
+            Button {
+                if store.record(for: selectedDate) != nil { confirmDelete = true }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text("删除当前工时")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .foregroundColor(GSDangerColor())
+                .frame(maxWidth: .infinity)
+                .frame(height: 34)
+                .background(GSColorHex("#FEF3F2"))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(RecordPressStyle(animate: motionEnabled))
+            .disabled(store.record(for: selectedDate) == nil)
+            .opacity(store.record(for: selectedDate) != nil ? 1 : 0.38)
+        }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .padding(.horizontal, 18)
+    }
+
     private func fab(_ title: String, _ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 6) {
                 Image(systemName: icon).font(.system(size: 14, weight: .semibold))
-                Text(title).font(.system(size: 14, weight: .bold))
+                Text(title).font(.system(size: 14, weight: .semibold))
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .frame(height: 40)
-            .background(GSTheme.color(for: store.themeKey))
-            .clipShape(Capsule())
+            .frame(width: 102, height: 46)
+            .background(
+                LinearGradient(
+                    colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 23, style: .continuous))
         }
+        .buttonStyle(RecordPressStyle(animate: motionEnabled))
+        .shadow(color: GSTheme.color(for: store.themeKey).opacity(0.30), radius: 12, x: 0, y: 6)
+    }
+
+    private var todayButton: some View {
+        Button(action: goToday) {
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.uturn.backward").font(.system(size: 13, weight: .semibold))
+                Text("今天").font(.system(size: 11, weight: .semibold))
+            }
+            .foregroundColor(GSTheme.color(for: store.themeKey))
+            .frame(width: 58, height: 44)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .buttonStyle(RecordPressStyle(animate: motionEnabled))
+        .shadow(color: Color.black.opacity(0.22), radius: 8, x: 0, y: 4)
     }
 
     private var timelineCard: some View {
@@ -293,19 +415,69 @@ struct RecordView: View {
         })
     }
 
+    private func selectDate(_ key: String) {
+        let c = GSDate.components(from: key)
+        if motionEnabled {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                selectedDate = key
+                year = c.year
+                month = c.month
+            }
+        } else {
+            selectedDate = key
+            year = c.year
+            month = c.month
+        }
+    }
+
     private func changeMonth(_ delta: Int) {
         let c = GSDate.monthAdd(year: year, month: month, delta: delta)
-        year = c.year; month = c.month
-        selectedDate = GSDate.dayKey(year, month, 1)
+        let key = GSDate.dayKey(c.year, c.month, 1)
+        if motionEnabled {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                year = c.year
+                month = c.month
+                selectedDate = key
+            }
+        } else {
+            year = c.year
+            month = c.month
+            selectedDate = key
+        }
         GSHaptic()
     }
 
     private func goToday() {
         let now = Date()
-        selectedDate = GSDate.key(from: now)
-        year = GSDate.gregorian.component(.year, from: now)
-        month = GSDate.gregorian.component(.month, from: now)
+        let key = GSDate.key(from: now)
+        let c = GSDate.components(from: key)
+        if motionEnabled {
+            withAnimation(.easeInOut(duration: 0.22)) {
+                selectedDate = key
+                year = c.year
+                month = c.month
+            }
+        } else {
+            selectedDate = key
+            year = c.year
+            month = c.month
+        }
         GSHaptic()
+    }
+}
+
+private struct RecordPressStyle: ButtonStyle {
+    var animate: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && animate ? 0.96 : 1)
+            .animation(
+                animate
+                    ? (configuration.isPressed ? .easeOut(duration: 0.10) : .spring(response: 0.28, dampingFraction: 0.68))
+                    : nil,
+                value: configuration.isPressed
+            )
     }
 }
 
@@ -341,7 +513,16 @@ struct GSMonthCalendar: View {
                     let dayNum = i - lead + 1
                     let inMonth = dayNum >= 1 && dayNum <= total
                     if inMonth {
-                        cell(day: dayNum, paydayDay: paydayDay, today: today, classDisplay: classDisplay)
+                        GSCalendarCell(
+                            day: dayNum,
+                            year: year,
+                            month: month,
+                            paydayDay: paydayDay,
+                            today: today,
+                            classDisplay: classDisplay,
+                            isSelected: GSDate.dayKey(year, month, dayNum) == selectedDate,
+                            onSelect: onSelect
+                        )
                     } else {
                         Color.clear.frame(height: 58)
                     }
@@ -349,8 +530,23 @@ struct GSMonthCalendar: View {
             }
         }
     }
+}
 
-    private func cell(day: Int, paydayDay: Int, today: String, classDisplay: String) -> some View {
+private struct GSCalendarCell: View {
+    @EnvironmentObject var store: GSStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var scale: CGFloat = 1
+
+    let day: Int
+    let year: Int
+    let month: Int
+    let paydayDay: Int
+    let today: String
+    let classDisplay: String
+    let isSelected: Bool
+    let onSelect: (String) -> Void
+
+    var body: some View {
         let key = GSDate.dayKey(year, month, day)
         let rec = store.record(for: key)
         let plan = store.plan(for: key)
@@ -358,7 +554,7 @@ struct GSMonthCalendar: View {
         let cls = store.classItem(id: clsId)
         let kind = GSDayKind(key)
         let paydayCell = day == paydayDay
-        let sel = key == selectedDate
+        let sel = isSelected
         let className = (cls?["name"] as? String) ?? ""
         let dayShift = className.contains("白") || className.contains("早")
         let nightShift = className.contains("中") || className.contains("晚") || className.contains("夜")
@@ -368,6 +564,17 @@ struct GSMonthCalendar: View {
 
         return Button {
             GSHaptic()
+            let animate = GSMotionEnabled(store, reduceMotion: reduceMotion)
+            if animate {
+                withAnimation(.easeOut(duration: 0.10)) {
+                    scale = 0.92
+                }
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.55).delay(0.10)) {
+                    scale = 1
+                }
+            } else {
+                scale = 1
+            }
             onSelect(key)
         } label: {
             VStack(spacing: 0) {
@@ -386,7 +593,7 @@ struct GSMonthCalendar: View {
                         } else {
                             Color.clear.frame(height: 9)
                         }
-                        Text("\(day)")
+                        Text(verbatim: String(format: "%d", day))
                             .font(.system(size: 17, weight: .semibold))
                             .foregroundColor(dayColor(sel: sel, payday: paydayCell))
                         if store.showLunar {
@@ -416,7 +623,12 @@ struct GSMonthCalendar: View {
             .frame(minHeight: 58)
             .background(sel ? GSTheme.color(for: store.themeKey) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    .stroke(sel ? Color.white.opacity(0.32) : Color.clear, lineWidth: 1)
+            )
             .shadow(color: sel ? GSTheme.color(for: store.themeKey).opacity(0.28) : .clear, radius: 8, x: 0, y: 4)
+            .scaleEffect(scale)
         }
         .buttonStyle(.plain)
     }
@@ -444,5 +656,19 @@ struct GSMonthCalendar: View {
     private func lineColor(sel: Bool, payday: Bool) -> Color {
         if sel { return payday ? GSColorHex("#FFE08A") : .white }
         return payday ? GSColorHex("#D99A00") : GSTheme.color(for: store.themeKey)
+    }
+}
+
+private extension View {
+    func recordEntrance(index: Int, appeared: Bool, animate: Bool) -> some View {
+        self
+            .opacity((appeared || !animate) ? 1 : 0)
+            .offset(y: (appeared || !animate) ? 0 : 8)
+            .animation(
+                animate
+                    ? .spring(response: 0.28, dampingFraction: 0.92).delay(Double(index) * 0.022)
+                    : nil,
+                value: appeared
+            )
     }
 }
