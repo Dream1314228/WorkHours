@@ -1,0 +1,385 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00000000000000000000012C /* BatchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000064 /* BatchView.swift */; };
+		00000000000000000000012D /* Common.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000065 /* Common.swift */; };
+		00000000000000000000012E /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000066 /* Components.swift */; };
+		00000000000000000000012F /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000067 /* EditorView.swift */; };
+		000000000000000000000130 /* ExtrasView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000068 /* ExtrasView.swift */; };
+		000000000000000000000131 /* GSJiluApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000069 /* GSJiluApp.swift */; };
+		000000000000000000000132 /* HTMLReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000006A /* HTMLReport.swift */; };
+		000000000000000000000133 /* MeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000006B /* MeView.swift */; };
+		000000000000000000000134 /* RecordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000006C /* RecordView.swift */; };
+		000000000000000000000135 /* Reminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000006D /* Reminder.swift */; };
+		000000000000000000000136 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000006E /* RootView.swift */; };
+		000000000000000000000137 /* ScheduleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000006F /* ScheduleView.swift */; };
+		000000000000000000000138 /* SettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000070 /* SettingsViews.swift */; };
+		000000000000000000000139 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000071 /* StatsView.swift */; };
+		00000000000000000000013A /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000072 /* Store.swift */; };
+		00000000000000000000002C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000029 /* Assets.xcassets */; };
+		00000000000000000000002D /* AppIcon60x60@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000002A /* AppIcon60x60@2x.png */; };
+		00000000000000000000002E /* AppIcon60x60@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000002B /* AppIcon60x60@3x.png */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		00000000000000000000000C /* GSJilu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GSJilu.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000015 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Package.swift; sourceTree = "<group>"; };
+		000000000000000000000016 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+		000000000000000000000064 /* BatchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchView.swift; sourceTree = "<group>"; };
+		000000000000000000000065 /* Common.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Common.swift; sourceTree = "<group>"; };
+		000000000000000000000066 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		000000000000000000000067 /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
+		000000000000000000000068 /* ExtrasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtrasView.swift; sourceTree = "<group>"; };
+		000000000000000000000069 /* GSJiluApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GSJiluApp.swift; sourceTree = "<group>"; };
+		00000000000000000000006A /* HTMLReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTMLReport.swift; sourceTree = "<group>"; };
+		00000000000000000000006B /* MeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeView.swift; sourceTree = "<group>"; };
+		00000000000000000000006C /* RecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordView.swift; sourceTree = "<group>"; };
+		00000000000000000000006D /* Reminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminder.swift; sourceTree = "<group>"; };
+		00000000000000000000006E /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		00000000000000000000006F /* ScheduleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleView.swift; sourceTree = "<group>"; };
+		000000000000000000000070 /* SettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViews.swift; sourceTree = "<group>"; };
+		000000000000000000000071 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
+		000000000000000000000072 /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
+		000000000000000000000028 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		000000000000000000000029 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		00000000000000000000002A /* AppIcon60x60@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon60x60@2x.png"; sourceTree = "<group>"; };
+		00000000000000000000002B /* AppIcon60x60@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "AppIcon60x60@3x.png"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		000000000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		000000000000000000000010 = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000015 /* Package.swift */,
+				000000000000000000000016 /* README.md */,
+				000000000000000000000014 /* Sources */,
+				000000000000000000000012 /* Resources */,
+				000000000000000000000013 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		000000000000000000000014 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000011 /* GSJilu */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		000000000000000000000011 /* GSJilu */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000064 /* BatchView.swift */,
+				000000000000000000000065 /* Common.swift */,
+				000000000000000000000066 /* Components.swift */,
+				000000000000000000000067 /* EditorView.swift */,
+				000000000000000000000068 /* ExtrasView.swift */,
+				000000000000000000000069 /* GSJiluApp.swift */,
+				00000000000000000000006A /* HTMLReport.swift */,
+				00000000000000000000006B /* MeView.swift */,
+				00000000000000000000006C /* RecordView.swift */,
+				00000000000000000000006D /* Reminder.swift */,
+				00000000000000000000006E /* RootView.swift */,
+				00000000000000000000006F /* ScheduleView.swift */,
+				000000000000000000000070 /* SettingsViews.swift */,
+				000000000000000000000071 /* StatsView.swift */,
+				000000000000000000000072 /* Store.swift */,
+			);
+			path = GSJilu;
+			sourceTree = "<group>";
+		};
+		000000000000000000000012 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000028 /* Info.plist */,
+				000000000000000000000029 /* Assets.xcassets */,
+				00000000000000000000002A /* AppIcon60x60@2x.png */,
+				00000000000000000000002B /* AppIcon60x60@3x.png */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		000000000000000000000013 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000000C /* GSJilu.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		000000000000000000000002 /* GSJilu */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 000000000000000000000007 /* Build configuration list for PBXNativeTarget "GSJilu" */;
+			buildPhases = (
+				000000000000000000000003 /* Sources */,
+				000000000000000000000005 /* Frameworks */,
+				000000000000000000000004 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GSJilu;
+			productName = GSJilu;
+			productReference = 00000000000000000000000C /* GSJilu.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		000000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					000000000000000000000002 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = 000000000000000000000006 /* Build configuration list for PBXProject "GSJilu" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = "zh-Hans";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+				"zh-Hans",
+			);
+			mainGroup = 000000000000000000000010;
+			productRefGroup = 000000000000000000000013 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				000000000000000000000002 /* GSJilu */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		000000000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00000000000000000000002C /* Assets.xcassets in Resources */,
+				00000000000000000000002D /* AppIcon60x60@2x.png in Resources */,
+				00000000000000000000002E /* AppIcon60x60@3x.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		000000000000000000000003 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00000000000000000000012C /* BatchView.swift in Sources */,
+				00000000000000000000012D /* Common.swift in Sources */,
+				00000000000000000000012E /* Components.swift in Sources */,
+				00000000000000000000012F /* EditorView.swift in Sources */,
+				000000000000000000000130 /* ExtrasView.swift in Sources */,
+				000000000000000000000131 /* GSJiluApp.swift in Sources */,
+				000000000000000000000132 /* HTMLReport.swift in Sources */,
+				000000000000000000000133 /* MeView.swift in Sources */,
+				000000000000000000000134 /* RecordView.swift in Sources */,
+				000000000000000000000135 /* Reminder.swift in Sources */,
+				000000000000000000000136 /* RootView.swift in Sources */,
+				000000000000000000000137 /* ScheduleView.swift in Sources */,
+				000000000000000000000138 /* SettingsViews.swift in Sources */,
+				000000000000000000000139 /* StatsView.swift in Sources */,
+				00000000000000000000013A /* Store.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		000000000000000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		000000000000000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		00000000000000000000000A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CURRENT_PROJECT_VERSION = 29;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "工时记录";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 3.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dream.gsjilu;
+				PRODUCT_NAME = GSJilu;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		00000000000000000000000B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CURRENT_PROJECT_VERSION = 29;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "工时记录";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 3.2.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dream.gsjilu;
+				PRODUCT_NAME = GSJilu;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		000000000000000000000006 /* Build configuration list for PBXProject "GSJilu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000000000008 /* Debug */,
+				000000000000000000000009 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		000000000000000000000007 /* Build configuration list for PBXNativeTarget "GSJilu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000000000000000000A /* Debug */,
+				00000000000000000000000B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 000000000000000000000001 /* Project object */;
+}

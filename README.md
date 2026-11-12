@@ -1,80 +1,117 @@
-# 工时记录 · WorkHours
+# 工时记录（SwiftUI 重写）
 
-**适合中国人的工时记录 App · 零人工 · 纯 AI 编写**
+这是「工时记录」3.1.1（UIKit / Objective-C）的 SwiftUI 重写，版本 **3.2.0**（Build **29**），用来和原版区分。
 
-作者 / 维护：**Dream.or**
+- Bundle ID：`com.dream.gsjilu`（与原版相同，便于沿用你自己的开发者证书）
+- 显示名：工时记录
+- 系统要求：iOS 15+，仅 iPhone，竖屏
+- 数据全部在本机，无登录、无 VIP、无广告、无云同步
 
-按日历记下每天上什么班、干了几个小时，自动算加班费、补贴和当月工资，月底直接看报表。不用注册、不联网，数据只存在手机本地。
+本仓库在 Linux 上只交付源码，**不包含、也不会生成 IPA**。未签名 IPA 需要在安装了官方 Xcode 的 Mac 上，或通过下面的 GitHub Actions 工作流构建。不要使用非官方 iOS SDK，也不要自行签名本仓库产出的包——签名请用你自己的证书在本地完成。
 
-![App 图标](shell/icons/AppIcon1024.png)
-
-## 为什么做这个东西
-
-国内工厂、车间、门店的工时算法跟国外工时 App 的设计习惯对不上：班次分白班夜班、加班要区分平时和周末、有发薪日、有年假和调休、节假日还有三倍工资。市面上的工时 App 大多按国外工作习惯做，班次、补贴、发薪周期都改不动。
-
-这个项目把国内实际用得上的那套直接写进去，配置项全部开放：班次时长、时薪、加班倍率、补贴、发薪日、年假额度，都能在设置里改成自己厂里的规则。
-
-## 功能
-
-- **日历记录**：月历一屏看全，哪天记了工时、上的是什么班、节假日和周末、发薪日，用颜色和角标标出来；节假日、周末、发薪日的文字标识放在日期右侧
-- **班次管理**：自己建班次（白班 / 夜班 / 早班…），每个班次可预设上下班时间和默认时长，记工时点一下带出
-- **工时明细**：一天可拆成正常工时、加班工时、请假或调休，按项目分别计薪
-- **批量设置**：日历里多选任意几天，统一设成同一个班次，一周的排班一分钟录完
-- **项目与薪资**：多项目并行，每个项目单独设时薪；「薪资设置」和「项目管理」合并成一个入口，不用两处改
-- **补贴与扣款**：固定补贴、按天自动补贴、临时补贴 / 扣款，支持一键复用上月数据
-- **年假管理**：年度额度、已用天数、剩余天数自动计算
-- **工资计算器**：临时算一笔，不写进记录
-- **统计报表**：月度与年度统计，十二个月柱状图用不同颜色区分正常工时、加班工时和补贴
-- **提醒**：每天固定时间提醒记账
-- **备份还原**：整库导出 / 导入，换手机不丢数据
-- **外观**：多套主题、顶部卡片圆角可调、状态栏跟随背景不出现色差
-
-## 技术
-
-- Objective-C + UIKit，纯原生，没有第三方库，没有 CocoaPods / SPM 依赖
-- 单 target，底部毛玻璃质感 TabBar 和页面切换动画都是手写的，支持 iOS 15 及以上
-- 数据存在 App 沙盒 Documents 下的一个 plist 文件里，不上传、不联网、没有账号体系
-- 图标全部用 SF Symbols，农历和节假日用系统日历换算
-
-## 目录
+## 工程结构
 
 ```
-native/           全部 .h / .m 源码：AppDelegate、SceneDelegate、
-                  十个 ViewController、数据层 GSStore、公共组件
-shell/            Info.plist 与 App 图标
-docs/             功能需求规格（PDR）与操作作业规程（SOP）
-build_native.sh   编译脚本
+workhours-swiftui/
+├── Package.swift                 SwiftPM 可执行目标（platforms: iOS 15+）
+├── GSJilu.xcodeproj/             供 xcodebuild 使用的 Xcode 工程与共享 Scheme
+├── Sources/GSJilu/               全部 SwiftUI / 业务源码
+│   ├── GSJiluApp.swift、RootView.swift
+│   ├── Store.swift、Common.swift、Reminder.swift、HTMLReport.swift
+│   ├── RecordView.swift、EditorView.swift、BatchView.swift
+│   ├── StatsView.swift、ExtrasView.swift、ScheduleView.swift
+│   ├── MeView.swift、SettingsViews.swift、Components.swift
+├── Resources/
+│   ├── Info.plist
+│   ├── Assets.xcassets/          App 图标（源自原版 shell/icons，含 1024 与各尺寸）
+│   └── AppIcon60x60@2x.png、AppIcon60x60@3x.png
+├── scripts/build-unsigned-ipa.sh 本机 Mac 构建未签名 IPA
+└── .github/workflows/build-unsigned-ipa.yml
 ```
 
-## 自己编译
+SwiftPM 的 `Package.swift` 只声明源码目标；真正打出 `.app` / IPA 请用 `GSJilu.xcodeproj`。
 
-需要 iOS SDK（`iPhoneOSxx.x.sdk`）、`clang`、`ld64.lld`。
+## 在 Mac 上构建未签名 IPA
 
-```sh
-SDKROOT=/path/to/iPhoneOS27.2.sdk ./build_native.sh
+需要：macOS、已安装的官方 Xcode（含 iOS SDK）、命令行工具。
+
+```bash
+cd workhours-swiftui
+bash scripts/build-unsigned-ipa.sh
 ```
 
-脚本逐个编译 `native/*.m`，用 `ld64.lld` 链接成 arm64 可执行文件，做 ad-hoc 签名，再把 `Payload` 打成未签名 ipa，输出到 `out/`。装到未越狱设备上需要自己用 AltStore、Sideloadly 这类工具重签。
+脚本会执行：
 
-## 云端自动编译
+```bash
+xcodebuild \
+  -project GSJilu.xcodeproj \
+  -scheme GSJilu \
+  -configuration Release \
+  -sdk iphoneos \
+  -destination 'generic/platform=iOS' \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY="" \
+  build
+```
 
-没有 Mac 也能出包。仓库自带 `.github/workflows/build-ipa.yml`：推到 `main` 或者手动触发，GitHub 会分配一台临时 Mac（预装 Xcode），编译、组装、打成未签名 ipa，然后作为 artifact 上传。
+然后把 `GSJilu.app` 放进 `Payload/`，打成：
 
-产物在 **Actions → 某次运行 → 页面底部的 Artifacts** 里，下载下来是一个 zip，里面有 `工时记录-x.y.z-unsigned.ipa`。artifact 默认保留 90 天。
+`dist/GSJilu-3.2.0-unsigned.ipa`
 
-公开仓库的 macOS runner 不花钱；私有仓库要算额度，而且 macOS 是按 10 倍时长扣的。
+这是**未签名**包。安装到真机前，请用你自己的开发者证书和描述文件签名（例如 Apple 的 `codesign` / `xcodebuild` 签名流程，或你惯用的签名工具）。不要把未签名 IPA 直接分发给无法自行签名的设备。
 
-## 已知限制
+也可以在 Xcode 中打开 `GSJilu.xcodeproj`，选择 scheme `GSJilu`，在 Build Settings 里保持不签名，再 Archive 或用上面的命令构建。
 
-- 只有 iOS 端，没有 Android，没有云端同步
-- 未签名 ipa 只能自签安装，证书过期要重签
-- 数据只在本机，卸载 App 会一起清掉，换机前记得先导出备份
-- 编译脚本是按 Linux / 无 Xcode 环境（clang + ld64.lld）写的；在 Mac 上改成 Xcode 工程会更省事
+## 用 GitHub Actions 构建
 
-## 关于「零人工、纯 AI」
+工作流文件：`.github/workflows/build-unsigned-ipa.yml`
 
-这个 App 的代码全部由 AI 生成：提需求、验收、决定下一次改哪里由人来做，写代码、查错、打包由 AI 完成，没有一行是手敲的。放在这里作为一份公开样本。
+- 运行环境：`macos-latest`
+- 触发：手动 `workflow_dispatch`，以及向 `main` / `master` 的 push、pull request
+- 构建方式：调用 `scripts/build-unsigned-ipa.sh`，其中 `xcodebuild` 使用 `CODE_SIGNING_ALLOWED=NO`
+- 产物：以 artifact 名 `GSJilu-3.2.0-unsigned` 上传 `dist/*.ipa`
 
-## 许可
+把本仓库推到 GitHub 后，打开 Actions，运行 “Build unsigned IPA”，下载 artifact 即可。同样是未签名包，需自行用证书签名后再安装。
 
-MIT 许可，见 [LICENSE](LICENSE)。作者署名：**Dream.or**。
+## 数据与备份
+
+所有数据只存在本机，不会上传。
+
+- 主数据文件：应用沙盒 `Documents/gsjilu.json`（格式版本 `v == 2`）
+- 文件共享已打开（`UIFileSharingEnabled` / iTunes / 文件 App 可见 Documents）
+- 备份格式：`.gsjilu`，UTI 为 `com.dream.gsjilu.backup`
+- 备份内容为紧凑字典（短键 `d,c,p,t,w,s,b,l,n` 等），再经 **LZFSE** 压缩，版本为备份格式 v4
+- 「我的 → 导出备份 .gsjilu」会生成可分享的备份文件
+- 「我的 → 导入 .gsjilu 备份」会先确认，再覆盖当前的项目、班次、设置和全部工时记录；导入前建议先导出一份当前备份
+- 系统「打开文件」若指向 `.gsjilu`，应用也会走同一套导入确认
+- 导入时先尝试 LZFSE，失败再尝试明文 JSON（相对原版 3.1.1 仅支持 LZFSE，这是一点兼容增强）
+- 「清空记录」只清除工时、排班和月度补扣，保留项目、班次和设置
+
+原版 3.1.1 的 `.gsjilu` 备份以及同 Bundle ID 升级后的 `gsjilu.json` 应可继续使用。
+
+## 功能概要
+
+四个主标签与原版一致：
+
+1. **记录**：月历、日工时编辑、批量设置、夜班模式（6 点前默认选昨天）、节假日/调休、发薪日标记、日补扣自动记录
+2. **统计**：按考勤周期汇总收入与工时、分类占比、日报复制、月度补贴/扣款管理（含上月导入）
+3. **排班**：先选班次再点日期做标记（不自动生成工时）；年度看板（工时/收入/热力/明细）及 HTML 报表分享
+4. **我的**：记录设置、薪资与项目、工资计算器、班次管理、考勤周期、软件设置（提醒、主题、圆角等）、备份导入导出、清空记录
+
+工资、请假计薪、年假（薪假按 8 小时/天）、班次自动补助（白/早 → 白班补助，中/晚/夜 → 夜班补助）、自定义考勤周期、月末自动结转上月补扣等逻辑按 3.1.1 源码移植。月度「底薪」和项目 `mode`（`dxjs` / `gddx`）只参与工资计算器，不会加进周期/年度统计——这与原版一致。
+
+本地通知标识为 `GSRecordDailyReminder-yyyy-MM-dd`，按设置时刻预排未来 14 天，已有记录或已过点的不排。
+
+## 与原版 3.1.1 可能不一致的地方
+
+- 原版 `GSCommon` 只写死了 2026 年节假日和 6 个补班日；本版按国务院通知补全了 **2024–2027** 年休息日与补班（2027 年依据国办发明电〔2026〕10号，2026-11-05 公布）
+- SwiftUI 重写，视觉与交互动画无法做到像素级相同，文案与计算行为以源码为准
+- `recordMode`（时长记录 / 时间记录）会写入设置，但 3.1.1 的编辑页并未使用时间记录模式，本版保持同样行为
+- 导入备份在 LZFSE 之外额外接受明文 JSON
+- 关于与页脚版本号显示为 3.2.0，不再写 3.1.1
+- 本仓库不交付已签名 IPA；未签名 IPA 需在官方 Xcode / GitHub Actions 上构建
+
+## 许可与归属
+
+业务逻辑与文案来自「工时记录」3.1.1 源码的忠实移植，供持有该应用及开发者证书的本人使用。
