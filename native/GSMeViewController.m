@@ -41,7 +41,7 @@
     [self.scroll addSubview:self.header];
 
     self.titleLabel = GSLabel(@"我的", GSFont(28, UIFontWeightBold), UIColor.whiteColor);
-    self.subLabel = GSLabel(@"工时记录 · 本地数据", GSFont(11, UIFontWeightRegular), [UIColor colorWithWhite:1 alpha:.92]);
+    self.subLabel = GSLabel(@"工时记录 · 本地数据", GSFont(12, UIFontWeightRegular), [UIColor colorWithWhite:1 alpha:.92]);
     for (UILabel *l in @[self.titleLabel, self.subLabel]) { l.translatesAutoresizingMaskIntoConstraints = NO; [self.header addSubview:l]; }
 
     self.stack = [[UIStackView alloc] init];
@@ -73,8 +73,8 @@
         [self.subLabel.leadingAnchor constraintEqualToAnchor:self.titleLabel.leadingAnchor],
         [self.subLabel.topAnchor constraintEqualToAnchor:self.titleLabel.bottomAnchor constant:4],
         [self.stack.topAnchor constraintEqualToAnchor:self.header.bottomAnchor constant:16],
-        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:16],
-        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-16],
+        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:GSPageMargin],
+        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-GSPageMargin],
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-120]
     ]];
     [self.view bringSubviewToFront:self.statusBg];
@@ -84,7 +84,7 @@
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView { [self updateStatusStyle]; }
 - (void)updateStatusStyle {
     CGFloat threshold = MAX(0, self.headerHeight.constant - self.view.safeAreaInsets.top);
-    BOOL dark = self.scroll.contentOffset.y > threshold;
+    BOOL dark = _statusDark ? (self.scroll.contentOffset.y > threshold - 8.0) : (self.scroll.contentOffset.y > threshold + 2.0);
     if (dark != _statusDark) { _statusDark = dark; [self setNeedsStatusBarAppearanceUpdate]; [self.parentViewController setNeedsStatusBarAppearanceUpdate]; }
 }
 - (void)viewSafeAreaInsetsDidChange {
@@ -108,10 +108,10 @@
     iv.tintColor = GSColorHex(color); iv.contentMode = UIViewContentModeCenter;
     iv.translatesAutoresizingMaskIntoConstraints = NO;
     [ico addSubview:iv];
-    UILabel *l = GSLabel(title, GSFont(15, UIFontWeightRegular), GSColorHex(@"#101828"));
+    UILabel *l = GSLabel(title, GSFont(16, UIFontWeightRegular), GSTextPrimary());
     l.translatesAutoresizingMaskIntoConstraints = NO; l.userInteractionEnabled = NO;
     UIImageView *chev = [[UIImageView alloc] initWithImage:GSIcon(@"chevron.right", 12)];
-    chev.tintColor = GSColorHex(@"#667085"); chev.translatesAutoresizingMaskIntoConstraints = NO; chev.userInteractionEnabled = NO;
+    chev.tintColor = GSTextSecondary(); chev.translatesAutoresizingMaskIntoConstraints = NO; chev.userInteractionEnabled = NO;
     [b addSubview:ico]; [b addSubview:l]; [b addSubview:chev];
     [NSLayoutConstraint activateConstraints:@[
         [b.heightAnchor constraintEqualToConstant:54],
@@ -152,9 +152,9 @@
     avatar.translatesAutoresizingMaskIntoConstraints = NO;
     UILabel *ai = GSLabel(@"工", GSFont(20, UIFontWeightBold), UIColor.whiteColor); ai.textAlignment = NSTextAlignmentCenter; ai.translatesAutoresizingMaskIntoConstraints = NO;
     [avatar addSubview:ai];
-    UILabel *name = GSLabel(@"工时记录", GSFont(16, UIFontWeightBold), GSColorHex(@"#101828"));
-    UILabel *sub = GSLabel(@"本地数据 · 未登录", GSFont(11, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
-    UILabel *badge = GSLabel(@"本地", GSFont(10, UIFontWeightSemibold), GSThemeColor());
+    UILabel *name = GSLabel(@"工时记录", GSFont(16, UIFontWeightBold), GSTextPrimary());
+    UILabel *sub = GSLabel(@"本地数据 · 未登录", GSFont(12, UIFontWeightRegular), GSTextSecondary());
+    UILabel *badge = GSLabel(@"本地", GSFont(11, UIFontWeightSemibold), GSThemeColor());
     badge.backgroundColor = GSThemeSoftColor(); badge.layer.cornerRadius = 10; badge.clipsToBounds = YES; badge.textAlignment = NSTextAlignmentCenter;
     badge.translatesAutoresizingMaskIntoConstraints = NO;
     UIStackView *names = GSStack(@[name, sub], UILayoutConstraintAxisVertical, 2);
@@ -171,7 +171,7 @@
     ]];
     [self.stack addArrangedSubview:profile];
 
-    UILabel *s1 = GSLabel(@"记录与薪资", GSFont(12, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *s1 = GSLabel(@"记录与薪资", GSFont(13, UIFontWeightSemibold), GSTextTertiary());
     [self.stack addArrangedSubview:s1];
     NSArray *rows = @[
         [self rowIcon:@"doc.text.fill" title:@"记录设置" color:GSThemeHexValue() action:@selector(openRecord)],
@@ -181,15 +181,15 @@
         [self rowIcon:@"clock.fill" title:@"考勤周期" color:@"#067647" action:@selector(openPeriod)]
     ];
     [self.stack addArrangedSubview:[self menuWithRows:rows]];
-    [self.stack addArrangedSubview:GSLabel(@"个性化", GSFont(12, UIFontWeightRegular), GSColorHex(@"#5D6B82"))];
+    [self.stack addArrangedSubview:GSLabel(@"个性化", GSFont(13, UIFontWeightSemibold), GSTextTertiary())];
     [self.stack addArrangedSubview:[self menuWithRows:@[[self rowIcon:@"gearshape.fill" title:@"软件设置" color:GSThemeHexValue() action:@selector(openSoftware)]]]];
-    [self.stack addArrangedSubview:GSLabel(@"数据", GSFont(12, UIFontWeightRegular), GSColorHex(@"#5D6B82"))];
+    [self.stack addArrangedSubview:GSLabel(@"数据", GSFont(13, UIFontWeightSemibold), GSTextTertiary())];
     [self.stack addArrangedSubview:[self menuWithRows:@[
         [self rowIcon:@"square.and.arrow.up.fill" title:@"导出备份 .gsjilu" color:@"#067647" action:@selector(exportData)],
         [self rowIcon:@"square.and.arrow.down.fill" title:@"导入 .gsjilu 备份" color:GSThemeHexValue() action:@selector(importData)],
         [self rowIcon:@"trash.fill" title:@"清空记录" color:@"#B42318" action:@selector(clearData)]
     ]]];
-    UILabel *footer = GSLabel(@"工时记录 2.9.1 · 数据只存在本机", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *footer = GSLabel(@"工时记录 3.1.1 · 数据只存在本机", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     footer.textAlignment = NSTextAlignmentCenter;
     [self.stack addArrangedSubview:footer];
     GSAnimateStack(self.stack);

@@ -46,7 +46,7 @@
     self.scroll.translatesAutoresizingMaskIntoConstraints = NO;
     self.scroll.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     self.scroll.showsVerticalScrollIndicator = NO;
-    self.scroll.contentInset = UIEdgeInsetsMake(0, 0, 110, 0);
+    self.scroll.contentInset = UIEdgeInsetsMake(0, 0, 150, 0);
     [self.view addSubview:self.scroll];
 
     self.statusBg = [[UIView alloc] init];
@@ -164,7 +164,6 @@
     self.fab.layer.shadowColor = GSThemeColor().CGColor;
     self.fab.layer.shadowOpacity = .30; self.fab.layer.shadowRadius = 12; self.fab.layer.shadowOffset = CGSizeMake(0, 6);
     self.fab.tintColor = UIColor.whiteColor;
-    self.fab.contentEdgeInsets = UIEdgeInsetsZero;
     self.fab.contentHorizontalAlignment = UIControlContentHorizontalAlignmentCenter;
     self.fab.accessibilityLabel = @"记一笔";
     CAGradientLayer *gl = [CAGradientLayer layer];
@@ -183,13 +182,14 @@
     self.fabIcon.userInteractionEnabled = NO;
     self.fabLabel.translatesAutoresizingMaskIntoConstraints = NO;
     self.fabIcon.translatesAutoresizingMaskIntoConstraints = NO;
-    [self.fab addSubview:self.fabLabel];
-    [self.fab addSubview:self.fabIcon];
+    UIStackView *fabContent = GSStack(@[self.fabIcon, self.fabLabel], UILayoutConstraintAxisHorizontal, 6);
+    fabContent.alignment = UIStackViewAlignmentCenter;
+    fabContent.userInteractionEnabled = NO;
+    fabContent.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.fab addSubview:fabContent];
     [NSLayoutConstraint activateConstraints:@[
-        [self.fabLabel.centerXAnchor constraintEqualToAnchor:self.fab.centerXAnchor],
-        [self.fabLabel.centerYAnchor constraintEqualToAnchor:self.fab.centerYAnchor],
-        [self.fabIcon.leadingAnchor constraintEqualToAnchor:self.fab.leadingAnchor constant:14],
-        [self.fabIcon.centerYAnchor constraintEqualToAnchor:self.fab.centerYAnchor],
+        [fabContent.centerXAnchor constraintEqualToAnchor:self.fab.centerXAnchor],
+        [fabContent.centerYAnchor constraintEqualToAnchor:self.fab.centerYAnchor],
         [self.fabIcon.widthAnchor constraintEqualToConstant:14],
         [self.fabIcon.heightAnchor constraintEqualToConstant:14]
     ]];
@@ -200,14 +200,27 @@
     self.todayBtn.layer.cornerRadius = 22;
     self.todayBtn.layer.shadowColor = [UIColor colorWithWhite:0 alpha:.18].CGColor;
     self.todayBtn.layer.shadowOpacity = .22; self.todayBtn.layer.shadowRadius = 8; self.todayBtn.layer.shadowOffset = CGSizeMake(0, 4);
-    [self.todayBtn setImage:GSIcon(@"arrow.uturn.backward", 13) forState:UIControlStateNormal];
-    [self.todayBtn setTitle:@"今天" forState:UIControlStateNormal];
-    [self.todayBtn setTitleColor:GSThemeColor() forState:UIControlStateNormal];
-    self.todayBtn.titleLabel.font = GSFont(11, UIFontWeightSemibold);
     self.todayBtn.tintColor = GSThemeColor();
-    self.todayBtn.imageEdgeInsets = UIEdgeInsetsMake(0, -2, 0, 2);
-    self.todayBtn.titleEdgeInsets = UIEdgeInsetsMake(0, 2, 0, -2);
     self.todayBtn.accessibilityLabel = @"回到今天";
+    UIImageView *todayIcon = [[UIImageView alloc] initWithImage:GSIcon(@"arrow.uturn.backward", 13)];
+    todayIcon.tintColor = GSThemeColor();
+    todayIcon.contentMode = UIViewContentModeCenter;
+    todayIcon.userInteractionEnabled = NO;
+    todayIcon.translatesAutoresizingMaskIntoConstraints = NO;
+    UILabel *todayLabel = GSLabel(@"今天", GSFont(11, UIFontWeightSemibold), GSThemeColor());
+    todayLabel.userInteractionEnabled = NO;
+    todayLabel.translatesAutoresizingMaskIntoConstraints = NO;
+    UIStackView *todayContent = GSStack(@[todayIcon, todayLabel], UILayoutConstraintAxisHorizontal, 4);
+    todayContent.alignment = UIStackViewAlignmentCenter;
+    todayContent.userInteractionEnabled = NO;
+    todayContent.translatesAutoresizingMaskIntoConstraints = NO;
+    [self.todayBtn addSubview:todayContent];
+    [NSLayoutConstraint activateConstraints:@[
+        [todayContent.centerXAnchor constraintEqualToAnchor:self.todayBtn.centerXAnchor],
+        [todayContent.centerYAnchor constraintEqualToAnchor:self.todayBtn.centerYAnchor],
+        [todayIcon.widthAnchor constraintEqualToConstant:13],
+        [todayIcon.heightAnchor constraintEqualToConstant:13]
+    ]];
     [self.todayBtn addTarget:self action:@selector(goToday) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:self.todayBtn];
 
@@ -340,89 +353,100 @@
         [self.timelineStack removeArrangedSubview:v];
         [v removeFromSuperview];
     }
-    UILabel *title = GSLabel(@"工作时间轴", GSFont(13, UIFontWeightSemibold), GSColorHex(@"#344054"));
-    UILabel *sub = GSLabel(@"按班次名和总工时估算，只作时间参考", GSFont(9, UIFontWeightRegular), GSColorHex(@"#98A2B3"));
-    UIStackView *head = GSStack(@[title, sub], UILayoutConstraintAxisVertical, 2);
-    [self.timelineStack addArrangedSubview:head];
+    UILabel *title = GSLabel(@"当天工时", GSFont(16, UIFontWeightBold), GSTextPrimary());
+    UILabel *sub = GSLabel(@"按已记录的分类统计，不推算上下班时间", GSFont(11, UIFontWeightRegular), GSTextTertiary());
+    [self.timelineStack addArrangedSubview:GSStack(@[title, sub], UILayoutConstraintAxisVertical, 2)];
+
     NSDictionary *rec = [[GSStore shared] recordForDate:self.selectedDate];
     if (!rec) {
-        UILabel *empty = GSLabel(@"当天还没有记录", GSFont(11, UIFontWeightRegular), GSColorHex(@"#98A2B3"));
-        [self.timelineStack addArrangedSubview:empty];
+        [self.timelineStack addArrangedSubview:GSLabel(@"当天还没有记录", GSFont(14, UIFontWeightRegular), GSTextTertiary())];
         return;
     }
-    NSDictionary *work = rec[@"work"] ?: @{};
-    double normal = [work[@"zb"] doubleValue] + [work[@"zm"] doubleValue] + [work[@"jj"] doubleValue];
-    double overtime = [work[@"jb"] doubleValue];
-    double leave = [rec[@"leave"][@"hour"] doubleValue];
-    double total = normal + overtime + leave;
-    NSDictionary *cls = [[GSStore shared] classWithId:rec[@"classId"]];
-    NSString *name = cls[@"name"] ?: @"";
-    double start = 8;
-    if ([name containsString:@"早"]) start = 6;
-    else if ([name containsString:@"中"]) start = 14;
-    else if ([name containsString:@"晚"] || [name containsString:@"夜"]) start = 22;
-    BOOL nextDay = start + total >= 24;
-    double end = fmod(start + total, 24);
-    NSString *range = total > 0 ? [NSString stringWithFormat:@"上班 %02.0f:00   ·   %@ %02.0f:00", start, nextDay ? @"次日下班" : @"下班", end] : @"当天没有工时";
-    UILabel *rangeLabel = GSLabel(range, GSFont(15, UIFontWeightBold), GSThemeColor());
-    [self.timelineStack addArrangedSubview:rangeLabel];
-    UILabel *durationLabel = GSLabel(total > 0 ? [NSString stringWithFormat:@"共 %@H  ·  正常 %@H  ·  加班 %@H  ·  休假 %@H", GSNum(total), GSNum(normal), GSNum(overtime), GSNum(leave)] : @"记录里没有可展示的工时", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
-    [self.timelineStack addArrangedSubview:durationLabel];
+    NSDictionary *work = [rec[@"work"] isKindOfClass:[NSDictionary class]] ? rec[@"work"] : @{};
+    NSArray *keys = @[@"zb", @"jb", @"zm", @"jj"];
+    NSArray *names = @[@"正班", @"加班", @"周末", @"节假"];
+    NSArray *colors = @[GSThemeColor(), GSDangerColor(), GSWarningColor(), GSColorHex(@"#6941C6")];
+    NSMutableArray<NSNumber *> *values = [NSMutableArray array];
+    for (NSString *key in keys) [values addObject:@([work[key] doubleValue])];
+    double leave = 0;
+    if ([rec[@"leave"] isKindOfClass:[NSDictionary class]]) leave = [rec[@"leave"][@"hour"] doubleValue];
+    double total = leave;
+    for (NSNumber *v in values) total += v.doubleValue;
+    if (total <= 0) {
+        [self.timelineStack addArrangedSubview:GSLabel(@"当天没有可展示的工时", GSFont(14, UIFontWeightRegular), GSTextTertiary())];
+        return;
+    }
 
     UIView *track = [[UIView alloc] init];
-    track.backgroundColor = GSColorHex(@"#EEF2F7"); track.layer.cornerRadius = 8; track.clipsToBounds = YES;
-    track.translatesAutoresizingMaskIntoConstraints = NO;
-    [track.heightAnchor constraintEqualToConstant:16].active = YES;
+    track.backgroundColor = GSColorHex(@"#EEF2F7");
+    track.layer.cornerRadius = 6;
+    track.clipsToBounds = YES;
+    [track.heightAnchor constraintEqualToConstant:12].active = YES;
     [self.timelineStack addArrangedSubview:track];
     UIStackView *segments = [[UIStackView alloc] init];
-    segments.axis = UILayoutConstraintAxisHorizontal; segments.spacing = 0;
+    segments.axis = UILayoutConstraintAxisHorizontal;
+    segments.spacing = 0;
     segments.translatesAutoresizingMaskIntoConstraints = NO;
     [track addSubview:segments];
     [NSLayoutConstraint activateConstraints:@[
-        [segments.leadingAnchor constraintEqualToAnchor:track.leadingAnchor], [segments.trailingAnchor constraintEqualToAnchor:track.trailingAnchor],
-        [segments.topAnchor constraintEqualToAnchor:track.topAnchor], [segments.bottomAnchor constraintEqualToAnchor:track.bottomAnchor]
+        [segments.leadingAnchor constraintEqualToAnchor:track.leadingAnchor],
+        [segments.trailingAnchor constraintEqualToAnchor:track.trailingAnchor],
+        [segments.topAnchor constraintEqualToAnchor:track.topAnchor],
+        [segments.bottomAnchor constraintEqualToAnchor:track.bottomAnchor]
     ]];
-    double visible = MIN(total, MAX(0, 24 - start));
-    double leadRatio = start / 24.0;
-    UIView *lead = [[UIView alloc] init]; lead.backgroundColor = UIColor.clearColor;
-    [segments addArrangedSubview:lead];
-    [lead.widthAnchor constraintEqualToAnchor:track.widthAnchor multiplier:leadRatio].active = YES;
-    NSArray *vals = @[@(normal), @(overtime), @(leave)];
-    NSArray *colors = @[GSThemeColor(), GSColorHex(@"#D92D20"), GSColorHex(@"#12B76A")];
-    for (NSInteger i = 0; i < 3; i++) {
-        double v = [vals[i] doubleValue];
-        if (v <= 0 || total <= 0) continue;
-        UIView *seg = [[UIView alloc] init];
-        seg.backgroundColor = colors[i];
-        [segments addArrangedSubview:seg];
-        double segRatio = v / total * visible / 24.0;
-        [seg.widthAnchor constraintEqualToAnchor:track.widthAnchor multiplier:MAX(0, segRatio)].active = YES;
+    for (NSInteger i = 0; i < 4; i++) {
+        double value = values[i].doubleValue;
+        if (value <= 0) continue;
+        UIView *segment = [[UIView alloc] init];
+        segment.backgroundColor = colors[i];
+        [segments addArrangedSubview:segment];
+        [segment.widthAnchor constraintEqualToAnchor:track.widthAnchor multiplier:value / total].active = YES;
     }
-    UIView *tail = [[UIView alloc] init]; tail.backgroundColor = UIColor.clearColor;
-    [segments addArrangedSubview:tail];
-    double tailRatio = MAX(0, 1 - leadRatio - visible / 24.0);
-    [tail.widthAnchor constraintEqualToAnchor:track.widthAnchor multiplier:tailRatio].active = YES;
-    NSMutableArray *ticks = [NSMutableArray array];
-    for (NSString *t in @[@"0", @"6", @"12", @"18", @"24"]) {
-        UILabel *l = GSLabel(t, GSFont(8, UIFontWeightRegular), GSColorHex(@"#98A2B3"));
-        l.textAlignment = t.integerValue == 0 ? NSTextAlignmentLeft : (t.integerValue == 24 ? NSTextAlignmentRight : NSTextAlignmentCenter);
-        [ticks addObject:l];
+    if (leave > 0) {
+        UIView *segment = [[UIView alloc] init];
+        segment.backgroundColor = GSSuccessColor();
+        [segments addArrangedSubview:segment];
+        [segment.widthAnchor constraintEqualToAnchor:track.widthAnchor multiplier:leave / total].active = YES;
     }
-    UIStackView *tickRow = GSStack(ticks, UILayoutConstraintAxisHorizontal, 0);
-    tickRow.distribution = UIStackViewDistributionFillEqually;
-    [self.timelineStack addArrangedSubview:tickRow];
-    NSMutableArray *legendItems = [NSMutableArray array];
-    NSArray *legendNames = @[@"正常", @"加班", @"休假"];
-    for (NSInteger i = 0; i < 3; i++) {
+
+    UILabel *totalLabel = GSLabel([NSString stringWithFormat:@"合计 %@H", GSNum(total)], GSFont(16, UIFontWeightBold), GSThemeColor());
+    totalLabel.textAlignment = NSTextAlignmentRight;
+    UIView *totalSpacer = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
+    UIStackView *totalRow = GSStack(@[GSLabel(@"已记录时长", GSFont(12, UIFontWeightRegular), GSTextSecondary()), totalSpacer, totalLabel], UILayoutConstraintAxisHorizontal, 8);
+    totalRow.alignment = UIStackViewAlignmentCenter;
+    [self.timelineStack addArrangedSubview:totalRow];
+
+    for (NSInteger i = 0; i < 4; i++) {
+        double value = values[i].doubleValue;
+        if (value <= 0) continue;
         UIView *dot = [[UIView alloc] init];
-        dot.backgroundColor = colors[i]; dot.layer.cornerRadius = 2;
-        [dot.widthAnchor constraintEqualToConstant:8].active = YES;
-        [dot.heightAnchor constraintEqualToConstant:8].active = YES;
-        UILabel *l = GSLabel([NSString stringWithFormat:@"%@ %@H", legendNames[i], GSNum([vals[i] doubleValue])], GSFont(9, UIFontWeightRegular), GSColorHex(@"#667085"));
-        [legendItems addObject:GSStack(@[dot, l], UILayoutConstraintAxisHorizontal, 3)];
+        dot.backgroundColor = colors[i];
+        dot.layer.cornerRadius = 3;
+        [dot.widthAnchor constraintEqualToConstant:6].active = YES;
+        [dot.heightAnchor constraintEqualToConstant:6].active = YES;
+        UILabel *name = GSLabel(names[i], GSFont(13, UIFontWeightRegular), GSTextStrong());
+        UIView *spacer = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
+        UILabel *hours = GSLabel([NSString stringWithFormat:@"%@H", GSNum(value)], GSFont(14, UIFontWeightSemibold), GSTextPrimary());
+        hours.textAlignment = NSTextAlignmentRight;
+        UIStackView *row = GSStack(@[dot, name, spacer, hours], UILayoutConstraintAxisHorizontal, 8);
+        row.alignment = UIStackViewAlignmentCenter;
+        [self.timelineStack addArrangedSubview:row];
     }
-    [self.timelineStack addArrangedSubview:GSStack(legendItems, UILayoutConstraintAxisHorizontal, 12)];
+    if (leave > 0) {
+        UIView *dot = [[UIView alloc] init];
+        dot.backgroundColor = GSSuccessColor();
+        dot.layer.cornerRadius = 3;
+        [dot.widthAnchor constraintEqualToConstant:6].active = YES;
+        [dot.heightAnchor constraintEqualToConstant:6].active = YES;
+        UILabel *hours = GSLabel([NSString stringWithFormat:@"%@H", GSNum(leave)], GSFont(14, UIFontWeightSemibold), GSTextPrimary());
+        hours.textAlignment = NSTextAlignmentRight;
+        UIView *spacer = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
+        UIStackView *row = GSStack(@[dot, GSLabel(@"休假", GSFont(13, UIFontWeightRegular), GSTextStrong()), spacer, hours], UILayoutConstraintAxisHorizontal, 8);
+        row.alignment = UIStackViewAlignmentCenter;
+        [self.timelineStack addArrangedSubview:row];
+    }
 }
+
 - (void)prevMonth { [self changeMonth:-1]; }
 - (void)nextMonth { [self changeMonth:1]; }
 - (void)changeMonth:(NSInteger)delta {
@@ -601,6 +625,6 @@
         ]];
         last = note;
     }
-    [last.bottomAnchor constraintEqualToAnchor:self.dayCard.bottomAnchor constant:-78].active = YES;
+    [last.bottomAnchor constraintEqualToAnchor:self.dayCard.bottomAnchor constant:-18].active = YES;
 }
 @end

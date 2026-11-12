@@ -29,12 +29,12 @@
         [self.scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-        [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:16],
-        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:16],
-        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-16],
+        [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:GSPageMargin],
+        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:GSPageMargin],
+        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-GSPageMargin],
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-40]
     ]];
-    UILabel *title = GSLabel([NSString stringWithFormat:@"按「%@」费率试算", project[@"name"] ?: @"当前项目"], GSFont(12, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *title = GSLabel([NSString stringWithFormat:@"按「%@」费率试算", project[@"name"] ?: @"当前项目"], GSFont(13, UIFontWeightRegular), GSTextSecondary());
     [self.stack addArrangedSubview:title];
 
     NSMutableArray *fields = [NSMutableArray array];
@@ -43,10 +43,10 @@
     NSMutableArray *rows = [NSMutableArray array];
     for (NSInteger i = 0; i < titles.count; i++) {
         UIView *row = [[UIView alloc] init];
-        UILabel *l = GSLabel(titles[i], GSFont(13, UIFontWeightRegular), GSColorHex(@"#344054"));
+        UILabel *l = GSLabel(titles[i], GSFont(14, UIFontWeightRegular), GSTextStrong());
         UITextField *f = [[UITextField alloc] init];
         f.text = values[i]; f.keyboardType = UIKeyboardTypeDecimalPad; f.textAlignment = NSTextAlignmentRight;
-        f.font = GSFont(15, UIFontWeightSemibold); f.textColor = GSColorHex(@"#101828");
+        f.font = GSFont(16, UIFontWeightSemibold); f.textColor = GSTextPrimary();
         f.tag = 500 + i; f.clearButtonMode = UITextFieldViewModeWhileEditing;
         [f addTarget:self action:@selector(recalc) forControlEvents:UIControlEventEditingChanged];
         l.translatesAutoresizingMaskIntoConstraints = NO; f.translatesAutoresizingMaskIntoConstraints = NO;
@@ -72,17 +72,17 @@
     GSCardView *resultCard = [[GSCardView alloc] init];
     self.resultLabel = GSLabel(@"¥0.00", GSFont(34, UIFontWeightBold), GSThemeColor());
     self.resultLabel.textAlignment = NSTextAlignmentCenter;
-    self.detailLabel = GSLabel(@"", GSFont(11, UIFontWeightRegular), GSColorHex(@"#667085"));
+    self.detailLabel = GSLabel(@"", GSFont(12, UIFontWeightRegular), GSTextSecondary());
     self.detailLabel.textAlignment = NSTextAlignmentCenter; self.detailLabel.numberOfLines = 0;
-    UIStackView *rs = GSStack(@[GSLabel(@"预计工资", GSFont(11, UIFontWeightMedium), GSColorHex(@"#667085")), self.resultLabel, self.detailLabel], UILayoutConstraintAxisVertical, 4);
+    UIStackView *rs = GSStack(@[GSLabel(@"预计工资", GSFont(12, UIFontWeightMedium), GSTextSecondary()), self.resultLabel, self.detailLabel], UILayoutConstraintAxisVertical, 4);
     rs.translatesAutoresizingMaskIntoConstraints = NO; [resultCard addSubview:rs];
     [NSLayoutConstraint activateConstraints:@[
-        [rs.topAnchor constraintEqualToAnchor:resultCard.topAnchor constant:18], [rs.leadingAnchor constraintEqualToAnchor:resultCard.leadingAnchor constant:16],
-        [rs.trailingAnchor constraintEqualToAnchor:resultCard.trailingAnchor constant:-16], [rs.bottomAnchor constraintEqualToAnchor:resultCard.bottomAnchor constant:-18]
+        [rs.topAnchor constraintEqualToAnchor:resultCard.topAnchor constant:18], [rs.leadingAnchor constraintEqualToAnchor:resultCard.leadingAnchor constant:GSCardPadding],
+        [rs.trailingAnchor constraintEqualToAnchor:resultCard.trailingAnchor constant:-GSCardPadding], [rs.bottomAnchor constraintEqualToAnchor:resultCard.bottomAnchor constant:-18]
     ]];
     [resultCard.heightAnchor constraintGreaterThanOrEqualToConstant:130].active = YES;
     [self.stack addArrangedSubview:resultCard];
-    UILabel *note = GSLabel(@"只做估算：按当前项目底薪/时薪计算，不含社保、个税和其他扣款规则。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#667085"));
+    UILabel *note = GSLabel(@"只做估算：按当前项目底薪/时薪计算，不含社保、个税和其他扣款规则。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     note.numberOfLines = 0; [self.stack addArrangedSubview:note];
     [self recalc];
 }

@@ -146,7 +146,8 @@
         GSCalendarCell *cell = _cells[i];
         cell.dateKey = key; cell.inMonth = inMonth;
         cell.dayLabel.text = [NSString stringWithFormat:@"%ld", (long)[cal component:NSCalendarUnitDay fromDate:d]];
-        cell.lunarLabel.text = GSLunarDay(d);
+        BOOL showLunar = [GSStore shared].settings[@"showLunar"] == nil || [[GSStore shared].settings[@"showLunar"] boolValue];
+        cell.lunarLabel.text = showLunar ? GSLunarDay(d) : @"";
         NSDictionary *rec = [[GSStore shared] recordForDate:key];
         NSString *plan = [[GSStore shared] planForDate:key];
         NSString *clsId = rec[@"classId"] ?: plan;
@@ -193,7 +194,7 @@
             cell.layer.borderWidth = 1;
             cell.layer.borderColor = [UIColor colorWithWhite:1 alpha:.32].CGColor;
             cell.dayLabel.textColor = paydayCell ? GSColorHex(@"#FFE08A") : UIColor.whiteColor;
-            cell.lunarLabel.textColor = [UIColor colorWithWhite:1 alpha:.92];
+            cell.lunarLabel.textColor = paydayCell ? GSColorHex(@"#FFE08A") : [UIColor colorWithWhite:1 alpha:.92];
             cell.badgeLabel.textColor = paydayCell ? GSColorHex(@"#FFE08A") : UIColor.whiteColor;
             cell.kindLabel.textColor = paydayCell ? GSColorHex(@"#FFE08A") : UIColor.whiteColor;
             cell.todayLine.backgroundColor = paydayCell ? GSColorHex(@"#FFE08A") : UIColor.whiteColor;
@@ -204,7 +205,7 @@
         } else {
             cell.layer.shadowOpacity = 0;
             cell.dayLabel.textColor = paydayCell ? GSColorHex(@"#D99A00") : (inMonth ? GSColorHex(@"#101828") : GSColorHex(@"#C9D0DA"));
-            cell.lunarLabel.textColor = inMonth ? GSColorHex(@"#5D6B82") : GSColorHex(@"#C9D0DA");
+            cell.lunarLabel.textColor = paydayCell ? GSColorHex(@"#D99A00") : (inMonth ? GSColorHex(@"#5D6B82") : GSColorHex(@"#C9D0DA"));
             cell.badgeLabel.textColor = paydayCell ? GSColorHex(@"#D99A00") : GSThemeColor();
             cell.todayLine.backgroundColor = paydayCell ? GSColorHex(@"#D99A00") : GSThemeColor();
         }

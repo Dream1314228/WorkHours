@@ -15,11 +15,28 @@ void GSApplyHeaderCorners(UIView *view) {
     self = [super initWithFrame:frame];
     if (self) {
         self.backgroundColor = UIColor.whiteColor;
-        self.layer.cornerRadius = 20;
+        self.layer.borderWidth = 1.0 / MAX(1.0, UIScreen.mainScreen.scale);
+        self.layer.borderColor = GSBorderColor().CGColor;
         self.layer.shadowColor = [UIColor colorWithRed:16/255.0 green:24/255.0 blue:40/255.0 alpha:1].CGColor;
-        self.layer.shadowOpacity = 0.07; self.layer.shadowRadius = 16; self.layer.shadowOffset = CGSizeMake(0, 8);
+        self.layer.shadowRadius = 14; self.layer.shadowOffset = CGSizeMake(0, 6);
+        [self applyUIAppearance];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applyUIAppearance) name:GSUIConfigDidChangeNotification object:nil];
     }
     return self;
+}
+- (void)dealloc { [[NSNotificationCenter defaultCenter] removeObserver:self]; }
+- (void)applyUIAppearance {
+    NSMutableDictionary *s = [GSStore shared].settings;
+    double r = s[@"cardRadius"] ? [s[@"cardRadius"] doubleValue] : 20;
+    r = MAX(8, MIN(30, r));
+    self.layer.cornerRadius = r;
+    BOOL shadow = s[@"cardShadow"] == nil || [s[@"cardShadow"] boolValue];
+    self.layer.shadowOpacity = shadow ? 0.055 : 0;
+    [self setNeedsLayout];
+}
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    self.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:self.layer.cornerRadius].CGPath;
 }
 @end
 
@@ -121,6 +138,29 @@ void GSAddHeaderOrbs(UIView *header) {
 }
 @end
 
+@implementation GSPressButton
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        _pressScaleEnabled = YES;
+        [self addTarget:self action:@selector(gs_touchDown) forControlEvents:UIControlEventTouchDown | UIControlEventTouchDragEnter];
+        [self addTarget:self action:@selector(gs_touchUp) forControlEvents:UIControlEventTouchUpInside | UIControlEventTouchUpOutside | UIControlEventTouchCancel | UIControlEventTouchDragExit];
+    }
+    return self;
+}
+- (void)gs_touchDown {
+    if (!self.pressScaleEnabled || UIAccessibilityIsReduceMotionEnabled()) return;
+    [UIView animateWithDuration:0.10 delay:0 options:(UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction) animations:^{
+        self.transform = CGAffineTransformMakeScale(0.96, 0.96);
+    } completion:nil];
+}
+- (void)gs_touchUp {
+    if (!self.pressScaleEnabled || UIAccessibilityIsReduceMotionEnabled()) return;
+    [UIView animateWithDuration:0.28 delay:0 usingSpringWithDamping:0.68 initialSpringVelocity:0.45 options:(UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction) animations:^{
+        self.transform = CGAffineTransformIdentity;
+    } completion:nil];
+}
+@end
 @implementation GSPillButton
 - (instancetype)initWithFrame:(CGRect)frame {
     self = [super initWithFrame:frame];
@@ -159,19 +199,21 @@ void GSAddHeaderOrbs(UIView *header) {
         self.layer.shadowOpacity = 0.14; self.layer.shadowRadius = 24; self.layer.shadowOffset = CGSizeMake(0, 10);
         _blur = [[UIVisualEffectView alloc] initWithEffect:[UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialLight]];
         _blur.layer.cornerRadius = 26; _blur.clipsToBounds = YES;
+        _blur.userInteractionEnabled = NO;
         [self addSubview:_blur];
         for (NSInteger i = 0; i < 4; i++) {
             UIView *pill = [[UIView alloc] init];
             pill.backgroundColor = GSThemeSoftColor();
             pill.layer.cornerRadius = 20; pill.hidden = (i != 0);
             [self addSubview:pill]; [_pills addObject:pill];
-            UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-            b.tag = i;
+            GSPressButton *b = [[GSPressButton alloc] initWithFrame:CGRectZero];
+            b.tag = i; b.pressScaleEnabled = NO;
+            b.accessibilityLabel = _titles[i];
             UIImageView *icon = [[UIImageView alloc] initWithImage:GSIcon(_icons[i], 20)];
             icon.contentMode = UIViewContentModeCenter;
-            icon.tintColor = GSColorHex(@"#667085");
+            icon.tintColor = GSTextSecondary();
             icon.userInteractionEnabled = NO;
-            UILabel *lab = GSLabel(_titles[i], GSFont(10, UIFontWeightMedium), GSColorHex(@"#667085"));
+            UILabel *lab = GSLabel(_titles[i], GSFont(11, UIFontWeightMedium), GSTextSecondary());
             lab.textAlignment = NSTextAlignmentCenter;
             lab.userInteractionEnabled = NO;
             [b addSubview:icon]; [b addSubview:lab];
@@ -197,7 +239,8 @@ void GSAddHeaderOrbs(UIView *header) {
     CGPoint p = [g locationInView:self];
     if (g.state == UIGestureRecognizerStateBegan) {
         _dragging = YES;
-        _dragIndex = self.selectedIndex;
+        CGFloat w0 = MAX(1, self.bounds.size.width / 4.0);
+        _dragIndex = MAX(0, MIN(3, (NSInteger)floor(MAX(0, p.x) / w0)));
         for (UIView *pill in self.pills) pill.hidden = YES;
         _dragPill.hidden = NO;
         _dragPill.alpha = 1;
@@ -223,24 +266,26 @@ void GSAddHeaderOrbs(UIView *header) {
     idx = MAX(0, MIN(3, idx));
     if (idx != _dragIndex) { _dragIndex = idx; GSHaptic(); }
     for (NSInteger i = 0; i < 4; i++) {
-        UIColor *c = (i == idx) ? GSThemeColor() : GSColorHex(@"#667085");
+        UIColor *c = (i == idx) ? GSThemeColor() : GSTextSecondary();
         self.iconViews[i].tintColor = c;
         self.titleViews[i].textColor = c;
-        self.titleViews[i].font = GSFont(10, (i == idx) ? UIFontWeightSemibold : UIFontWeightMedium);
+        self.titleViews[i].font = GSFont(11, (i == idx) ? UIFontWeightSemibold : UIFontWeightMedium);
     }
 }
 - (void)layoutSubviews {
     [super layoutSubviews];
     _blur.frame = self.bounds;
+    self.layer.shadowPath = [UIBezierPath bezierPathWithRoundedRect:self.bounds cornerRadius:26].CGPath;
     CGFloat w = self.bounds.size.width / 4.0;
     for (NSInteger i = 0; i < 4; i++) {
         _pills[i].frame = CGRectMake(i * w + 6, 6, w - 12, self.bounds.size.height - 12);
         _buttons[i].frame = CGRectMake(i * w, 0, w, self.bounds.size.height);
         _iconViews[i].frame = CGRectMake(w/2 - 10, 11, 20, 20);
-        _titleViews[i].frame = CGRectMake(0, 35, w, 14);
+        _titleViews[i].frame = CGRectMake(0, 34, w, 15);
     }
 }
 - (void)tap:(UIButton *)b {
+    if (b.tag != self.selectedIndex) GSHaptic();
     [self setSelectedIndex:b.tag animated:YES];
     if (self.onSelect) self.onSelect(b.tag);
 }
@@ -257,10 +302,10 @@ void GSAddHeaderOrbs(UIView *header) {
             self.pills[i].hidden = (i != index);
             if (w > 0) self.pills[i].frame = CGRectMake(i * w + 6, 6, w - 12, self.bounds.size.height - 12);
             self.buttons[i].selected = (i == index);
-            UIColor *c = (i == index) ? GSThemeColor() : GSColorHex(@"#667085");
+            UIColor *c = (i == index) ? GSThemeColor() : GSTextSecondary();
             self.iconViews[i].tintColor = c;
             self.titleViews[i].textColor = c;
-            self.titleViews[i].font = GSFont(10, (i == index) ? UIFontWeightSemibold : UIFontWeightMedium);
+            self.titleViews[i].font = GSFont(11, (i == index) ? UIFontWeightSemibold : UIFontWeightMedium);
         }
     };
     if (!animated) {
@@ -268,9 +313,14 @@ void GSAddHeaderOrbs(UIView *header) {
         work();
         return;
     }
-    self.iconViews[index].transform = CGAffineTransformMakeScale(0.84, 0.84);
-    [UIView animateWithDuration:0.30 delay:0 usingSpringWithDamping:0.82 initialSpringVelocity:0.5 options:UIViewAnimationOptionCurveEaseOut animations:work completion:^(BOOL finished) {
-        [UIView animateWithDuration:0.26 delay:0 usingSpringWithDamping:0.55 initialSpringVelocity:0.8 options:UIViewAnimationOptionCurveEaseOut animations:^{
+    if (UIAccessibilityIsReduceMotionEnabled()) {
+        work();
+        for (UIImageView *icon in self.iconViews) icon.transform = CGAffineTransformIdentity;
+        return;
+    }
+    self.iconViews[index].transform = CGAffineTransformMakeScale(0.86, 0.86);
+    [UIView animateWithDuration:0.26 delay:0 usingSpringWithDamping:0.84 initialSpringVelocity:0.5 options:(UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction) animations:work completion:^(BOOL finished) {
+        [UIView animateWithDuration:0.22 delay:0 usingSpringWithDamping:0.62 initialSpringVelocity:0.7 options:(UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction) animations:^{
             for (UIImageView *icon in self.iconViews) icon.transform = CGAffineTransformIdentity;
         } completion:nil];
     }];
@@ -279,7 +329,20 @@ void GSAddHeaderOrbs(UIView *header) {
 
 UILabel *GSLabel(NSString *text, UIFont *font, UIColor *color) {
     UILabel *l = [[UILabel alloc] init];
-    l.text = text; l.font = font; l.textColor = color;
+    l.text = text; l.textColor = color;
+    l.lineBreakMode = NSLineBreakByTruncatingTail;
+    l.adjustsFontForContentSizeCategory = NO;
+    if (font) {
+        BOOL hasDigit = text.length > 0 && [text rangeOfCharacterFromSet:NSCharacterSet.decimalDigitCharacterSet].location != NSNotFound;
+        if (hasDigit) {
+            NSDictionary *traits = font.fontDescriptor.fontAttributes[UIFontDescriptorTraitsAttribute];
+            CGFloat weight = [traits[UIFontWeightTrait] doubleValue];
+            if (weight <= 0.001) weight = (font.fontDescriptor.symbolicTraits & UIFontDescriptorTraitBold) ? UIFontWeightBold : UIFontWeightRegular;
+            l.font = [UIFont monospacedDigitSystemFontOfSize:font.pointSize weight:weight];
+        } else {
+            l.font = font;
+        }
+    }
     return l;
 }
 UIStackView *GSStack(NSArray<UIView *> *views, UILayoutConstraintAxis axis, CGFloat spacing) {
@@ -288,16 +351,138 @@ UIStackView *GSStack(NSArray<UIView *> *views, UILayoutConstraintAxis axis, CGFl
     return s;
 }
 UIButton *GSIconButton(NSString *symbol, UIColor *color, CGFloat size) {
-    UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+    GSPressButton *b = [[GSPressButton alloc] initWithFrame:CGRectZero];
     [b setImage:GSIcon(symbol, size) forState:UIControlStateNormal];
     b.tintColor = color;
+    b.pressScaleEnabled = NO;
     return b;
 }
 UIView *GSLine(void) {
     UIView *v = [[UIView alloc] init];
-    v.backgroundColor = GSColorHex(@"#F2F5FA");
+    v.backgroundColor = GSColorHex(@"#F0F3F8");
     return v;
 }
 NSAttributedString *GSAttr(NSString *text, UIFont *font, UIColor *color) {
     return [[NSAttributedString alloc] initWithString:text attributes:@{NSFontAttributeName:font, NSForegroundColorAttributeName:color}];
 }
+
+
+@implementation GSDonutChartView {
+    UILabel *_titleLabel;
+    UILabel *_subLabel;
+}
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.backgroundColor = UIColor.clearColor;
+        self.opaque = NO;
+        _titleLabel = GSLabel(@"", GSFont(20, UIFontWeightBold), GSTextPrimary());
+        _titleLabel.textAlignment = NSTextAlignmentCenter;
+        _subLabel = GSLabel(@"", GSFont(10, UIFontWeightRegular), GSTextSecondary());
+        _subLabel.textAlignment = NSTextAlignmentCenter;
+        [self addSubview:_titleLabel]; [self addSubview:_subLabel];
+    }
+    return self;
+}
+- (void)setValues:(NSArray<NSNumber *> *)values { _values = [values copy]; [self setNeedsDisplay]; }
+- (void)setColors:(NSArray<UIColor *> *)colors { _colors = [colors copy]; [self setNeedsDisplay]; }
+- (void)setCenterTitle:(NSString *)t { _centerTitle = [t copy]; _titleLabel.text = t; }
+- (void)setCenterSubtitle:(NSString *)t { _centerSubtitle = [t copy]; _subLabel.text = t; }
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    _titleLabel.frame = CGRectMake(0, CGRectGetMidY(self.bounds) - 24, self.bounds.size.width, 28);
+    _subLabel.frame = CGRectMake(0, CGRectGetMidY(self.bounds) + 5, self.bounds.size.width, 14);
+}
+- (void)drawRect:(CGRect)rect {
+    CGFloat side = MIN(CGRectGetWidth(rect), CGRectGetHeight(rect)) - 20;
+    if (side <= 0) return;
+    CGPoint center = CGPointMake(CGRectGetMidX(rect), CGRectGetMidY(rect));
+    CGFloat radius = side / 2.0;
+    CGFloat width = MAX(14, side * 0.13);
+    CGFloat total = 0;
+    for (NSNumber *n in self.values) total += MAX(0, n.doubleValue);
+    if (total <= 0) total = 1;
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    CGContextSetLineWidth(ctx, width);
+    CGContextSetStrokeColorWithColor(ctx, GSColorHex(@"#EEF2F7").CGColor);
+    CGContextAddArc(ctx, center.x, center.y, radius - width / 2, 0, M_PI * 2, 0);
+    CGContextStrokePath(ctx);
+    CGFloat start = -M_PI_2;
+    for (NSInteger i = 0; i < (NSInteger)self.values.count; i++) {
+        double value = MAX(0, self.values[i].doubleValue);
+        if (value <= 0) continue;
+        CGFloat end = start + (CGFloat)(value / total) * M_PI * 2;
+        UIColor *color = i < (NSInteger)self.colors.count ? self.colors[i] : GSThemeColor();
+        CGContextSetStrokeColorWithColor(ctx, color.CGColor);
+        CGContextAddArc(ctx, center.x, center.y, radius - width / 2, start, end, 0);
+        CGContextStrokePath(ctx);
+        start = end;
+    }
+}
+@end
+
+@implementation GSTrendChartView {
+    CAGradientLayer *_fill;
+    CAShapeLayer *_fillMask;
+}
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        self.backgroundColor = UIColor.clearColor; self.opaque = NO;
+        _lineColor = GSThemeColor();
+    }
+    return self;
+}
+- (void)setValues:(NSArray<NSNumber *> *)values { _values = [values copy]; [self setNeedsDisplay]; }
+- (void)setLabels:(NSArray<NSString *> *)labels { _labels = [labels copy]; [self setNeedsDisplay]; }
+- (void)setLineColor:(UIColor *)lineColor { _lineColor = lineColor ?: GSThemeColor(); [self setNeedsDisplay]; }
+- (void)drawRect:(CGRect)rect {
+    CGFloat left = 4, right = 4, top = 10, bottom = 22;
+    CGFloat w = CGRectGetWidth(rect) - left - right;
+    CGFloat h = CGRectGetHeight(rect) - top - bottom;
+    if (w <= 0 || h <= 0 || self.values.count == 0) return;
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    CGContextSetLineWidth(ctx, 1);
+    CGContextSetStrokeColorWithColor(ctx, GSColorHex(@"#EDF1F7").CGColor);
+    for (NSInteger i = 0; i < 4; i++) {
+        CGFloat y = top + h * i / 3.0;
+        CGContextMoveToPoint(ctx, left, y); CGContextAddLineToPoint(ctx, left + w, y); CGContextStrokePath(ctx);
+    }
+    double maxV = 1;
+    for (NSNumber *n in self.values) maxV = MAX(maxV, n.doubleValue);
+    NSMutableArray *points = [NSMutableArray array];
+    for (NSInteger i = 0; i < (NSInteger)self.values.count; i++) {
+        CGFloat x = left + (self.values.count <= 1 ? w / 2 : w * i / (CGFloat)(self.values.count - 1));
+        CGFloat y = top + h - (CGFloat)(self.values[i].doubleValue / maxV) * h;
+        [points addObject:[NSValue valueWithCGPoint:CGPointMake(x, y)]];
+    }
+    UIBezierPath *line = [UIBezierPath bezierPath];
+    for (NSInteger i = 0; i < (NSInteger)points.count; i++) {
+        CGPoint p = [points[i] CGPointValue];
+        if (i == 0) [line moveToPoint:p]; else [line addLineToPoint:p];
+    }
+    UIBezierPath *area = [line copy];
+    CGPoint last = [points.lastObject CGPointValue], first = [points.firstObject CGPointValue];
+    [area addLineToPoint:CGPointMake(last.x, top + h)];
+    [area addLineToPoint:CGPointMake(first.x, top + h)];
+    [area closePath];
+    [[self.lineColor colorWithAlphaComponent:.12] setFill]; [area fill];
+    [self.lineColor setStroke]; line.lineWidth = 2.2; line.lineJoinStyle = kCGLineJoinRound; [line stroke];
+    for (NSValue *v in points) {
+        CGPoint p = v.CGPointValue;
+        [[UIColor whiteColor] setFill];
+        UIBezierPath *dot = [UIBezierPath bezierPathWithArcCenter:p radius:3 startAngle:0 endAngle:M_PI * 2 clockwise:YES];
+        [dot fill];
+        [self.lineColor setStroke]; dot.lineWidth = 1.8; [dot stroke];
+    }
+    if (self.labels.count) {
+        NSDictionary *attrs = @{NSFontAttributeName:GSFont(9, UIFontWeightRegular), NSForegroundColorAttributeName:GSTextTertiary()};
+        for (NSInteger i = 0; i < (NSInteger)self.labels.count; i++) {
+            NSString *text = self.labels[i];
+            CGFloat x = left + (self.labels.count <= 1 ? 0 : w * i / (CGFloat)(self.labels.count - 1));
+            CGSize sz = [text sizeWithAttributes:attrs];
+            [text drawAtPoint:CGPointMake(MAX(0, MIN(CGRectGetWidth(rect) - sz.width, x - sz.width / 2)), CGRectGetHeight(rect) - 14) withAttributes:attrs];
+        }
+    }
+}
+@end

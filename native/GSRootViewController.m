@@ -69,6 +69,10 @@
         }
     });
 }
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [GSReminder syncFromSettings];
+}
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     self.content.frame = self.view.bounds;
@@ -85,14 +89,21 @@
     [self addChildViewController:nw];
     nw.view.frame = self.content.bounds;
     nw.view.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    nw.view.alpha = 0;
-    nw.view.transform = CGAffineTransformMakeTranslation(0, 10);
+    BOOL reduceMotion = UIAccessibilityIsReduceMotionEnabled();
+    nw.view.alpha = reduceMotion ? 1 : 0;
+    nw.view.transform = reduceMotion ? CGAffineTransformIdentity : CGAffineTransformMakeTranslation(0, 6);
     [self.content addSubview:nw.view];
     self.selectedIndex = index;
     [self setNeedsStatusBarAppearanceUpdate];
-    [UIView animateWithDuration:0.34 delay:0 usingSpringWithDamping:0.86 initialSpringVelocity:0.5 options:UIViewAnimationOptionCurveEaseOut animations:^{
+    if (reduceMotion) {
+        [old.view removeFromSuperview];
+        [old removeFromParentViewController];
+        [nw didMoveToParentViewController:self];
+        return;
+    }
+    [UIView animateWithDuration:0.26 delay:0 options:(UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction) animations:^{
         nw.view.alpha = 1; nw.view.transform = CGAffineTransformIdentity;
-        old.view.alpha = 0; old.view.transform = CGAffineTransformMakeScale(0.985, 0.985);
+        old.view.alpha = 0;
     } completion:^(BOOL finished) {
         [old.view removeFromSuperview];
         [old removeFromParentViewController];
