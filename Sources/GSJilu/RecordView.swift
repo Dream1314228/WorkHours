@@ -10,7 +10,6 @@ struct RecordView: View {
     @State private var showEditor = false
     @State private var showBatch = false
     @State private var confirmDelete = false
-    @State private var appeared = false
 
     init() {
         var d = Date()
@@ -56,34 +55,28 @@ struct RecordView: View {
     }
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 0) {
-                header
+        VStack(spacing: 0) {
+            header
 
-                Color.clear.frame(height: 14)
-                calendarArea
-                    .recordEntrance(index: 0, appeared: appeared, animate: motionEnabled)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: 14)
+                    calendarArea
 
-                Color.clear.frame(height: 14)
-                dayCard
-                    .id(selectedDate)
-                    .transition(.opacity)
-                    .recordEntrance(index: 1, appeared: appeared, animate: motionEnabled)
+                    Color.clear.frame(height: 14)
+                    dayCard
+                        .id(selectedDate)
+                        .transition(.opacity)
 
-                Color.clear.frame(height: 12)
-                timelineCard
-                    .recordEntrance(index: 2, appeared: appeared, animate: motionEnabled)
+                    Color.clear.frame(height: 12)
+                    timelineCard
 
-                Color.clear.frame(height: 12)
-                toolRow
-                    .recordEntrance(index: 3, appeared: appeared, animate: motionEnabled)
+                    Color.clear.frame(height: 12)
+                    toolRow
 
-                Color.clear.frame(height: 24)
+                    Color.clear.frame(height: 88)
+                }
             }
-        }
-        .ignoresSafeArea(edges: .top)
-        .onAppear {
-            appeared = true
         }
         .overlay(alignment: .bottomTrailing) {
             floatingButtons
@@ -119,16 +112,20 @@ struct RecordView: View {
         }
     }
 
-    private var header: some View {
-        let st = monthStats
-        let top = GSSafeAreaTop()
-        return ZStack {
+    private var headerBackground: some View {
+        ZStack {
             LinearGradient(
                 colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
             Circle().fill(Color.white.opacity(0.10)).frame(width: 160, height: 160).offset(x: 180, y: -40)
             Circle().fill(Color.white.opacity(0.08)).frame(width: 90, height: 90).offset(x: 40, y: -50)
+        }
+    }
+
+    private var header: some View {
+        let st = monthStats
+        return ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
                 HStack(spacing: 8) {
                     Text(verbatim: String(format: "%d年", year))
@@ -160,9 +157,11 @@ struct RecordView: View {
                     }
                     .buttonStyle(RecordPressStyle(animate: motionEnabled))
                 }
-                .padding(.top, top + 12)
+                .padding(.top, 12)
                 .padding(.horizontal, 20)
+
                 Spacer(minLength: 0)
+
                 HStack(spacing: 0) {
                     headerMetric(GSNum(GSJSONNumber(st["days"])), "出勤")
                     headerMetric(GSNum(GSJSONNumber(st["hours"])), "工时")
@@ -179,10 +178,13 @@ struct RecordView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: top + 170)
-        .clipShape(GSHeaderShape(radius: store.headerRadius))
+        .frame(height: 170)
+        .gsHeaderChrome(radius: store.headerRadius) {
+            headerBackground
+        }
     }
 
     private func headerMetric(_ value: String, _ label: String) -> some View {
@@ -656,19 +658,5 @@ private struct GSCalendarCell: View {
     private func lineColor(sel: Bool, payday: Bool) -> Color {
         if sel { return payday ? GSColorHex("#FFE08A") : .white }
         return payday ? GSColorHex("#D99A00") : GSTheme.color(for: store.themeKey)
-    }
-}
-
-private extension View {
-    func recordEntrance(index: Int, appeared: Bool, animate: Bool) -> some View {
-        self
-            .opacity((appeared || !animate) ? 1 : 0)
-            .offset(y: (appeared || !animate) ? 0 : 8)
-            .animation(
-                animate
-                    ? .spring(response: 0.28, dampingFraction: 0.92).delay(Double(index) * 0.022)
-                    : nil,
-                value: appeared
-            )
     }
 }

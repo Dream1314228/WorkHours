@@ -290,3 +290,56 @@ iOS 15–18 回退：`ultraThinMaterial`，不要粗白描边。圆角跟原版�
 - `GSSafeAreaTop` 依赖 `GSStore.shared.objectWillChange` 触发其它页刷新；若首帧窗口未就绪，需等下一 runloop 或变为 key window 后才能从 0 更新到真实 inset。
 - 日历白底使用了 `store.cardRadius`（原版容器未设圆角），属轻微视觉对齐，不是规格禁止项。
 - 4.1 的回弹用 `.spring(...).delay(0.10)` 叠在缩小动画之后，须真机确认短按也能走完 0.10s 再回弹。
+
+---
+
+## 工时UI重构甲补记（空白页阻断 + 记录/编辑/批量重构，2026-11-12 18:13，亚洲/上海）
+
+已按 `UI-REBUILD-PLAN.md` 文末「F. 编程助手最终决断」落地记录页空白阻断，并在同一轮把记录页 / 编辑页按终章重构。未改写上文既有章节。未改乙负责的 RootView / Components / Stats / Schedule / Me / Extras / SettingsViews。未改 `GSMoney`、Store 业务、weekStart、夜班「6 点前才选昨天」。未把 FAB 改成 56×56 或 collapsed/add/batch/more。未 git 操作、未打包、未签名、未通知 Dream。Linux 无法真机编译，未打 IPA。方案与补丁走官方 DeepSeek API（deepseek-v4-pro）；第一稿顶栏用 `ignoresSafeArea`+`clipShape` 有裁切/画不到状态栏的风险，已二次走 API 改成 `gsHeaderChrome`。
+
+改动文件：
+- `Sources/GSJilu/RecordView.swift`
+- `Sources/GSJilu/EditorView.swift`
+- `Sources/GSJilu/Common.swift`（删除安全区 probe，新增 `gsHeaderChrome`；`GSMoney` / `GSNum` / `GSPageBackground` / 节日表等上半部分未动）
+- `Sources/GSJilu/BatchView.swift`：对照终章审过，年份/月份/数量已是 `Text(verbatim: String(format:))`，走系统导航栏与 `GSCard`（圆角 `store.cardRadius`），无安全区 probe、无 opacity 入场隐藏，业务逻辑无需改，本轮未改文件。
+
+空白页怎么修（具体成因 + 删除/替换）：
+
+1. **主因：`GSSafeAreaTop()` 在 body 求值时操作 key window。** 已从 `Common.swift` 删除 `GSSafeAreaMonitor`、`GSSafeAreaProbe`、往 key window `addSubview`、以及 inset 变化时 `DispatchQueue.main.async { GSStore.shared.objectWillChange.send() }`。不再提供旧的无参 `GSSafeAreaTop()`。布局阶段不再因为量安全区而刷新 `GSStore`，避免循环重算导致整页空白。
+2. **次因：记录页入场隐藏。** 已删除 `@State appeared = false`、`recordEntrance`（opacity 0 + offset 8，等 `onAppear` 才显示）以及整页 `.ignoresSafeArea(edges: .top)`。日历 / dayCard / 时间轴 / toolRow 首帧即可见。动画只保留已可见前提下的格子缩放回弹、dayCard 0.22s opacity、FAB/今天/切月按压，并走 `GSMotionEnabled`。
+3. **顶栏改法（避免再量 inset、避免整页顶进刘海）：** 记录顶栏改为固定在 `ScrollView` 之上，内容高度 170（不是 inset+170）；标题从安全区下再 12pt。Editor 顶栏内容高度 52，去掉 `GSSafeAreaTop()+52` 和顶栏/整页 `.ignoresSafeArea(edges: .top)`（页面底仍可用 `GSPageBackground().ignoresSafeArea()`）。紫色背景经 `gsHeaderChrome`：先上垫 120pt 再 `GSHeaderShape` 只圆下沿，再 -120pt 拉回，让渐变铺进状态栏，且 clip 不会裁掉状态栏区域紫色。
+
+记录页其它保留项：
+- 指标在顶栏内半透明深色条、白字；切月箭头在顶栏 trailing，与「N月」并排；日历是 scroll 上的白底区域，只有周标题和日期网格。
+- toolRow 在时间轴下：白底、圆角 16、高 52、左右 18、距时间轴 12；按钮高 34、圆角 10；无记录时删除钮 alpha .38 且 `.disabled(true)`。
+- dayCard 始终显示农历；格子侧仍跟 `store.showLunar`。选中格白边 1、alpha .32，圆角 13 continuous。
+- 年/月/日 `Text(verbatim: String(format:))`；货币仍走未改的 `GSMoney`。
+- FAB 四态：无记录+今天只「记一笔」；无记录+非今天「记一笔」+左侧「今天」；有记录+非今天只「回今天」；有记录+今天都隐藏。尺寸 102×46 / 58×44，圆角 23 / 22，间距 8，trailing 20，bottom 10。未叠加 tabBarHeight。ScrollView 底留 88，避免挡住 toolRow。
+
+剩余风险：
+- **工程暂时无法通过编译，除非乙同步改掉对 `GSSafeAreaTop()` 的调用。** 甲按终章已不再提供该无参函数。乙仍在使用：`StatsView.swift`（2 处）、`ScheduleView.swift`（2 处）、`MeView.swift`（2 处）、`ExtrasView.swift`（1 处）；`Components.swift` 第 7 行注释也还指向旧函数。乙可改用本轮新增的 `gsHeaderChrome`（内容高度：统计/我的 100，排班看板 258，补扣 52），不要再量 inset 写死 `frame(height: inset + N)`，也不要恢复 window probe。
+- `gsHeaderChrome` 用固定 120pt 上延覆盖状态栏/灵动岛；容器若对子视图做 clip，或未来 inset 超过 120，顶部可能露缝，须真机确认紫色是否铺到顶、下沿圆角是否正常。
+- Linux 无法真机验证空白页是否消失、顶栏和 FAB 是否对齐，须签包后在真机看记录/编辑页。
+- 「回今天」仍走日历今天（`GSDate.todayKey()`），夜班 6 点前选昨天的规则只保留在 `RecordView.init`，本轮未改（与改前一致）。
+
+---
+
+## 工时UI重构乙补记（改用甲的 gsHeaderChrome，2026-11-12 18:17，亚洲/上海）
+
+已按甲落地的 `gsHeaderChrome` 同步乙文件，消除对已删除的无参 `GSSafeAreaTop()` 的调用，使工程可再编译。未改写上文既有章节（含甲 18:13 补记）。未改 RecordView / EditorView / BatchView / Common.swift / Store / SettingsViews / xcodeproj。未恢复 window probe，未重定义 `GSSafeAreaTop`，未新增 inset helper，未使用 `@Environment(\.safeAreaInsets)`。未改 `GSMoney`、排班看板大字（仍是 `¥` + `GSNum`）、FAB、weekStart、SoftwareSettingsView 大括号。未 git、未打包、未签名、未通知 Dream。Linux 无法真机编译，未打 IPA。
+
+改动文件：
+- `Sources/GSJilu/Components.swift`：删除「GSSafeAreaTop() is defined in Common.swift」注释；重写 `GSHeaderBlock`（去掉 `topInset`）。新 API 为 `contentHeight`（安全区下方内容高度）+ 可选 `title/subtitle/trailing`（默认高度 170，以免万一被记录页调用时变矮）以及自定义 `@ViewBuilder` 内容。内部只做 `.frame(height: contentHeight).gsHeaderChrome(radius: store.headerRadius) { 主题渐变 + 装饰圆 }`，标题内容自己加约 12pt 顶垫。记录页已改走 `gsHeaderChrome`、并不调用 `GSHeaderBlock`，因此无需再保留旧 `topInset` 重载。Tab 栏（iOS 26 Liquid Glass、拖动选择、图标 20、标题 11、弹跳 0.26/0.84 后 0.22/0.62）未改。
+- `Sources/GSJilu/RootView.swift`：仍是四页常驻 ZStack + 自定义 `GSGlassTabBar`，只 `.id(store.themeKey)`，底垫 76。默认 `selected = 0`（记录）。选中页从第一帧起 opacity 1、offset 0、zIndex 1；非当前页 opacity 0 且 `allowsHitTesting(false)`，动画开启时偏下 6pt 并可 0.26s easeOut 离场，选中页本身不从 0 淡入。页面层不加 `.clipped()` / `clipShape`，也不对页面层使用 `.ignoresSafeArea(.top)`，以免裁掉或顶进刘海；根背景仍是 `GSPageBackground().ignoresSafeArea()`。
+- `Sources/GSJilu/StatsView.swift`：去掉 2 处 `GSSafeAreaTop()` 和整页 `.ignoresSafeArea(edges: .top)`。顶栏改为固定在 ScrollView 之上，`GSHeaderBlock(..., contentHeight: 100)`。年份/月份 `Text(verbatim: String(format:))`。
+- `Sources/GSJilu/MeView.swift`：去掉 2 处 `GSSafeAreaTop()` 和整页 `.ignoresSafeArea(edges: .top)`。根仍 `navigationBarHidden(true)`；顶栏 `contentHeight: 100`，放在 ScrollView 外。子页导航栏未改。
+- `Sources/GSJilu/ScheduleView.swift`：去掉 2 处 `GSSafeAreaTop()`（含 `height = GSSafeAreaTop() + 258` 与 `padding(.top, GSSafeAreaTop() + 14)`）和整页/顶栏 `.ignoresSafeArea(edges: .top)`。默认仍 `boardView = true`。顶栏 `GSHeaderBlock(contentHeight: 258)`，大数字仍 `¥` + `GSNum`，半透明深色指标条和「排班/看板」分段仍在顶栏内；内容顶垫改为 12pt。年份/月份 verbatim `String(format:)`。
+- `Sources/GSJilu/ExtrasView.swift`：去掉 1 处 `GSSafeAreaTop()` 以及顶栏/整页 `.ignoresSafeArea(edges: .top)`。顶栏 `contentHeight: 52`，对齐编辑页底对齐 + 底垫 12。页面底仍 `GSPageBackground().ignoresSafeArea()`。
+
+如何废弃 `GSSafeAreaTop`：乙文件中全部调用已删除，全仓库 `Sources/GSJilu` 已检索不到 `GSSafeAreaTop`。顶栏不再量 inset、不再写 `frame(height: inset + N)`，一律 `frame(height: 内容高度)` + 甲的 `gsHeaderChrome`（+120 铺色、`GSHeaderShape` 只圆下沿、再 -120 拉回）。
+
+剩余风险：
+- `gsHeaderChrome` 依赖父级不裁剪 +120/-120 的溢出。RootView 页面层未 clip；`MeView` 包在 `NavigationView` 里，真机上若导航容器裁剪，状态栏紫色可能被切。记录/统计/排班/补扣顶栏已移出 ScrollView，降低滚动容器裁切风险。
+- 若未来安全区超过 120pt，顶栏上沿可能露缝（甲已注明），乙未改该常量。
+- Linux 无法真机验证空白页是否消失、紫色是否铺进状态栏、切 Tab 是否保留状态、拖动选 Tab 与页面离场是否打架。
+- 设置页 `SettingsViews.swift` 本轮无需改（无 `GSSafeAreaTop`，`SettingsPage` / `WageCalculatorView` 已 `navigationBarHidden(false)`）。

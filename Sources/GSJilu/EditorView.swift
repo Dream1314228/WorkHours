@@ -57,7 +57,6 @@ struct EditorView: View {
     private var header: some View {
         let c = GSDate.components(from: date)
         return ZStack(alignment: .bottom) {
-            LinearGradient(colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)], startPoint: .top, endPoint: .bottom)
             HStack {
                 Text(verbatim: String(format: "%ld月%ld日 · %@", c.month, c.day, GSDate.weekdayName(date)))
                     .font(.system(size: 17, weight: .bold)).foregroundColor(.white)
@@ -71,9 +70,13 @@ struct EditorView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 12)
         }
-        .frame(height: GSSafeAreaTop() + 52)
-        .clipShape(GSHeaderShape(radius: store.headerRadius))
-        .ignoresSafeArea(edges: .top)
+        .frame(height: 52)
+        .gsHeaderChrome(radius: store.headerRadius) {
+            LinearGradient(
+                colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)],
+                startPoint: .top, endPoint: .bottom
+            )
+        }
     }
 
     private var typeCard: some View {

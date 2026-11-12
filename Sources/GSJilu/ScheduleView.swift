@@ -13,14 +13,15 @@ struct ScheduleView: View {
 
     var body: some View {
         let st = store.yearStats(year: year)
-        return ScrollView(showsIndicators: false) {
-            VStack(spacing: 14) {
-                header(st)
-                if boardView { board(st) } else { schedule }
-                Color.clear.frame(height: 20)
+        return VStack(spacing: 0) {
+            header(st)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 14) {
+                    if boardView { board(st) } else { schedule }
+                    Color.clear.frame(height: 20)
+                }
             }
         }
-        .ignoresSafeArea(edges: .top)
         .sheet(item: Binding(
             get: { shareURL.map { IdentifiedURL(url: $0) } },
             set: { shareURL = $0?.url }
@@ -56,7 +57,7 @@ struct ScheduleView: View {
             if !p.isEmpty { classSet.insert(p) }
         }
 
-        let title = boardView ? "\(year) 年度" : "\(year) 年 \(month) 月"
+        let title = boardView ? String(format: "%d 年度", year) : String(format: "%d 年 %d 月", year, month)
         let big = boardView ? "¥\(GSNum(GSJSONNumber(st["pay"])))" : "排班计划"
         let sub = boardView
             ? String(format: "时薪 %.0f元  ·  %ld年 %@ 天出勤", GSJSONNumber(st["avg"]), year, GSNum(GSJSONNumber(st["days"])))
@@ -79,14 +80,7 @@ struct ScheduleView: View {
             ]
         }
 
-        let height = GSSafeAreaTop() + 258
-
-        return ZStack(alignment: .top) {
-            LinearGradient(colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)], startPoint: .top, endPoint: .bottom)
-                .frame(height: height)
-                .clipShape(GSHeaderShape(radius: store.headerRadius))
-                .ignoresSafeArea(edges: .top)
-
+        return GSHeaderBlock(contentHeight: 258) {
             VStack(spacing: 10) {
                 HStack(spacing: 8) {
                     if boardView {
@@ -140,9 +134,9 @@ struct ScheduleView: View {
                 segmentedControl
             }
             .padding(.horizontal, 18)
-            .padding(.top, GSSafeAreaTop() + 14)
+            .padding(.top, 12)
             .padding(.bottom, 16)
-            .frame(height: height, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 
@@ -225,7 +219,7 @@ struct ScheduleView: View {
 
                     Spacer()
 
-                    Text(verbatim: "\(year)年 \(month)月")
+                    Text(verbatim: String(format: "%d年 %d月", year, month))
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(GSTextPrimary())
 

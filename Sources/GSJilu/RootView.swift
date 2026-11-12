@@ -10,31 +10,29 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             GSPageBackground().ignoresSafeArea()
             ZStack {
-                RecordView()
-                    .opacity(selected == 0 ? 1 : 0)
-                    .offset(y: motion ? (selected == 0 ? 0 : 6) : 0)
-                    .allowsHitTesting(selected == 0)
-                StatsView()
-                    .opacity(selected == 1 ? 1 : 0)
-                    .offset(y: motion ? (selected == 1 ? 0 : 6) : 0)
-                    .allowsHitTesting(selected == 1)
-                ScheduleView()
-                    .opacity(selected == 2 ? 1 : 0)
-                    .offset(y: motion ? (selected == 2 ? 0 : 6) : 0)
-                    .allowsHitTesting(selected == 2)
-                MeView()
-                    .opacity(selected == 3 ? 1 : 0)
-                    .offset(y: motion ? (selected == 3 ? 0 : 6) : 0)
-                    .allowsHitTesting(selected == 3)
+                tabPage(0, motion: motion) { RecordView() }
+                tabPage(1, motion: motion) { StatsView() }
+                tabPage(2, motion: motion) { ScheduleView() }
+                tabPage(3, motion: motion) { MeView() }
             }
             .id(store.themeKey)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.bottom, 76)
-            .animation(motion ? .easeOut(duration: 0.26) : nil, value: selected)
 
             GSGlassTabBar(selected: $selected)
         }
         .ignoresSafeArea(.keyboard)
         .overlay(GSToastBanner())
+    }
+
+    @ViewBuilder
+    private func tabPage<Content: View>(_ index: Int, motion: Bool, @ViewBuilder content: () -> Content) -> some View {
+        let on = selected == index
+        content()
+            .opacity(on ? 1 : 0)
+            .offset(y: (motion && !on) ? 6 : 0)
+            .allowsHitTesting(on)
+            .zIndex(on ? 1 : 0)
+            .animation(motion && !on ? .easeOut(duration: 0.26) : nil, value: selected)
     }
 }

@@ -13,34 +13,34 @@ struct MeView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 14) {
-                    GSHeaderBlock(title: "我的", subtitle: "工时记录 · 本地数据", topInset: GSSafeAreaTop())
-                        .frame(height: GSSafeAreaTop() + 100)
-                    profile.padding(.horizontal, 18).offset(y: -8)
-                    section("记录与薪资")
-                    menu([
+            VStack(spacing: 0) {
+                GSHeaderBlock(title: "我的", subtitle: "工时记录 · 本地数据", contentHeight: 100)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 14) {
+                        profile.padding(.horizontal, 18).offset(y: -8)
+                        section("记录与薪资")
+                        menu([
                         ("doc.text.fill", "记录设置", GSTheme.color(for: store.themeKey), { page = "record" }),
                         ("wallet.pass.fill", "薪资与项目", GSTheme.color(for: store.themeKey), { page = "salary" }),
                         ("function", "工资计算器", GSSuccessColor(), { showWage = true }),
                         ("square.grid.2x2.fill", "班次管理", GSColorHex("#6941C6"), { page = "classes" }),
                         ("clock.fill", "考勤周期", GSSuccessColor(), { page = "period" })
-                    ])
-                    section("个性化")
-                    menu([("gearshape.fill", "软件设置", GSTheme.color(for: store.themeKey), { page = "software" })])
-                    section("数据")
-                    menu([
+                        ])
+                        section("个性化")
+                        menu([("gearshape.fill", "软件设置", GSTheme.color(for: store.themeKey), { page = "software" })])
+                        section("数据")
+                        menu([
                         ("square.and.arrow.up.fill", "导出备份 .gsjilu", GSSuccessColor(), exportData),
                         ("square.and.arrow.down.fill", "导入 .gsjilu 备份", GSTheme.color(for: store.themeKey), { showImporter = true }),
                         ("trash.fill", "清空记录", GSDangerColor(), { showClear = true })
-                    ])
-                    Text("工时记录 \(GSAppInfo.version) · 数据只存在本机")
+                        ])
+                        Text("工时记录 \(GSAppInfo.version) · 数据只存在本机")
                         .font(.system(size: 11)).foregroundColor(GSTextSecondary())
                         .frame(maxWidth: .infinity)
-                    Color.clear.frame(height: 20)
+                        Color.clear.frame(height: 20)
+                    }
                 }
             }
-            .ignoresSafeArea(edges: .top)
             .background(GSPageBackground().ignoresSafeArea())
             .navigationBarHidden(true)
             .background(

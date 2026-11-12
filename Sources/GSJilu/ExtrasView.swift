@@ -13,10 +13,9 @@ struct ExtrasView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            ZStack(alignment: .bottom) {
-                LinearGradient(colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)], startPoint: .top, endPoint: .bottom)
+            GSHeaderBlock(contentHeight: 52) {
                 HStack {
-                    Text(verbatim: "补扣管理 · \(month)月")
+                    Text(verbatim: String(format: "补扣管理 · %d月", month))
                         .font(.system(size: 17, weight: .bold))
                         .foregroundColor(.white)
                     Spacer()
@@ -26,11 +25,10 @@ struct ExtrasView: View {
                             .background(Color.black.opacity(0.12)).clipShape(Circle())
                     }
                 }
-                .padding(.horizontal, 20).padding(.bottom, 12)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
-            .frame(height: GSSafeAreaTop() + 52)
-            .clipShape(GSHeaderShape(radius: store.headerRadius))
-            .ignoresSafeArea(edges: .top)
 
             ScrollView {
                 VStack(spacing: 10) {
@@ -95,7 +93,6 @@ struct ExtrasView: View {
             }
         }
         .background(GSPageBackground().ignoresSafeArea())
-        .ignoresSafeArea(edges: .top)
     }
 
     private func list(kindName: String, items: [[String: Any]], isBonus: Bool) -> some View {

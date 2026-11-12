@@ -10,18 +10,19 @@ struct StatsView: View {
 
     var body: some View {
         let st = store.monthStats(year: year, month: month, usePeriod: true)
-        return ScrollView(showsIndicators: false) {
-            VStack(spacing: 14) {
-                header(st)
-                summary(st)
-                income(st)
-                hoursDonut(st)
-                daily(st)
-                extras(st)
-                Color.clear.frame(height: 20)
+        return VStack(spacing: 0) {
+            header(st)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 14) {
+                    summary(st)
+                    income(st)
+                    hoursDonut(st)
+                    daily(st)
+                    extras(st)
+                    Color.clear.frame(height: 20)
+                }
             }
         }
-        .ignoresSafeArea(edges: .top)
         .fullScreenCover(isPresented: $showExtras) {
             ExtrasView(year: year, month: month) { showExtras = false }
                 .environmentObject(store)
@@ -30,29 +31,27 @@ struct StatsView: View {
     }
 
     private func header(_ st: [String: Any]) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            GSHeaderBlock(
-                title: "统计",
-                subtitle: "\(year)年 · \(st["label"] as? String ?? "")",
-                trailing: AnyView(
-                    HStack(spacing: 12) {
-                        Button { changeMonth(-1) } label: {
-                            Image(systemName: "chevron.left").foregroundColor(.white)
-                        }
-                        .buttonStyle(GSPressButtonStyle())
-                        Text(verbatim: "\(month)月")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                        Button { changeMonth(1) } label: {
-                            Image(systemName: "chevron.right").foregroundColor(.white)
-                        }
-                        .buttonStyle(GSPressButtonStyle())
+        let subtitle = String(format: "%d年 · %@", year, st["label"] as? String ?? "")
+        return GSHeaderBlock(
+            title: "统计",
+            subtitle: subtitle,
+            trailing: AnyView(
+                HStack(spacing: 12) {
+                    Button { changeMonth(-1) } label: {
+                        Image(systemName: "chevron.left").foregroundColor(.white)
                     }
-                ),
-                topInset: GSSafeAreaTop()
-            )
-            .frame(height: GSSafeAreaTop() + 100)
-        }
+                    .buttonStyle(GSPressButtonStyle())
+                    Text(verbatim: String(format: "%d月", month))
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white)
+                    Button { changeMonth(1) } label: {
+                        Image(systemName: "chevron.right").foregroundColor(.white)
+                    }
+                    .buttonStyle(GSPressButtonStyle())
+                }
+            ),
+            contentHeight: 100
+        )
     }
 
     private func summary(_ st: [String: Any]) -> some View {

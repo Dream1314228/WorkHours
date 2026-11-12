@@ -311,136 +311,19 @@ extension View {
     }
 }
 
-func GSSafeAreaTop() -> CGFloat {
-    GSSafeAreaMonitor.shared.topInset()
-}
-
-// MARK: - Safe Area Monitoring
-
-private final class GSSafeAreaMonitor {
-    static let shared = GSSafeAreaMonitor()
-    private var probe: GSSafeAreaProbe?
-    private var observers: [NSObjectProtocol] = []
-    private var cachedTop: CGFloat = 0
-    private var lastPublishedTop: CGFloat = 0
-
-    private init() {}
-
-    deinit {
-        observers.forEach { NotificationCenter.default.removeObserver($0) }
-    }
-
-    func topInset() -> CGFloat {
-        refresh()
-        ensureMonitorInstalled()
-        return cachedTop
-    }
-
-    private func currentWindow() -> UIWindow? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        return scenes.flatMap { $0.windows }.first(where: { $0.isKeyWindow }) ?? scenes.first?.windows.first
-    }
-
-    private func refresh() {
-        guard let window = currentWindow() else { return }
-        let top = window.safeAreaInsets.top
-        if top > 0 {
-            update(top)
-        } else if let statusTop = window.windowScene?.statusBarManager?.statusBarFrame.height, statusTop > 0 {
-            update(statusTop)
-        }
-    }
-
-    private func update(_ value: CGFloat) {
-        if abs(value - cachedTop) > 0.001 {
-            cachedTop = value
-        }
-        if value > 0, abs(value - lastPublishedTop) > 0.5 {
-            lastPublishedTop = value
-            DispatchQueue.main.async {
-                GSStore.shared.objectWillChange.send()
-            }
-        }
-    }
-
-    private func ensureMonitorInstalled() {
-        installObservers()
-        if probe != nil { return }
-        if let window = currentWindow() {
-            installProbe(on: window)
-        } else {
-            DispatchQueue.main.async { [weak self] in
-                guard let self = self else { return }
-                self.refresh()
-                if self.probe == nil, let window = self.currentWindow() {
-                    self.installProbe(on: window)
-                }
-            }
-        }
-    }
-
-    private func installProbe(on window: UIWindow) {
-        guard probe == nil else { return }
-        let p = GSSafeAreaProbe()
-        p.isUserInteractionEnabled = false
-        p.isHidden = false
-        p.backgroundColor = .clear
-        p.translatesAutoresizingMaskIntoConstraints = false
-        p.onChange = { [weak self] value in
-            self?.update(value)
-        }
-        window.addSubview(p)
-        NSLayoutConstraint.activate([
-            p.topAnchor.constraint(equalTo: window.topAnchor),
-            p.leadingAnchor.constraint(equalTo: window.leadingAnchor),
-            p.widthAnchor.constraint(equalToConstant: 1),
-            p.heightAnchor.constraint(equalToConstant: 1)
-        ])
-        probe = p
-        refresh()
-    }
-
-    private func installObservers() {
-        guard observers.isEmpty else { return }
-        let nc = NotificationCenter.default
-        let handler: (Notification) -> Void = { [weak self] _ in
-            guard let self = self else { return }
-            self.refresh()
-            if self.probe == nil, let window = self.currentWindow() {
-                self.installProbe(on: window)
-            }
-        }
-        observers.append(nc.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main, using: handler))
-        observers.append(nc.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main, using: handler))
-        observers.append(nc.addObserver(forName: UIWindow.didBecomeKeyNotification, object: nil, queue: .main, using: handler))
-    }
-}
-
-private final class GSSafeAreaProbe: UIView {
-    var onChange: ((CGFloat) -> Void)?
-
-    override func safeAreaInsetsDidChange() {
-        super.safeAreaInsetsDidChange()
-        report()
-    }
-
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        report()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        report()
-    }
-
-    private func report() {
-        guard let window = self.window else { return }
-        let top = window.safeAreaInsets.top
-        if top > 0 {
-            onChange?(top)
-        } else if let statusTop = window.windowScene?.statusBarManager?.statusBarFrame.height, statusTop > 0 {
-            onChange?(statusTop)
-        }
+// MARK: - Header chrome (no window probe, no inset measurement)
+// Extends a top header's fill into the status bar: pad 120pt, paint chrome,
+// clip with GSHeaderShape (bottom corners only), then pull back with -120pt.
+// Content height stays 170 / 52; callers must not ignoresSafeArea(.top) on the page.
+extension View {
+    func gsHeaderChrome<Chrome: View>(
+        radius: CGFloat,
+        @ViewBuilder chrome: () -> Chrome
+    ) -> some View {
+        self
+            .padding(.top, 120)
+            .background(chrome())
+            .clipShape(GSHeaderShape(radius: radius))
+            .padding(.top, -120)
     }
 }

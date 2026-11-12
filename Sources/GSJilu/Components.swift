@@ -4,8 +4,6 @@ import UIKit
 
 // MARK: - Helpers
 
-// GSSafeAreaTop() is defined in Common.swift.
-
 func GSMotionEnabled(_ store: GSStore, reduceMotion: Bool) -> Bool {
     store.animations && !reduceMotion
 }
@@ -51,47 +49,59 @@ struct GSCard<Content: View>: View {
     }
 }
 
-struct GSHeaderBlock: View {
-    var title: String
-    var subtitle: String?
-    var trailing: AnyView? = nil
-    var topInset: CGFloat = 0
+struct GSHeaderBlock<Content: View>: View {
+    var contentHeight: CGFloat
+    var content: Content
     @EnvironmentObject var store: GSStore
 
-    var body: some View {
-        ZStack(alignment: topInset == 0 ? .bottomLeading : .topLeading) {
-            LinearGradient(
-                colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-            Circle().fill(Color.white.opacity(0.10)).frame(width: 160, height: 160).offset(x: 180, y: -40)
-            Circle().fill(Color.white.opacity(0.08)).frame(width: 90, height: 90).offset(x: 40, y: -50)
-            HStack(alignment: topInset == 0 ? .bottom : .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title).font(.system(size: 28, weight: .bold)).foregroundColor(.white)
-                    if let subtitle = subtitle {
-                        Text(subtitle).font(.system(size: 12, weight: .regular)).foregroundColor(Color.white.opacity(0.92))
-                    }
-                }
-                Spacer()
-                if let trailing = trailing { trailing }
-            }
-            .padding(.horizontal, 20)
-            .modifier(GSHeaderContentPadding(topInset: topInset))
+    init(contentHeight: CGFloat, @ViewBuilder content: () -> Content) {
+        self.contentHeight = contentHeight
+        self.content = content()
+    }
+
+    init(title: String, subtitle: String? = nil, trailing: AnyView? = nil, contentHeight: CGFloat = 170) where Content == GSHeaderTitleChrome {
+        self.init(contentHeight: contentHeight) {
+            GSHeaderTitleChrome(title: title, subtitle: subtitle, trailing: trailing)
         }
-        .frame(maxWidth: .infinity)
-        .clipShape(GSHeaderShape(radius: store.headerRadius))
+    }
+
+    var body: some View {
+        content
+            .frame(maxWidth: .infinity)
+            .frame(height: contentHeight)
+            .gsHeaderChrome(radius: store.headerRadius) {
+                ZStack {
+                    LinearGradient(
+                        colors: [GSTheme.color(for: store.themeKey), GSTheme.darkColor(for: store.themeKey)],
+                        startPoint: .topLeading, endPoint: .bottomTrailing
+                    )
+                    Circle().fill(Color.white.opacity(0.10)).frame(width: 160, height: 160).offset(x: 180, y: -40)
+                    Circle().fill(Color.white.opacity(0.08)).frame(width: 90, height: 90).offset(x: 40, y: -50)
+                }
+            }
     }
 }
 
-private struct GSHeaderContentPadding: ViewModifier {
-    var topInset: CGFloat
-    func body(content: Content) -> some View {
-        if topInset == 0 {
-            content.padding(.bottom, 16)
-        } else {
-            content.padding(.top, topInset + 14)
+struct GSHeaderTitleChrome: View {
+    var title: String
+    var subtitle: String?
+    var trailing: AnyView?
+
+    var body: some View {
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: title).font(.system(size: 28, weight: .bold)).foregroundColor(.white)
+                if let subtitle = subtitle {
+                    Text(verbatim: subtitle).font(.system(size: 12, weight: .regular)).foregroundColor(Color.white.opacity(0.92))
+                }
+            }
+            Spacer()
+            if let trailing = trailing { trailing }
         }
+        .padding(.top, 12)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
