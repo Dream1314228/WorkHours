@@ -18,7 +18,7 @@ static GSStore *_shared;
 - (NSMutableDictionary *)defaults {
     NSMutableDictionary *settings = [@{
         @"period": @26, @"customPeriods": [NSMutableArray array], @"weekStart": @1, @"payday": @0,
-        @"nightMode": @YES, @"autoBonus": @YES, @"recordMode": @"hour", @"classDisplay": @"icon", @"annualLeaveDays": @5, @"theme": @"blue", @"headerRadius": @24,
+        @"nightMode": @YES, @"autoBonus": @YES, @"recordMode": @"hour", @"classDisplay": @"icon", @"annualLeaveDays": @5, @"theme": @"blue", @"headerRadius": @24, @"cardRadius": @20, @"cardShadow": @YES, @"animations": @YES, @"showLunar": @YES,
         @"defaultWork": [@{@"zb":@8, @"jb":@2, @"zm":@10, @"jj":@10} mutableCopy],
         @"dayAllowance": @10, @"nightAllowance": @20, @"reminderEnabled": @NO, @"reminderHour": @21, @"reminderMinute": @0,
         @"classDefaults": [@{
@@ -56,6 +56,10 @@ static GSStore *_shared;
     if (![settings[@"theme"] isKindOfClass:[NSString class]]) settings[@"theme"] = @"blue";
     GSSetThemeKey(settings[@"theme"]);
     if (![settings[@"headerRadius"] isKindOfClass:[NSNumber class]]) settings[@"headerRadius"] = @24;
+    if (![settings[@"cardRadius"] isKindOfClass:[NSNumber class]]) settings[@"cardRadius"] = @20;
+    if (![settings[@"cardShadow"] isKindOfClass:[NSNumber class]]) settings[@"cardShadow"] = @YES;
+    if (![settings[@"animations"] isKindOfClass:[NSNumber class]]) settings[@"animations"] = @YES;
+    if (![settings[@"showLunar"] isKindOfClass:[NSNumber class]]) settings[@"showLunar"] = @YES;
     double hr = [settings[@"headerRadius"] doubleValue];
     if (hr < 0) hr = 0; if (hr > 40) hr = 40;
     settings[@"headerRadius"] = @(hr);
@@ -345,19 +349,101 @@ static GSStore *_shared;
              @"avg":@(hours > 0 ? GSRound2(pay / hours) : 0), @"label":range[@"label"], @"start":range[@"start"], @"end":range[@"end"]};
 }
 - (NSDictionary *)yearStats:(NSInteger)year {
-    double pay = 0, hours = 0, days = 0, ot = 0, bonus = 0, deduct = 0;
-    NSMutableArray *months = [NSMutableArray array];
-    for (NSInteger m = 1; m <= 12; m++) {
-        NSDictionary *s = [self monthStats:year month:m usePeriod:NO];
-        [months addObject:s];
-        pay += [s[@"pay"] doubleValue]; hours += [s[@"hours"] doubleValue]; days += [s[@"days"] doubleValue];
-        ot += [s[@"jb"] doubleValue] + [s[@"zm"] doubleValue] + [s[@"jj"] doubleValue];
-        bonus += [s[@"bonus"] doubleValue]; deduct += [s[@"deduct"] doubleValue];
+    // One pass over records instead of calling monthStats 12 times (12 × N).
+    NSMutableArray<NSMutableDictionary *> *buckets = [NSMutableArray array];
+    for (NSInteger i = 0; i < 12; i++) {
+        [buckets addObject:[@{@"days":@0, @"hours":@0, @"pay":@0,
+                              @"zb":@0, @"jb":@0, @"zm":@0, @"jj":@0,
+                              @"bonus":@0, @"deduct":@0} mutableCopy]];
     }
-    return @{@"months":months, @"pay":@(GSRound2(pay)), @"hours":@(GSRound2(hours)), @"days":@(days),
-             @"ot":@(GSRound2(ot)), @"bonus":@(GSRound2(bonus)), @"deduct":@(GSRound2(deduct)),
-             @"workPay":@(GSRound2(pay - bonus + deduct)), @"avg":@(hours > 0 ? GSRound2(pay / hours) : 0)};
+    NSString *yearPrefix = [NSString stringWithFormat:@"%04ld-", (long)year];
+    for (NSString *k in _data[@"records"]) {
+        if (k.length < 7 || ![k hasPrefix:yearPrefix]) continue;
+        NSInteger month = [[k substringWithRange:NSMakeRange(5, 2)] integerValue];
+        if (month < 1 || month > 12) continue;
+        NSDictionary *r = _data[@"records"][k];
+        if (![r isKindOfClass:[NSDictionary class]]) continue;
+        NSMutableDictionary *b = buckets[month - 1];
+        b[@"days"] = @([b[@"days"] doubleValue] + 1);
+        b[@"hours"] = @([b[@"hours"] doubleValue] + [self dayHours:r]);
+        b[@"pay"] = @([b[@"pay"] doubleValue] + [self dayPay:r]);
+        id rawWork = r[@"work"];
+        NSDictionary *w = [rawWork isKindOfClass:[NSDictionary class]] ? rawWork : @{};
+        b[@"zb"] = @([b[@"zb"] doubleValue] + [w[@"zb"] doubleValue]);
+        b[@"jb"] = @([b[@"jb"] doubleValue] + [w[@"jb"] doubleValue]);
+        b[@"zm"] = @([b[@"zm"] doubleValue] + [w[@"zm"] doubleValue]);
+        b[@"jj"] = @([b[@"jj"] doubleValue] + [w[@"jj"] doubleValue]);
+        id rawBT = r[@"bt"];
+        if ([rawBT isKindOfClass:[NSArray class]]) {
+            for (NSDictionary *item in rawBT) {
+                if (![item isKindOfClass:[NSDictionary class]]) continue;
+                double m = [item[@"money"] doubleValue];
+                if (m >= 0) b[@"bonus"] = @([b[@"bonus"] doubleValue] + m);
+                else b[@"deduct"] = @([b[@"deduct"] doubleValue] - m);
+            }
+        }
+    }
+    double totalPay = 0, totalHours = 0, totalDays = 0, totalOT = 0, totalBonus = 0, totalDeduct = 0;
+    NSMutableArray *months = [NSMutableArray arrayWithCapacity:12];
+    for (NSInteger m = 1; m <= 12; m++) {
+        NSMutableDictionary *b = buckets[m - 1];
+        NSDictionary *range = [self periodRange:year month:m];
+        NSString *mk = [self monthKey:year month:m];
+        NSArray *bonusItems = _data[@"bonuses"][mk];
+        if ([bonusItems isKindOfClass:[NSArray class]]) {
+            for (NSDictionary *item in bonusItems) {
+                if (![item isKindOfClass:[NSDictionary class]]) continue;
+                double value = [item[@"money"] doubleValue];
+                b[@"bonus"] = @([b[@"bonus"] doubleValue] + value);
+                b[@"pay"] = @([b[@"pay"] doubleValue] + value);
+            }
+        }
+        NSArray *deductItems = _data[@"deductions"][mk];
+        if ([deductItems isKindOfClass:[NSArray class]]) {
+            for (NSDictionary *item in deductItems) {
+                if (![item isKindOfClass:[NSDictionary class]]) continue;
+                double value = [item[@"money"] doubleValue];
+                b[@"deduct"] = @([b[@"deduct"] doubleValue] + value);
+                b[@"pay"] = @([b[@"pay"] doubleValue] - value);
+            }
+        }
+        double rawHours = [b[@"hours"] doubleValue];
+        double rawPay = [b[@"pay"] doubleValue];
+        double monthHours = GSRound2(rawHours);
+        double monthPay = GSRound2(rawPay);
+        double monthBonus = GSRound2([b[@"bonus"] doubleValue]);
+        double monthDeduct = GSRound2([b[@"deduct"] doubleValue]);
+        double monthZB = GSRound2([b[@"zb"] doubleValue]);
+        double monthJB = GSRound2([b[@"jb"] doubleValue]);
+        double monthZM = GSRound2([b[@"zm"] doubleValue]);
+        double monthJJ = GSRound2([b[@"jj"] doubleValue]);
+        double monthDays = [b[@"days"] doubleValue];
+        NSDictionary *monthDict = @{
+            @"days": @(monthDays), @"hours": @(monthHours), @"pay": @(monthPay),
+            @"zb": @(monthZB), @"jb": @(monthJB), @"zm": @(monthZM), @"jj": @(monthJJ),
+            @"bonus": @(monthBonus), @"deduct": @(monthDeduct),
+            @"avg": @(rawHours > 0 ? GSRound2(rawPay / rawHours) : 0),
+            @"label": range[@"label"], @"start": range[@"start"], @"end": range[@"end"]
+        };
+        [months addObject:monthDict];
+        totalPay += monthPay;
+        totalHours += monthHours;
+        totalDays += monthDays;
+        totalOT += monthJB + monthZM + monthJJ;
+        totalBonus += monthBonus;
+        totalDeduct += monthDeduct;
+    }
+    totalPay = GSRound2(totalPay);
+    totalHours = GSRound2(totalHours);
+    totalOT = GSRound2(totalOT);
+    totalBonus = GSRound2(totalBonus);
+    totalDeduct = GSRound2(totalDeduct);
+    return @{@"months":months, @"pay":@(totalPay), @"hours":@(totalHours), @"days":@(totalDays),
+             @"ot":@(totalOT), @"bonus":@(totalBonus), @"deduct":@(totalDeduct),
+             @"workPay":@(GSRound2(totalPay - totalBonus + totalDeduct)),
+             @"avg":@(totalHours > 0 ? GSRound2(totalPay / totalHours) : 0)};
 }
+
 - (NSArray<NSString *> *)dailyKeysForYear:(NSInteger)year month:(NSInteger)month {
     NSString *prefix = [NSString stringWithFormat:@"%04ld-%02ld-", (long)year, (long)month];
     NSMutableArray *a = [NSMutableArray array];

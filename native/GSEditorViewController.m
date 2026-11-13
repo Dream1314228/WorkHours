@@ -1,6 +1,7 @@
 #import "GSEditorViewController.h"
 #import "GSComponents.h"
 #import "GSStore.h"
+#import "GSReminder.h"
 
 @interface GSEditorViewController () <UITextViewDelegate>
 @property (nonatomic, copy) NSString *date;
@@ -625,6 +626,7 @@
     [a addAction:[UIAlertAction actionWithTitle:@"删除" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *x) {
         [[GSStore shared] removeRecordForDate:self.date];
         if (self.onSaved) self.onSaved();
+        [GSReminder syncFromSettings];
         [self dismissViewControllerAnimated:YES completion:nil];
     }]];
     [self presentViewController:a animated:YES completion:nil];

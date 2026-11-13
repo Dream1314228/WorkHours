@@ -49,6 +49,7 @@
     self.scroll.backgroundColor = UIColor.clearColor;
     self.scroll.translatesAutoresizingMaskIntoConstraints = NO;
     self.scroll.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    self.scroll.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
     self.scroll.contentInset = UIEdgeInsetsMake(0, 0, 40, 0);
     [self.view addSubview:self.scroll];
     self.stack = [[UIStackView alloc] init];
@@ -77,8 +78,8 @@
         [self.scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
         [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:16],
-        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:16],
-        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-16],
+        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:GSPageMargin],
+        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-GSPageMargin],
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-40]
     ]];
     [self.view bringSubviewToFront:self.header];
@@ -119,19 +120,19 @@
         }
     }
     [NSLayoutConstraint activateConstraints:@[
-        [v.topAnchor constraintEqualToAnchor:card.topAnchor constant:12], [v.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
-        [v.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16], [v.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-12]
+        [v.topAnchor constraintEqualToAnchor:card.topAnchor constant:14], [v.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:GSCardPadding],
+        [v.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-GSCardPadding], [v.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-14]
     ]];
     return card;
 }
 - (UIView *)row:(NSString *)title value:(NSString *)value action:(SEL)action {
     UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
     b.backgroundColor = UIColor.clearColor;
-    UILabel *l = GSLabel(title, GSFont(15, UIFontWeightRegular), GSColorHex(@"#101828"));
-    UILabel *v = GSLabel(value, GSFont(13, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *l = GSLabel(title, GSFont(16, UIFontWeightRegular), GSTextPrimary());
+    UILabel *v = GSLabel(value, GSFont(14, UIFontWeightRegular), GSTextSecondary());
     v.textAlignment = NSTextAlignmentRight;
     UIImageView *c = [[UIImageView alloc] initWithImage:GSIcon(@"chevron.right", 11)];
-    c.tintColor = GSColorHex(@"#667085");
+    c.tintColor = GSTextSecondary();
     for (UIView *x in @[l, v, c]) { x.translatesAutoresizingMaskIntoConstraints = NO; [b addSubview:x]; }
     [NSLayoutConstraint activateConstraints:@[
         [b.heightAnchor constraintEqualToConstant:52],
@@ -145,8 +146,8 @@
 }
 - (UIView *)switchRow:(NSString *)title sub:(NSString *)sub key:(NSString *)key tag:(NSInteger)tag {
     UIView *row = [[UIView alloc] init];
-    UILabel *l = GSLabel(title, GSFont(15, UIFontWeightRegular), GSColorHex(@"#101828"));
-    UILabel *s = GSLabel(sub ?: @"", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *l = GSLabel(title, GSFont(16, UIFontWeightRegular), GSTextPrimary());
+    UILabel *s = GSLabel(sub ?: @"", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     UISwitch *sw = [[UISwitch alloc] init];
     sw.onTintColor = GSThemeColor();
     sw.on = [[GSStore shared].settings[key] boolValue]; sw.tag = tag;
@@ -162,7 +163,7 @@
     return row;
 }
 - (UILabel *)section:(NSString *)text {
-    UILabel *l = GSLabel(text, GSFont(12, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *l = GSLabel(text, GSFont(13, UIFontWeightSemibold), GSTextTertiary());
     l.numberOfLines = 0;
     l.tag = 900;
     return l;
@@ -188,10 +189,10 @@
     if (periodDay < 1 || periodDay > 29) periodDay = 26;
     UIButton *period = [UIButton buttonWithType:UIButtonTypeCustom];
     [period setTitle:[self periodTitle:periodDay] forState:UIControlStateNormal];
-    [period setTitleColor:GSColorHex(@"#101828") forState:UIControlStateNormal];
+    [period setTitleColor:GSTextPrimary() forState:UIControlStateNormal];
     period.titleLabel.font = GSFont(14, UIFontWeightSemibold);
     period.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-    period.backgroundColor = GSColorHex(@"#F5F7FA"); period.layer.cornerRadius = 12; period.contentEdgeInsets = UIEdgeInsetsMake(0, 12, 0, 12);
+    period.backgroundColor = GSSurfaceMuted(); period.layer.cornerRadius = 12; period.contentEdgeInsets = UIEdgeInsetsMake(0, 12, 0, 12);
     [period.heightAnchor constraintEqualToConstant:46].active = YES;
     NSMutableArray *periodActions = [NSMutableArray array];
     for (NSInteger d = 1; d <= 29; d++) {
@@ -207,7 +208,7 @@
     period.showsMenuAsPrimaryAction = YES;
     period.menu = [UIMenu menuWithTitle:@"每月起算日" children:periodActions];
     GSCardView *pc = [[GSCardView alloc] init];
-    UILabel *pl = GSLabel(@"原版 29 档：每月 1~29 号起算，命中自定义周期时优先用自定义区间", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82")); pl.numberOfLines = 0;
+    UILabel *pl = GSLabel(@"原版 29 档：每月 1~29 号起算，命中自定义周期时优先用自定义区间", GSFont(11, UIFontWeightRegular), GSTextSecondary()); pl.numberOfLines = 0;
     UIStackView *pv = GSStack(@[period, pl], UILayoutConstraintAxisVertical, 8);
     pv.translatesAutoresizingMaskIntoConstraints = NO; [pc addSubview:pv];
     [NSLayoutConstraint activateConstraints:@[
@@ -222,10 +223,10 @@
     [self.stack addArrangedSubview:[self section:@"发薪日"]];
     UIButton *payBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     [payBtn setTitle:(payday > 0 ? [NSString stringWithFormat:@"每月 %ld 日", (long)payday] : @"未设置") forState:UIControlStateNormal];
-    [payBtn setTitleColor:GSColorHex(@"#101828") forState:UIControlStateNormal];
+    [payBtn setTitleColor:GSTextPrimary() forState:UIControlStateNormal];
     payBtn.titleLabel.font = GSFont(14, UIFontWeightSemibold);
     payBtn.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
-    payBtn.backgroundColor = GSColorHex(@"#F5F7FA");
+    payBtn.backgroundColor = GSSurfaceMuted();
     payBtn.layer.cornerRadius = 12;
     payBtn.contentEdgeInsets = UIEdgeInsetsMake(0, 12, 0, 12);
     [payBtn.heightAnchor constraintEqualToConstant:46].active = YES;
@@ -248,7 +249,7 @@
     }
     payBtn.showsMenuAsPrimaryAction = YES;
     payBtn.menu = [UIMenu menuWithTitle:@"每月发薪日" children:payActions];
-    UILabel *payNote = GSLabel(@"发薪日当天：日号变金色，左上角显示「薪」，底部金条常显；记录工时后工时数字也变金色。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *payNote = GSLabel(@"发薪日当天：日号变金色，左上角显示「薪」，底部金条常显；记录工时后工时数字也变金色。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     payNote.numberOfLines = 0;
     GSCardView *payCard = [[GSCardView alloc] init];
     UIStackView *payStack = GSStack(@[payBtn, payNote], UILayoutConstraintAxisVertical, 8);
@@ -280,7 +281,7 @@
     NSArray *allowKeys = @[@"dayAllowance", @"nightAllowance"];
     for (NSInteger i = 0; i < 2; i++) {
         UIView *row = [[UIView alloc] init];
-        UILabel *l = GSLabel(allowTitles[i], GSFont(14, UIFontWeightRegular), GSColorHex(@"#101828"));
+        UILabel *l = GSLabel(allowTitles[i], GSFont(14, UIFontWeightRegular), GSTextPrimary());
         UITextField *tf = [[UITextField alloc] init];
         tf.keyboardType = UIKeyboardTypeDecimalPad;
         tf.font = GSFont(14, UIFontWeightSemibold);
@@ -300,16 +301,16 @@
         ]];
         [allowRows addObject:row];
     }
-    UILabel *allowNote = GSLabel(@"按班次名匹配：白班/早班加白班补助，中班/晚班/夜班加夜班补助；填 0 即关闭该类补助，并清除已有的自动补助。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82")); allowNote.numberOfLines = 0;
+    UILabel *allowNote = GSLabel(@"按班次名匹配：白班/早班加白班补助，中班/晚班/夜班加夜班补助；填 0 即关闭该类补助，并清除已有的自动补助。", GSFont(11, UIFontWeightRegular), GSTextSecondary()); allowNote.numberOfLines = 0;
     [allowRows addObject:allowNote];
     UIStackView *allowStack = GSStack(allowRows, UILayoutConstraintAxisVertical, 8);
     [self.stack addArrangedSubview:[self card:@[allowStack]]];
 
     [self.stack addArrangedSubview:[self section:@"年假"]];
     double annualDays = MAX(0, [s[@"annualLeaveDays"] doubleValue]);
-    UILabel *annualValue = GSLabel([NSString stringWithFormat:@"%@ 天", GSNum(annualDays)], GSFont(15, UIFontWeightBold), GSThemeColor());
+    UILabel *annualValue = GSLabel([NSString stringWithFormat:@"%@ 天", GSNum(annualDays)], GSFont(16, UIFontWeightBold), GSThemeColor());
     annualValue.tag = 700; annualValue.textAlignment = NSTextAlignmentRight;
-    UILabel *annualTitle = GSLabel(@"年假额度", GSFont(14, UIFontWeightSemibold), GSColorHex(@"#101828"));
+    UILabel *annualTitle = GSLabel(@"年假额度", GSFont(14, UIFontWeightSemibold), GSTextPrimary());
     UIView *annualSp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIStackView *annualHead = GSStack(@[annualTitle, annualSp, annualValue], UILayoutConstraintAxisHorizontal, 8);
     UISlider *annualSlider = [[UISlider alloc] init];
@@ -319,7 +320,7 @@
     annualSlider.maximumTrackTintColor = GSColorHex(@"#D0D5DD");
     annualSlider.thumbTintColor = GSThemeColor();
     [annualSlider addTarget:self action:@selector(annualLeaveChanged:) forControlEvents:UIControlEventValueChanged];
-    UILabel *annualHint = GSLabel(@"年假每年会变，直接拖动调整；薪假按 8H/天从年假余额里扣。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *annualHint = GSLabel(@"年假每年会变，直接拖动调整；薪假按 8H/天从年假余额里扣。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     annualHint.numberOfLines = 0;
     UIStackView *annualStack = GSStack(@[annualHead, annualSlider, annualHint], UILayoutConstraintAxisVertical, 6);
     annualStack.translatesAutoresizingMaskIntoConstraints = NO;
@@ -355,8 +356,8 @@
     NSArray *titles = @[@"正班", @"加班", @"周末", @"节假", @"日结"];
     for (NSInteger i = 0; i < 5; i++) {
         UIView *row = [[UIView alloc] init];
-        UILabel *n = GSLabel(titles[i], GSFont(14, UIFontWeightRegular), GSColorHex(@"#101828"));
-        UILabel *v = GSLabel([NSString stringWithFormat:@"%@%@", GSNum([def[keys[i]] doubleValue]), i == 4 ? @"元" : @"H"], GSFont(13, UIFontWeightBold), GSThemeColor());
+        UILabel *n = GSLabel(titles[i], GSFont(14, UIFontWeightRegular), GSTextPrimary());
+        UILabel *v = GSLabel([NSString stringWithFormat:@"%@%@", GSNum([def[keys[i]] doubleValue]), i == 4 ? @"元" : @"H"], GSFont(14, UIFontWeightBold), GSThemeColor());
         v.tag = 300 + i;
         UIStepper *st = [[UIStepper alloc] init];
         st.minimumValue = 0; st.maximumValue = i == 4 ? 100000 : 24; st.stepValue = i == 4 ? 10 : 0.5;
@@ -393,9 +394,9 @@
     timePicker.tag = 108;
     timePicker.minuteInterval = 5;
     [timePicker addTarget:self action:@selector(reminderTimeChanged:) forControlEvents:UIControlEventValueChanged];
-    UILabel *reminderNote = GSLabel(@"关闭开关会取消本地通知；通知只在系统本地触发，不上传数据。请允许通知权限。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *reminderNote = GSLabel(@"关闭开关会取消本地通知；通知只在系统本地触发，不上传数据。请允许通知权限。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     reminderNote.numberOfLines = 0;
-    UILabel *timeTitle = GSLabel(@"提醒时间", GSFont(12, UIFontWeightMedium), GSColorHex(@"#344054"));
+    UILabel *timeTitle = GSLabel(@"提醒时间", GSFont(13, UIFontWeightMedium), GSTextStrong());
     UIStackView *reminderStack = GSStack(@[reminderSwitch, timeTitle, timePicker, reminderNote], UILayoutConstraintAxisVertical, 8);
     [self.stack addArrangedSubview:[self card:@[reminderStack]]];
 
@@ -404,21 +405,55 @@
     week.selectedSegmentIndex = [s[@"weekStart"] integerValue] == 0 ? 1 : 0;
     week.tag = 104; week.selectedSegmentTintColor = GSThemeColor();
     [week addTarget:self action:@selector(weekChanged:) forControlEvents:UIControlEventValueChanged];
-    UISegmentedControl *display = [[UISegmentedControl alloc] initWithItems:@[@"图标", @"文本", @"不显示"]];
-    display.tag = 106; display.selectedSegmentTintColor = GSThemeColor();
-    if ([s[@"classDisplay"] isEqual:@"text"]) display.selectedSegmentIndex = 1;
-    else if ([s[@"classDisplay"] isEqual:@"hide"]) display.selectedSegmentIndex = 2;
-    [display addTarget:self action:@selector(classDisplayChanged:) forControlEvents:UIControlEventValueChanged];
-    UILabel *displayLabel = GSLabel(@"班次标记", GSFont(11, UIFontWeightMedium), GSColorHex(@"#5D6B82"));
-    UILabel *displayNote = GSLabel(@"图标：太阳/月亮；文本：白班/夜班；不显示：只留日期。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    NSArray *displayTitles = @[@"图标", @"文本", @"不显示"];
+    NSInteger displayIndex = 0;
+    if ([s[@"classDisplay"] isEqual:@"text"]) displayIndex = 1;
+    else if ([s[@"classDisplay"] isEqual:@"hide"]) displayIndex = 2;
+    NSMutableArray *displayButtons = [NSMutableArray array];
+    for (NSInteger i = 0; i < 3; i++) {
+        UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
+        [b setTitle:displayTitles[i] forState:UIControlStateNormal];
+        b.tag = i;
+        b.titleLabel.font = GSFont(12, UIFontWeightSemibold);
+        [b setTitleColor:(i == displayIndex ? UIColor.whiteColor : GSTextSecondary()) forState:UIControlStateNormal];
+        b.backgroundColor = i == displayIndex ? GSThemeColor() : GSSurfaceMuted();
+        b.layer.cornerRadius = 9;
+        [b.heightAnchor constraintEqualToConstant:36].active = YES;
+        [b addTarget:self action:@selector(classDisplayTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [displayButtons addObject:b];
+    }
+    UIStackView *display = GSStack(displayButtons, UILayoutConstraintAxisHorizontal, 4);
+    display.distribution = UIStackViewDistributionFillEqually;
+    UILabel *displayLabel = GSLabel(@"班次标记", GSFont(12, UIFontWeightMedium), GSTextSecondary());
+    UILabel *displayNote = GSLabel(@"图标：太阳/月亮；文本：白班/夜班；不显示：只留日期。选中项会填主题色。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     displayNote.numberOfLines = 0;
     UIStackView *calOpts = GSStack(@[week, displayLabel, display, displayNote], UILayoutConstraintAxisVertical, 10);
     [self.stack addArrangedSubview:[self card:@[calOpts]]];
+    [self.stack addArrangedSubview:[self section:@"界面细节"]];
+    double cardRadius = [[GSStore shared].settings[@"cardRadius"] doubleValue];
+    cardRadius = MAX(8, MIN(30, cardRadius > 0 ? cardRadius : 20));
+    UILabel *cardRadiusTitle = GSLabel(@"卡片圆角", GSFont(14, UIFontWeightSemibold), GSTextPrimary());
+    UILabel *cardRadiusValue = GSLabel([NSString stringWithFormat:@"%.0f pt", cardRadius], GSFont(14, UIFontWeightSemibold), GSThemeColor());
+    cardRadiusValue.tag = 812; cardRadiusValue.textAlignment = NSTextAlignmentRight;
+    UIView *cardRadiusSp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
+    UIStackView *cardRadiusHead = GSStack(@[cardRadiusTitle, cardRadiusSp, cardRadiusValue], UILayoutConstraintAxisHorizontal, 8);
+    UISlider *cardRadiusSlider = [[UISlider alloc] init];
+    cardRadiusSlider.minimumValue = 8; cardRadiusSlider.maximumValue = 30; cardRadiusSlider.value = cardRadius; cardRadiusSlider.continuous = YES;
+    cardRadiusSlider.minimumTrackTintColor = GSThemeColor(); cardRadiusSlider.maximumTrackTintColor = GSColorHex(@"#D0D5DD"); cardRadiusSlider.thumbTintColor = GSThemeColor();
+    [cardRadiusSlider addTarget:self action:@selector(cardRadiusChanged:) forControlEvents:UIControlEventValueChanged];
+    UILabel *cardRadiusHint = GSLabel(@"影响所有白色卡片；拖动后立即生效。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
+    [self.stack addArrangedSubview:[self card:@[GSStack(@[cardRadiusHead, cardRadiusSlider, cardRadiusHint], UILayoutConstraintAxisVertical, 8)]]];
+    [self.stack addArrangedSubview:[self card:@[
+        [self switchRow:@"卡片阴影" sub:@"关闭后页面更扁平" key:@"cardShadow" tag:109],
+        [self switchRow:@"界面动画" sub:@"关闭后列表直接显示" key:@"animations" tag:110],
+        [self switchRow:@"日历农历" sub:@"关闭后日期下方更简洁" key:@"showLunar" tag:111]
+    ]]];
+
     NSMutableDictionary *st = [GSStore shared].settings;
     double radius = [st[@"headerRadius"] doubleValue];
     if (radius < 0) radius = 0; if (radius > 40) radius = 40;
-    UILabel *radiusTitle = GSLabel(@"顶部色块圆角", GSFont(14, UIFontWeightSemibold), GSColorHex(@"#101828"));
-    UILabel *radiusValue = GSLabel([NSString stringWithFormat:@"%.0f pt", radius], GSFont(13, UIFontWeightSemibold), GSThemeColor());
+    UILabel *radiusTitle = GSLabel(@"顶部色块圆角", GSFont(14, UIFontWeightSemibold), GSTextPrimary());
+    UILabel *radiusValue = GSLabel([NSString stringWithFormat:@"%.0f pt", radius], GSFont(14, UIFontWeightSemibold), GSThemeColor());
     radiusValue.tag = 810; radiusValue.textAlignment = NSTextAlignmentRight;
     UIView *radiusSp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIStackView *radiusHead = GSStack(@[radiusTitle, radiusSp, radiusValue], UILayoutConstraintAxisHorizontal, 8);
@@ -428,14 +463,30 @@
     radiusSlider.minimumTrackTintColor = GSThemeColor(); radiusSlider.maximumTrackTintColor = GSColorHex(@"#D0D5DD");
     radiusSlider.thumbTintColor = GSThemeColor();
     [radiusSlider addTarget:self action:@selector(headerRadiusChanged:) forControlEvents:UIControlEventValueChanged];
-    UILabel *radiusHint = GSLabel(@"只影响顶部颜色块的下方两个角；0 为直角。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *radiusHint = GSLabel(@"只影响顶部颜色块的下方两个角；0 为直角。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     radiusHint.numberOfLines = 0;
     [self.stack addArrangedSubview:[self card:@[GSStack(@[radiusHead, radiusSlider, radiusHint], UILayoutConstraintAxisVertical, 8)]]];
     [self.stack addArrangedSubview:[self card:@[
         [self row:@"主题色彩" value:GSThemeNameValue() action:@selector(chooseTheme)],
-        [self row:@"关于" value:@"工时记录 2.9.1" action:nil]
+        [self row:@"关于" value:@"工时记录 3.1.1" action:nil]
     ]]];
     [self.stack addArrangedSubview:[self section:@"数据只存在本机；登录、VIP、广告、云同步不包含"]];
+}
+- (void)cardRadiusChanged:(UISlider *)slider {
+    double v = round(slider.value);
+    slider.value = v;
+    [GSStore shared].settings[@"cardRadius"] = @(v);
+    [[GSStore shared] save];
+    UILabel *value = (UILabel *)[self.stack viewWithTag:812];
+    if (value) value.text = [NSString stringWithFormat:@"%.0f pt", v];
+    [[NSNotificationCenter defaultCenter] postNotificationName:GSUIConfigDidChangeNotification object:nil];
+}
+- (void)uiSwitchChanged:(UISwitch *)sw {
+    NSString *key = sw.tag == 109 ? @"cardShadow" : (sw.tag == 110 ? @"animations" : @"showLunar");
+    [GSStore shared].settings[key] = @(sw.on);
+    [[GSStore shared] save];
+    [[NSNotificationCenter defaultCenter] postNotificationName:GSUIConfigDidChangeNotification object:nil];
+    GSToast(sw.on ? @"已开启" : @"已关闭");
 }
 - (void)headerRadiusChanged:(UISlider *)slider {
     double v = round(slider.value);
@@ -485,10 +536,12 @@
     [GSStore shared].settings[@"recordMode"] = s.selectedSegmentIndex == 0 ? @"hour" : @"time";
     [[GSStore shared] save];
 }
-- (void)classDisplayChanged:(UISegmentedControl *)s {
+- (void)classDisplayTapped:(UIButton *)b {
     NSArray *v = @[@"icon", @"text", @"hide"];
-    [GSStore shared].settings[@"classDisplay"] = v[s.selectedSegmentIndex];
+    if (b.tag < 0 || b.tag >= (NSInteger)v.count) return;
+    [GSStore shared].settings[@"classDisplay"] = v[b.tag];
     [[GSStore shared] save];
+    [self reload];
     GSToast(@"日历班次标记已更新");
 }
 - (void)allowanceChanged:(UITextField *)tf {
@@ -503,6 +556,7 @@
     if (removed > 0) GSToast([NSString stringWithFormat:@"已关闭%@，并清除 %ld 条自动补助", name, (long)removed]);
 }
 - (void)switchChanged:(UISwitch *)sw {
+    if (sw.tag >= 109 && sw.tag <= 111) { [self uiSwitchChanged:sw]; return; }
     NSString *key = sw.tag == 100 ? @"nightMode" : (sw.tag == 107 ? @"reminderEnabled" : @"autoBonus");
     [GSStore shared].settings[key] = @(sw.on);
     [[GSStore shared] save];
@@ -546,10 +600,10 @@
     for (NSInteger i = 0; i < (NSInteger)projects.count; i++) {
         NSDictionary *p = projects[i];
         GSCardView *card = [[GSCardView alloc] init];
-        UILabel *name = GSLabel(p[@"name"], GSFont(15, UIFontWeightBold), GSColorHex(@"#101828"));
-        UILabel *base = GSLabel([NSString stringWithFormat:@"底薪 ¥%@", GSNum([p[@"base"] doubleValue])], GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+        UILabel *name = GSLabel(p[@"name"], GSFont(16, UIFontWeightBold), GSTextPrimary());
+        UILabel *base = GSLabel([NSString stringWithFormat:@"底薪 ¥%@", GSNum([p[@"base"] doubleValue])], GSFont(11, UIFontWeightRegular), GSTextSecondary());
         UIButton *edit = [UIButton buttonWithType:UIButtonTypeSystem];
-        [edit setTitle:@"编辑" forState:UIControlStateNormal]; edit.titleLabel.font = GSFont(12, UIFontWeightSemibold); edit.tag = i;
+        [edit setTitle:@"编辑" forState:UIControlStateNormal]; edit.titleLabel.font = GSFont(13, UIFontWeightSemibold); edit.tag = i;
         [edit setTitleColor:GSThemeColor() forState:UIControlStateNormal];
         edit.backgroundColor = GSThemeSoftColor(); edit.layer.cornerRadius = 10;
         [edit.widthAnchor constraintEqualToConstant:52].active = YES;
@@ -559,10 +613,10 @@
         UIStackView *head = GSStack(@[name, base, sp, edit], UILayoutConstraintAxisHorizontal, 8);
         head.alignment = UIStackViewAlignmentCenter;
         NSDictionary *rates = p[@"rates"];
-        UILabel *r1 = GSLabel([NSString stringWithFormat:@"正班 ¥%@/h", GSNum([rates[@"zb"] doubleValue])], GSFont(11, UIFontWeightRegular), GSColorHex(@"#667085"));
-        UILabel *r2 = GSLabel([NSString stringWithFormat:@"加班 ¥%@/h", GSNum([rates[@"jb"] doubleValue])], GSFont(11, UIFontWeightRegular), GSColorHex(@"#667085"));
-        UILabel *r3 = GSLabel([NSString stringWithFormat:@"周末 ¥%@/h", GSNum([rates[@"zm"] doubleValue])], GSFont(11, UIFontWeightRegular), GSColorHex(@"#667085"));
-        UILabel *r4 = GSLabel([NSString stringWithFormat:@"节假 ¥%@/h", GSNum([rates[@"jj"] doubleValue])], GSFont(11, UIFontWeightRegular), GSColorHex(@"#667085"));
+        UILabel *r1 = GSLabel([NSString stringWithFormat:@"正班 ¥%@/h", GSNum([rates[@"zb"] doubleValue])], GSFont(12, UIFontWeightRegular), GSTextSecondary());
+        UILabel *r2 = GSLabel([NSString stringWithFormat:@"加班 ¥%@/h", GSNum([rates[@"jb"] doubleValue])], GSFont(12, UIFontWeightRegular), GSTextSecondary());
+        UILabel *r3 = GSLabel([NSString stringWithFormat:@"周末 ¥%@/h", GSNum([rates[@"zm"] doubleValue])], GSFont(12, UIFontWeightRegular), GSTextSecondary());
+        UILabel *r4 = GSLabel([NSString stringWithFormat:@"节假 ¥%@/h", GSNum([rates[@"jj"] doubleValue])], GSFont(12, UIFontWeightRegular), GSTextSecondary());
         UIStackView *row1 = GSStack(@[r1, r2], UILayoutConstraintAxisHorizontal, 8); row1.distribution = UIStackViewDistributionFillEqually;
         UIStackView *row2 = GSStack(@[r3, r4], UILayoutConstraintAxisHorizontal, 8); row2.distribution = UIStackViewDistributionFillEqually;
         NSMutableArray *views = [NSMutableArray arrayWithObjects:head, row1, row2, nil];
@@ -570,8 +624,8 @@
             UIButton *use = [UIButton buttonWithType:UIButtonTypeSystem];
             BOOL on = [current isEqual:p[@"id"]];
             [use setTitle:on ? @"当前项目" : @"设为当前" forState:UIControlStateNormal];
-            use.titleLabel.font = GSFont(12, UIFontWeightSemibold); use.tag = i;
-            use.backgroundColor = on ? GSThemeSoftColor() : GSColorHex(@"#F5F7FA");
+            use.titleLabel.font = GSFont(13, UIFontWeightSemibold); use.tag = i;
+            use.backgroundColor = on ? GSThemeSoftColor() : GSSurfaceMuted();
             [use setTitleColor:GSThemeColor() forState:UIControlStateNormal];
             use.layer.cornerRadius = 12; [use.heightAnchor constraintEqualToConstant:34].active = YES;
             if (!on) [use addTarget:self action:@selector(setProject:) forControlEvents:UIControlEventTouchUpInside];
@@ -594,27 +648,63 @@
 }
 - (void)buildClasses {
     NSArray *classes = [[GSStore shared] classes];
+    NSString *current = [GSStore shared].settings[@"currentClass"] ?: @"";
+    NSDate *now = [NSDate date];
+    NSCalendar *cal = [NSCalendar calendarWithIdentifier:NSCalendarIdentifierGregorian];
+    NSInteger year = [cal component:NSCalendarUnitYear fromDate:now];
+    NSInteger month = [cal component:NSCalendarUnitMonth fromDate:now];
+    NSInteger dim = GSDaysInMonth(year, month);
     for (NSInteger i = 0; i < (NSInteger)classes.count; i++) {
         NSDictionary *c = classes[i];
+        NSDictionary *def = [[GSStore shared] defaultWorkForClass:c[@"id"]];
+        NSInteger planned = 0, recorded = 0;
+        for (NSInteger day = 1; day <= dim; day++) {
+            NSString *key = [NSString stringWithFormat:@"%04ld-%02ld-%02ld", (long)year, (long)month, (long)day];
+            NSString *plan = [[GSStore shared] planForDate:key];
+            if ([plan isEqual:c[@"id"]]) planned++;
+            NSDictionary *r = [[GSStore shared] recordForDate:key];
+            if ([r[@"classId"] isEqual:c[@"id"]]) recorded++;
+        }
+        BOOL isDefault = [current isEqual:c[@"id"]];
         GSCardView *card = [[GSCardView alloc] init];
         UIView *dot = [[UIView alloc] init];
         dot.backgroundColor = GSColorHex(c[@"color"]); dot.layer.cornerRadius = 6;
         dot.translatesAutoresizingMaskIntoConstraints = NO;
-        UILabel *name = GSLabel(c[@"name"], GSFont(15, UIFontWeightBold), GSColorHex(@"#101828"));
+        UILabel *name = GSLabel(c[@"name"], GSFont(16, UIFontWeightBold), GSTextPrimary());
         UIButton *edit = [UIButton buttonWithType:UIButtonTypeSystem];
-        [edit setTitle:@"编辑" forState:UIControlStateNormal]; edit.titleLabel.font = GSFont(12, UIFontWeightSemibold); edit.tag = i;
+        [edit setTitle:@"编辑" forState:UIControlStateNormal]; edit.titleLabel.font = GSFont(13, UIFontWeightSemibold); edit.tag = i;
         [edit setTitleColor:GSThemeColor() forState:UIControlStateNormal];
         edit.backgroundColor = GSThemeSoftColor(); edit.layer.cornerRadius = 10;
-        [edit.widthAnchor constraintEqualToConstant:52].active = YES;
+        [edit.widthAnchor constraintEqualToConstant:48].active = YES;
         [edit.heightAnchor constraintEqualToConstant:30].active = YES;
         [edit addTarget:self action:@selector(editClass:) forControlEvents:UIControlEventTouchUpInside];
         UIView *sp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
-        UIStackView *row = GSStack(@[dot, name, sp, edit], UILayoutConstraintAxisHorizontal, 10);
-        row.alignment = UIStackViewAlignmentCenter;
-        row.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:row];
+        UIStackView *head = GSStack(@[dot, name, sp, edit], UILayoutConstraintAxisHorizontal, 10);
+        head.alignment = UIStackViewAlignmentCenter;
+        UILabel *defaults = GSLabel([NSString stringWithFormat:@"默认 正班 %@H · 加班 %@H · 周末 %@H · 节假 %@H", GSNum([def[@"zb"] doubleValue]), GSNum([def[@"jb"] doubleValue]), GSNum([def[@"zm"] doubleValue]), GSNum([def[@"jj"] doubleValue])], GSFont(11, UIFontWeightRegular), GSTextSecondary());
+        defaults.numberOfLines = 0;
+        UILabel *usage = GSLabel([NSString stringWithFormat:@"本月排班 %ld 天 · 记录 %ld 天%@", (long)planned, (long)recorded, isDefault ? @" · 当前默认" : @""], GSFont(11, UIFontWeightRegular), isDefault ? GSThemeColor() : GSTextTertiary());
+        UIButton *use = [UIButton buttonWithType:UIButtonTypeCustom];
+        [use setTitle:isDefault ? @"当前默认" : @"设为默认" forState:UIControlStateNormal];
+        use.titleLabel.font = GSFont(12, UIFontWeightSemibold);
+        [use setTitleColor:(isDefault ? GSTextTertiary() : GSThemeColor()) forState:UIControlStateNormal];
+        use.backgroundColor = isDefault ? GSSurfaceMuted() : GSThemeSoftColor();
+        use.layer.cornerRadius = 10; use.tag = i; use.enabled = !isDefault;
+        [use.heightAnchor constraintEqualToConstant:32].active = YES;
+        [use addTarget:self action:@selector(setDefaultClass:) forControlEvents:UIControlEventTouchUpInside];
+        UIButton *hours = [UIButton buttonWithType:UIButtonTypeCustom];
+        [hours setTitle:@"调默认工时" forState:UIControlStateNormal]; hours.titleLabel.font = GSFont(12, UIFontWeightSemibold);
+        [hours setTitleColor:GSTextSecondary() forState:UIControlStateNormal];
+        hours.backgroundColor = GSSurfaceMuted(); hours.layer.cornerRadius = 10; hours.tag = i;
+        [hours.heightAnchor constraintEqualToConstant:32].active = YES;
+        [hours addTarget:self action:@selector(editClassDefaults:) forControlEvents:UIControlEventTouchUpInside];
+        UIStackView *actions = GSStack(@[use, hours], UILayoutConstraintAxisHorizontal, 8);
+        actions.distribution = UIStackViewDistributionFillEqually;
+        UIStackView *v = GSStack(@[head, defaults, usage, actions], UILayoutConstraintAxisVertical, 9);
+        v.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:v];
         [NSLayoutConstraint activateConstraints:@[
-            [row.topAnchor constraintEqualToAnchor:card.topAnchor constant:16], [row.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
-            [row.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16], [row.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-16],
+            [v.topAnchor constraintEqualToAnchor:card.topAnchor constant:16], [v.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
+            [v.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16], [v.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-16],
             [dot.widthAnchor constraintEqualToConstant:12], [dot.heightAnchor constraintEqualToConstant:12]
         ]];
         [self.stack addArrangedSubview:card];
@@ -627,19 +717,35 @@
     [add addTarget:self action:@selector(addClass) forControlEvents:UIControlEventTouchUpInside];
     [self.stack addArrangedSubview:add];
 }
+- (void)setDefaultClass:(UIButton *)b {
+    NSArray *classes = [[GSStore shared] classes];
+    if (b.tag < 0 || b.tag >= (NSInteger)classes.count) return;
+    [GSStore shared].settings[@"currentClass"] = classes[b.tag][@"id"];
+    [[GSStore shared] save];
+    [self reload];
+    GSToast(@"已设为默认班次");
+}
+- (void)editClassDefaults:(UIButton *)b {
+    NSArray *classes = [[GSStore shared] classes];
+    if (b.tag < 0 || b.tag >= (NSInteger)classes.count) return;
+    [GSStore shared].settings[@"currentClass"] = classes[b.tag][@"id"];
+    [[GSStore shared] save];
+    [self.navigationController pushViewController:[[GSSettingsViewController alloc] initWithPage:@"record"] animated:YES];
+}
+
 - (void)buildPeriod {
     NSMutableDictionary *s = [GSStore shared].settings;
     NSArray *periods = s[@"customPeriods"] ?: @[];
     NSMutableArray *rows = [NSMutableArray array];
     if (periods.count == 0) {
-        [rows addObject:GSLabel(@"还没有自定义周期，默认按 26 号 - 下月 25 号", GSFont(12, UIFontWeightRegular), GSColorHex(@"#5D6B82"))];
+        [rows addObject:GSLabel(@"还没有自定义周期，默认按 26 号 - 下月 25 号", GSFont(13, UIFontWeightRegular), GSTextSecondary())];
     }
     for (NSInteger i = 0; i < (NSInteger)periods.count; i++) {
         NSDictionary *p = periods[i];
-        UILabel *l = GSLabel([NSString stringWithFormat:@"%@ → %@", p[@"start"], p[@"end"]], GSFont(13, UIFontWeightMedium), GSColorHex(@"#101828"));
+        UILabel *l = GSLabel([NSString stringWithFormat:@"%@ → %@", p[@"start"], p[@"end"]], GSFont(14, UIFontWeightMedium), GSTextPrimary());
         UIButton *del = [UIButton buttonWithType:UIButtonTypeSystem];
-        [del setTitle:@"删除" forState:UIControlStateNormal]; [del setTitleColor:GSColorHex(@"#B42318") forState:UIControlStateNormal];
-        del.titleLabel.font = GSFont(12, UIFontWeightSemibold); del.tag = i;
+        [del setTitle:@"删除" forState:UIControlStateNormal]; [del setTitleColor:GSDangerColor() forState:UIControlStateNormal];
+        del.titleLabel.font = GSFont(13, UIFontWeightSemibold); del.tag = i;
         [del addTarget:self action:@selector(deletePeriod:) forControlEvents:UIControlEventTouchUpInside];
         UIView *sp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
         UIStackView *row = GSStack(@[l, sp, del], UILayoutConstraintAxisHorizontal, 8);
@@ -657,8 +763,8 @@
     end.datePickerMode = UIDatePickerModeDate; end.preferredDatePickerStyle = UIDatePickerStyleCompact;
     end.date = self.periodEnd; end.tag = 402;
     [end addTarget:self action:@selector(periodDateChanged:) forControlEvents:UIControlEventValueChanged];
-    UILabel *sl = GSLabel(@"开始", GSFont(12, UIFontWeightMedium), GSColorHex(@"#667085"));
-    UILabel *el = GSLabel(@"结束", GSFont(12, UIFontWeightMedium), GSColorHex(@"#667085"));
+    UILabel *sl = GSLabel(@"开始", GSFont(13, UIFontWeightMedium), GSTextSecondary());
+    UILabel *el = GSLabel(@"结束", GSFont(13, UIFontWeightMedium), GSTextSecondary());
     UIView *sr = [[UIView alloc] init];
     [sr addSubview:sl]; [sr addSubview:start];
     sl.translatesAutoresizingMaskIntoConstraints = NO; start.translatesAutoresizingMaskIntoConstraints = NO;
@@ -682,7 +788,7 @@
     add.backgroundColor = GSThemeColor(); [add setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
     add.layer.cornerRadius = 10; [add.heightAnchor constraintEqualToConstant:42].active = YES;
     [add addTarget:self action:@selector(addPeriod) forControlEvents:UIControlEventTouchUpInside];
-    UIStackView *form = GSStack(@[GSLabel(@"新增一段", GSFont(12, UIFontWeightMedium), GSColorHex(@"#5D6B82")), sr, er, add], UILayoutConstraintAxisVertical, 10);
+    UIStackView *form = GSStack(@[GSLabel(@"新增一段", GSFont(13, UIFontWeightMedium), GSTextSecondary()), sr, er, add], UILayoutConstraintAxisVertical, 10);
     [self.stack addArrangedSubview:[self card:@[form]]];
     [self.stack addArrangedSubview:[self section:@"命中自定义周期时优先用它的起止日；没命中再按默认周期"]];
 }
