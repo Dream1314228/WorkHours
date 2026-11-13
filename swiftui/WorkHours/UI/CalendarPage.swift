@@ -41,10 +41,12 @@ struct CalendarPage: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
-                .padding(.bottom, 110)
+                .padding(.bottom, 130)
             }
             .scrollIndicators(.hidden)
         }
+        .safeAreaInset(edge: .bottom) { bottomBar }
+        .task { await autoFetchHoliday() }
         .sheet(isPresented: $showEditor) {
             DayEditor(date: editorDate, palette: palette)
                 .environmentObject(store)
@@ -136,6 +138,15 @@ struct CalendarPage: View {
                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
         .buttonStyle(PressableStyle())
+    }
+
+    /// 每年第一次打开自动补当年的节假日，失败就静默跳过。
+    private func autoFetchHoliday() async {
+        let y = Cal.year(Cal.todayKey())
+        guard !HolidayData.shared.customYears.contains(String(y)) else { return }
+        guard let year = try? await HolidayRemote.fetch(year: y) else { return }
+        guard let payload = try? JSONEncoder().encode([String(y): year]) else { return }
+        try? HolidayData.shared.importJSON(payload)
     }
 
     private func moveMonth(_ delta: Int) {
@@ -404,28 +415,41 @@ struct CalendarPage: View {
                 .foregroundStyle(Color.gsOrange)
         }
 
+    }
+
+    private var bottomBar: some View {
         HStack(spacing: 10) {
             Button {
                 editorDate = selected
                 showEditor = true
             } label: {
-                Text("编辑记录")
+                Label(selectedRecord == nil ? "记一笔 · \(Cal.shortDate(selected))" : "编辑这天",
+                      systemImage: selectedRecord == nil ? "plus" : "pencil")
             }
-            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 46))
+            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
 
-            Button {
-                confirmDelete = true
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Color.gsRed)
-                    .frame(width: 52, height: 46)
-                    .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.ink.opacity(0.05)))
-                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+            if selectedRecord != nil {
+                Button {
+                    confirmDelete = true
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.gsRed)
+                        .frame(width: 52, height: 48)
+                        .background(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Ledger.ink.opacity(0.05)))
+                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(Ledger.rule, lineWidth: 0.8))
+                }
+                .buttonStyle(PressableStyle())
             }
-            .buttonStyle(PressableStyle())
         }
-        .padding(.top, 2)
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background {
+            Ledger.paper.overlay(alignment: .top) { LedgerRule() }
+        }
     }
 
     private var noRecordDetail: some View {
@@ -439,13 +463,6 @@ struct CalendarPage: View {
                     .foregroundStyle(Color.gsSecondary)
                 Spacer()
             }
-            Button {
-                editorDate = selected
-                showEditor = true
-            } label: {
-                Label("记一笔", systemImage: "plus")
-            }
-            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
         }
     }
 

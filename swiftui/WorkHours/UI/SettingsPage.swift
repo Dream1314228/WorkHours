@@ -20,6 +20,7 @@ struct SettingsPage: View {
     @State private var bonusMoney = 0.0
     @State private var importMode = "backup"
     @State private var holidayYears: [Int] = HolidayData.shared.coveredYears
+    @State private var refreshingHolidays = false
 
     private var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -234,17 +235,37 @@ struct SettingsPage: View {
         VStack(alignment: .leading, spacing: 10) {
             SectionTitle(title: "节假日表",
                          subtitle: holidayYears.map { String($0) }.joined(separator: " / "))
-            Text("内置 2025、2026 的放假与调休。新的一年把 JSON 导进来就覆盖，不用改代码。")
+            Text("内置 2025、2026。点「联网更新」自动拉当年的放假和调休（holiday-cn，国务院公告镜像），也可以导入 JSON。")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.gsSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
                 Button {
+                    refreshHolidaysOnline()
+                } label: {
+                    HStack(spacing: 5) {
+                        if refreshingHolidays {
+                            ProgressView().controlSize(.mini)
+                        }
+                        Text(refreshingHolidays ? "更新中" : "联网更新")
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.primary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 36)
+                    .glassCapsule()
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressableStyle())
+                .disabled(refreshingHolidays)
+
+                Button {
                     importMode = "holiday"
                     showImporter = true
                 } label: {
-                    Text("导入节假日 JSON")
+                    Text("导入 JSON")
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.primary)
                         .frame(maxWidth: .infinity)
@@ -262,9 +283,9 @@ struct SettingsPage: View {
                         ToastCenter.shared.show("已恢复内置表")
                     } label: {
                         Text("恢复内置")
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color.primary)
-                            .frame(width: 96)
+                            .frame(width: 78)
                             .frame(height: 36)
                             .glassCapsule()
                             .padding(.vertical, 4)
@@ -801,6 +822,33 @@ struct SettingsPage: View {
             ToastCenter.shared.show("已生成，点下面分享")
         } catch {
             ToastCenter.shared.show("写入文件失败")
+        }
+    }
+
+    private func refreshHolidaysOnline() {
+        guard !refreshingHolidays else { return }
+        refreshingHolidays = true
+        let base = Cal.year(Cal.todayKey())
+        Task { @MainActor in
+            var got: [Int] = []
+            var lastError: String?
+            for y in [base, base + 1] {
+                do {
+                    let year = try await HolidayRemote.fetch(year: y)
+                    let payload = try JSONEncoder().encode([String(y): year])
+                    try HolidayData.shared.importJSON(payload)
+                    got.append(y)
+                } catch {
+                    lastError = error.localizedDescription
+                }
+            }
+            refreshingHolidays = false
+            holidayYears = HolidayData.shared.coveredYears
+            if got.isEmpty {
+                ToastCenter.shared.show("没取到节假日：\(lastError ?? "网络不通")")
+            } else {
+                ToastCenter.shared.show("已更新 " + got.map(String.init).joined(separator: "、") + " 年")
+            }
         }
     }
 

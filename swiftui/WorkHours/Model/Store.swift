@@ -366,6 +366,14 @@ final class Store: ObservableObject {
 
     // MARK: 批量
 
+    /// 只排班：只写班次，不生成工时记录。
+    func setPlanBatch(dates: [String], classId: String, skipWeekend: Bool) {
+        for key in dates {
+            if skipWeekend && Cal.isWeekend(key) { continue }
+            data.plans[key] = classId
+        }
+    }
+
     /// 给一组日期统一设班次与工时；skipWeekend 跳过周末。
     func batchApply(dates: [String], classId: String, normal: Double, overtime: Double,
                     projectId: String, skipWeekend: Bool) {
@@ -474,8 +482,8 @@ final class Store: ObservableObject {
         guard let any = try? JSONSerialization.jsonObject(with: raw),
               let obj = any as? [String: Any] else { throw ImportError.badFile }
 
-        if (obj["format"] as? String) == "gsjilu-backup",
-           let days = obj["days"] as? [[String: Any]] {
+        if let days = obj["days"] as? [[String: Any]],
+           (obj["format"] as? String) == "gsjilu-backup" || obj["format"] == nil {
             var imported = AppData()
             if let v = obj["settings"] {
                 imported.settings = decodeValue(v, as: Settings.self) ?? Settings()
@@ -527,9 +535,51 @@ final class Store: ObservableObject {
             return
         }
 
-        if obj["records"] != nil {
-            let d = try JSONDecoder().decode(AppData.self, from: raw)
-            data = d
+        if let recObj = obj["records"] {
+            if let d = try? JSONDecoder().decode(AppData.self, from: raw) {
+                data = d
+                saveNow()
+                return
+            }
+            // 旧版整库 JSON：字段名可能对不上，按宽松方式逐条读
+            var imported = AppData()
+            if let v = obj["settings"] { imported.settings = decodeValue(v, as: Settings.self) ?? Settings() }
+            if let v = obj["projects"], let list = decodeValue(v, as: [Project].self), !list.isEmpty {
+                imported.projects = list
+            }
+            if let v = obj["classes"], let list = decodeValue(v, as: [ShiftClass].self), !list.isEmpty {
+                imported.classes = list
+            }
+            if let v = obj["plans"] as? [String: String] { imported.plans = v }
+            if let v = obj["bonuses"] { imported.bonuses = decodeValue(v, as: [String: [BonusItem]].self) ?? [:] }
+            if let v = obj["deductions"] { imported.deductions = decodeValue(v, as: [String: [BonusItem]].self) ?? [:] }
+
+            var records: [String: DayRecord] = [:]
+            if let dict = recObj as? [String: [String: Any]] {
+                for (key, item) in dict where key.count == 10 {
+                    var r = DayRecord()
+                    r.classId = (item["c"] as? String) ?? (item["classId"] as? String) ?? imported.settings.currentClass
+                    r.projectId = (item["p"] as? String) ?? (item["projectId"] as? String) ?? imported.settings.projectId
+                    r.type = (item["t"] as? String) ?? (item["type"] as? String) ?? Cal.dayKind(key)
+                    if let w = item["w"] as? [Any], w.count >= 4 {
+                        r.work = WorkHours(zb: doubleOf(w[0]), jb: doubleOf(w[1]),
+                                           zm: doubleOf(w[2]), jj: doubleOf(w[3]))
+                    } else {
+                        r.work = WorkHours(zb: doubleOf(item["zb"]), jb: doubleOf(item["jb"]),
+                                           zm: doubleOf(item["zm"]), jj: doubleOf(item["jj"]))
+                    }
+                    r.settle = doubleOf(item["s"])
+                    if let b = item["bt"] { r.bt = decodeValue(b, as: [BonusItem].self) ?? [] }
+                    if let l = item["leave"] { r.leave = decodeValue(l, as: LeaveInfo.self) }
+                    r.note = (item["n"] as? String) ?? (item["note"] as? String) ?? ""
+                    records[key] = r
+                }
+            }
+            guard !records.isEmpty else { throw ImportError.badFile }
+            imported.records = records
+            if imported.projects.isEmpty { imported.projects = AppData().projects }
+            if imported.classes.isEmpty { imported.classes = AppData().classes }
+            data = imported
             saveNow()
             return
         }
