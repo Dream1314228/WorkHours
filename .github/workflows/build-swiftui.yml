@@ -3,7 +3,10 @@ name: Build SwiftUI IPA
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    # cursor/swiftui-ios26-1.0.0 is included because the GitHub App
+    # token can push but cannot call workflow_dispatch (actions=write).
+    # main stays listed so the original path filter still applies there.
+    branches: [main, cursor/swiftui-ios26-1.0.0]
     paths:
       - "swiftui/**"
       - ".github/workflows/build-swiftui.yml"
