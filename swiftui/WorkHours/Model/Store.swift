@@ -811,6 +811,10 @@ final class Store: ObservableObject {
         .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(238px,1fr)); gap:12px; }
         footer { margin-top:30px; padding-top:14px; border-top:1px solid var(--line);
                  color:var(--ink3); font-size:11px; line-height:1.7; }
+        @media (max-width: 420px) {
+          th, td { padding: 7px 8px; }
+          .bar { grid-template-columns: 38px 1fr 64px; }
+        }
         @media print {
           :root { --bg:#fff; --paper:#fff; --line:#d8d4ca; --ink:#000; --ink2:#333;
                   --ink3:#555; --zebra:#f4f2ec; --accent:#1f3a6e; --orange:#8a4a09;

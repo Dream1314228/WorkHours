@@ -431,14 +431,17 @@ struct DayBarChart: View {
                         ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
                             let rec = row.1
                             let total = max(0, rec.work.total)
-                            let h = usable * CGFloat(total / peak) * progress
+                            let showPeak = idx == peakIdx && total > 0 && n <= 24
+                            let avail = showPeak ? usable - 12 : usable
+                            let h = avail * CGFloat(total / peak) * progress
                             let ot = rec.work.jb + rec.work.zm + rec.work.jj
                             let otH = total > 0 ? h * CGFloat(ot / total) : 0
                             let zbH = max(0, h - otH)
                             let isToday = row.0 == today
-                            let showPeak = idx == peakIdx && total > 0 && n <= 24
 
                             VStack(spacing: 1) {
+                                Spacer(minLength: 0)
+
                                 if showPeak {
                                     Text(Cal.num(total))
                                         .font(.system(size: 9, weight: .semibold))
@@ -474,8 +477,6 @@ struct DayBarChart: View {
                                             .frame(width: barW, height: 1.5)
                                     }
                                 }
-
-                                Spacer(minLength: 0)
                             }
                             .frame(width: colW, height: usable, alignment: .bottom)
                             .animation(store.chartMotion
