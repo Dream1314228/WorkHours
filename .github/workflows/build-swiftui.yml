@@ -3,7 +3,7 @@ name: Build SwiftUI IPA
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, cursor/swiftui-ios26-1.0.0-holiday-remote]
     paths:
       - "swiftui/**"
       - ".github/workflows/build-swiftui.yml"

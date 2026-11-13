@@ -44,6 +44,7 @@ extension Color {
             ? UIColor(red: 1.00, green: 0.48, blue: 0.45, alpha: 1)
             : UIColor(red: 0.70, green: 0.14, blue: 0.09, alpha: 1)
     })
+    static var gsSecondary: Color { Ledger.inkSoft }
 }
 
 // MARK: - 主题
