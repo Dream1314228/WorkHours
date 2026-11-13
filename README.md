@@ -4,12 +4,12 @@
 
 作者 / 维护：**Dream.or** · MIT 协议 · 数据只存在本机，不联网、不要账号。
 
-仓库里是同一款 App 的两套原生实现，功能对齐，界面各自做过：
+仓库里是同一款 App 的两套原生实现：**功能对齐，UI 是两套完全不同的设计**。不是同一套界面换个框架重写一遍——布局、配色、组件形态、转场动效都各自从头设计，连页面怎么组织都不一样：UIKit 版是经典 TabBar + 卡片列表，SwiftUI 版用液态玻璃、跟手翻月、环形构成图和一整套新的设置页结构。两套代码看起来像两个 App，这是故意的。
 
-| 版本 | 语言 | 最低系统 | 成品包 | 源码 |
-|---|---|---|---|---|
-| UIKit 版 | Objective-C + UIKit | iOS 15 | `releases/WorkHours-uikit-3.1.1-unsigned.ipa` | `uikit/` |
-| SwiftUI 版 | Swift + SwiftUI | iOS 26 | `releases/WorkHours-swiftui-1.0.0-unsigned.ipa` | `swiftui/` |
+| 版本 | 语言 | 最低系统 | UI 设计 | 成品包 | 源码 |
+|---|---|---|---|---|---|
+| UIKit 版 | Objective-C + UIKit | iOS 15 | 经典原生风：TabBar、卡片列表、手写毛玻璃 | `releases/WorkHours-uikit-3.1.1-unsigned.ipa` | `uikit/` |
+| SwiftUI 版 | Swift + SwiftUI | iOS 26 | 重做：液态玻璃、动态效果、图表页全新版式 | `releases/WorkHours-swiftui-1.0.0-unsigned.ipa` | `swiftui/` |
 
 两个包都是**未签名 IPA**，装到手机上要自己用 AltStore / Sideloadly / 证书重签。
 
@@ -77,7 +77,7 @@ cd swiftui && xcodegen generate && xcodebuild -project WorkHours.xcodeproj \
 
 ## 更新记录
 
-- **SwiftUI 1.0.0**（2026-11-13）：从 UIKit 版重写；动态效果开关、柱状图与 HTML 报表重做、雷达图与年度热力图、日历跟手翻月
+- **SwiftUI 1.0.0**（2026-11-13）：按全新设计做的一版，界面与 UIKit 版不共用同一套布局；动态效果开关、柱状图与 HTML 报表重做、雷达图与年度热力图、日历跟手翻月
 - **UIKit 3.1.1**（2026-11-11）：备份兼容老版、统计按考勤期聚合、账单卡可折叠
 - **UIKit 3.0.0**（2026-11-06）：首个开源版本
 
