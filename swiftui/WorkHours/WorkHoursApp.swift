@@ -20,13 +20,13 @@ struct RootView: View {
     var body: some View {
         TabView {
             CalendarPage(palette: palette)
-                .tabItem { Label("日历", systemImage: "calendar") }
+                .tabItem { Label("记录", systemImage: "calendar") }
                 .tag(0)
-            ShiftPage(palette: palette)
-                .tabItem { Label("排班", systemImage: "square.grid.3x3.fill") }
-                .tag(1)
             StatsPage(palette: palette)
                 .tabItem { Label("统计", systemImage: "chart.bar.xaxis") }
+                .tag(1)
+            ShiftPage(palette: palette)
+                .tabItem { Label("排班", systemImage: "square.grid.3x3.fill") }
                 .tag(2)
             SettingsPage(palette: palette)
                 .tabItem { Label("我的", systemImage: "person.crop.circle") }

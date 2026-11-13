@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct StatsPage: View {
     var palette: Palette
@@ -184,7 +185,21 @@ struct StatsPage: View {
 
     private var monthDetailCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "月度明细", subtitle: "\(Cal.num(monthStats.days)) 天")
+            HStack {
+                Text("月度明细")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    UIPasteboard.general.string = shareText
+                    ToastCenter.shared.show("报表已复制")
+                } label: {
+                    Label("复制报表", systemImage: "doc.on.doc")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(palette.primary)
+                }
+                .buttonStyle(PressableStyle())
+            }
             let rows = store.records(in: year, month: month)
             if rows.isEmpty {
                 EmptyHint(text: "这个月还没有记录")

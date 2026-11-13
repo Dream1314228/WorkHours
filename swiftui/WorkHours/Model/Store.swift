@@ -162,7 +162,10 @@ final class Store: ObservableObject {
         guard let name = allowanceName(forClass: rec.classId) else { return }
         let night = name == "夜班补助"
         let amount = night ? data.settings.nightAllowance : data.settings.dayAllowance
-        if amount <= 0 { return }
+        if amount <= 0 {
+            rec.bt.removeAll { ($0.autoAllowance || $0.note == "自动补助") && $0.name == name }
+            return
+        }
         if rec.bt.contains(where: { $0.name == name }) { return }
         rec.bt.append(BonusItem(name: name, money: amount, note: "自动补助", autoAllowance: true))
     }
@@ -398,10 +401,67 @@ final class Store: ObservableObject {
         saveNow()
     }
 
-    func backupData() -> Data? {
+    // MARK: 备份（与 UIKit 版互导）
+
+    private func jsonObject<T: Encodable>(_ value: T) -> Any? {
         let enc = JSONEncoder()
-        enc.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try? enc.encode(data)
+        guard let d = try? enc.encode(value) else { return nil }
+        return try? JSONSerialization.jsonObject(with: d)
+    }
+
+    private func decodeValue<T: Decodable>(_ any: Any, as type: T.Type) -> T? {
+        guard JSONSerialization.isValidJSONObject(any),
+              let d = try? JSONSerialization.data(withJSONObject: any) else { return nil }
+        return try? JSONDecoder().decode(type, from: d)
+    }
+
+    private func doubleOf(_ any: Any?) -> Double {
+        if let n = any as? NSNumber { return n.doubleValue }
+        if let d = any as? Double { return d }
+        if let s = any as? String { return Double(s) ?? 0 }
+        return 0
+    }
+
+    /// 旧版 .gsjilu 备份：format=gsjilu-backup、version=4。
+    /// UIKit 版能直接导入，本版也能导入 UIKit 版导出的文件。
+    func backupData() -> Data? {
+        var days: [[String: Any]] = []
+        var hours = 0.0
+        var pay = 0.0
+        for key in data.records.keys.sorted() {
+            guard let r = data.records[key] else { continue }
+            var item: [String: Any] = [
+                "d": key,
+                "c": r.classId,
+                "p": r.projectId,
+                "t": r.type,
+                "w": [r.work.zb, r.work.jb, r.work.zm, r.work.jj]
+            ]
+            if r.settle > 0 { item["s"] = r.settle }
+            if !r.bt.isEmpty { item["b"] = jsonObject(r.bt) ?? [] }
+            if let l = r.leave { item["l"] = jsonObject(l) ?? [:] }
+            if !r.note.isEmpty { item["n"] = r.note }
+            days.append(item)
+            hours += r.work.total
+            pay += dayPay(r)
+        }
+        let obj: [String: Any] = [
+            "app": "工时记录",
+            "format": "gsjilu-backup",
+            "version": 4,
+            "exportedAt": ISO8601DateFormatter().string(from: Date()),
+            "summary": ["days": days.count,
+                        "hours": Cal.round2(hours),
+                        "pay": Cal.round2(pay)],
+            "settings": jsonObject(data.settings) ?? [:],
+            "projects": jsonObject(data.projects) ?? [],
+            "classes": jsonObject(data.classes) ?? [],
+            "plans": data.plans,
+            "extras": ["bonus": jsonObject(data.bonuses) ?? [:],
+                       "deduct": jsonObject(data.deductions) ?? [:]],
+            "days": days
+        ]
+        return try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
     }
 
     enum ImportError: LocalizedError {
@@ -409,50 +469,88 @@ final class Store: ObservableObject {
         var errorDescription: String? { "这个文件不是工时记录的备份" }
     }
 
-    /// 先按整库 JSON 读；读不了再按旧版备份（days 数组）转换。
+    /// 先认旧版 gsjilu-backup；再认整库 JSON（含 records）。
     func importBackup(_ raw: Data) throws {
-        let dec = JSONDecoder()
-        if let d = try? dec.decode(AppData.self, from: raw) {
-            data = d
-            saveNow()
-            return
-        }
-        if let any = try? JSONSerialization.jsonObject(with: raw),
-           let obj = any as? [String: Any],
+        guard let any = try? JSONSerialization.jsonObject(with: raw),
+              let obj = any as? [String: Any] else { throw ImportError.badFile }
+
+        if (obj["format"] as? String) == "gsjilu-backup",
            let days = obj["days"] as? [[String: Any]] {
-            var imported = data
+            var imported = AppData()
+            if let v = obj["settings"] {
+                imported.settings = decodeValue(v, as: Settings.self) ?? Settings()
+            }
+            if let v = obj["projects"] {
+                imported.projects = decodeValue(v, as: [Project].self) ?? []
+            }
+            if let v = obj["classes"] {
+                imported.classes = decodeValue(v, as: [ShiftClass].self) ?? []
+            }
+            if let v = obj["plans"] as? [String: String] {
+                imported.plans = v
+            }
+            if let extras = obj["extras"] as? [String: Any] {
+                if let b = extras["bonus"] {
+                    imported.bonuses = decodeValue(b, as: [String: [BonusItem]].self) ?? [:]
+                }
+                if let d = extras["deduct"] {
+                    imported.deductions = decodeValue(d, as: [String: [BonusItem]].self) ?? [:]
+                }
+            }
+            if imported.projects.isEmpty { imported.projects = AppData().projects }
+            if imported.classes.isEmpty { imported.classes = AppData().classes }
+
+            var records: [String: DayRecord] = [:]
             for item in days {
                 guard let key = item["d"] as? String, key.count == 10 else { continue }
-                var rec = DayRecord()
-                rec.classId = item["c"] as? String ?? "1"
-                rec.projectId = item["p"] as? String ?? data.settings.projectId
-                rec.type = item["t"] as? String ?? "zb"
-                if let w = item["w"] as? [Double], w.count >= 4 {
-                    rec.work = WorkHours(zb: w[0], jb: w[1], zm: w[2], jj: w[3])
+                var r = DayRecord()
+                r.classId = item["c"] as? String ?? imported.settings.currentClass
+                r.projectId = item["p"] as? String ?? imported.settings.projectId
+                r.type = item["t"] as? String ?? Cal.dayKind(key)
+                if let w = item["w"] as? [Any], w.count >= 4 {
+                    r.work = WorkHours(zb: doubleOf(w[0]), jb: doubleOf(w[1]),
+                                       zm: doubleOf(w[2]), jj: doubleOf(w[3]))
                 }
-                rec.settle = (item["s"] as? Double) ?? 0
-                rec.note = item["n"] as? String ?? ""
-                if let b = item["b"] as? [[String: Any]] {
-                    rec.bt = b.map {
-                        BonusItem(name: $0["name"] as? String ?? "补贴",
-                                  money: ($0["money"] as? Double) ?? 0,
-                                  note: $0["note"] as? String ?? "")
-                    }
+                r.settle = doubleOf(item["s"])
+                if let b = item["b"] {
+                    r.bt = decodeValue(b, as: [BonusItem].self) ?? []
                 }
-                if let l = item["l"] as? [String: Any] {
-                    rec.leave = LeaveInfo(type: l["type"] as? String ?? "xiu",
-                                          hour: (l["hour"] as? Double) ?? 0,
-                                          rule: l["rule"] as? String ?? "hour",
-                                          multiple: (l["multiple"] as? Double) ?? 0,
-                                          money: (l["money"] as? Double) ?? 0)
+                if let l = item["l"] {
+                    r.leave = decodeValue(l, as: LeaveInfo.self)
                 }
-                imported.records[key] = rec
+                r.note = item["n"] as? String ?? ""
+                records[key] = r
             }
+            imported.records = records
             data = imported
             saveNow()
             return
         }
+
+        if obj["records"] != nil {
+            let d = try JSONDecoder().decode(AppData.self, from: raw)
+            data = d
+            saveNow()
+            return
+        }
         throw ImportError.badFile
+    }
+
+    /// 补助金额改成 0 时，把以前自动加进去的补助清掉
+    @discardableResult
+    func purgeAutoAllowance(name: String) -> Int {
+        var removed = 0
+        for key in data.records.keys {
+            guard var rec = data.records[key] else { continue }
+            let before = rec.bt.count
+            rec.bt.removeAll { ($0.autoAllowance || $0.note == "自动补助") && $0.name == name }
+            if rec.bt.count != before {
+                removed += before - rec.bt.count
+                data.records[key] = rec
+            }
+        }
+        if removed > 0 { saveNow() }
+        return removed
     }
 
     // MARK: 报表文本

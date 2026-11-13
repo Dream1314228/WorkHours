@@ -140,6 +140,14 @@ struct CalendarPage: View {
                     dayCell(d)
                 }
             }
+
+            if store.settings.payday > 0 && store.settings.payday <= Cal.daysInMonth(year, month) {
+                Capsule()
+                    .fill(Color.gsOrange)
+                    .frame(height: 3)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 2)
+            }
         }
         .glassCard(radius: store.settings.cardRadius, padding: 10)
     }
@@ -151,6 +159,7 @@ struct CalendarPage: View {
         let shift = planId.isEmpty ? nil : store.shiftClass(planId)
         let isToday = key == today
         let isSelected = key == selected
+        let isPayday = store.settings.payday > 0 && d == store.settings.payday
         let tag = rightTag(key)
 
         return Button {
@@ -161,7 +170,7 @@ struct CalendarPage: View {
                     Text("\(d)")
                         .font(.system(size: 15, weight: isToday ? .bold : .medium))
                         .monospacedDigit()
-                        .foregroundStyle(Color.primary)
+                        .foregroundStyle(isPayday ? Color.gsOrange : Color.primary)
                     Spacer(minLength: 0)
                     if let tag = tag {
                         Text(tag.name)
@@ -179,8 +188,9 @@ struct CalendarPage: View {
                 Spacer(minLength: 0)
                 HStack(spacing: 3) {
                     if let rec = rec {
-                        if let shift = store.shiftClass(rec.classId) {
-                            Circle().fill(Color(hex: shift.color)).frame(width: 4, height: 4)
+                        if store.settings.classDisplay != "hide",
+                           let shift = store.shiftClass(rec.classId) {
+                            shiftMark(shift)
                         }
                         Text(store.daySummary(rec))
                             .font(.system(size: 9, weight: .semibold))
@@ -188,12 +198,7 @@ struct CalendarPage: View {
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
                     } else if let shift = shift {
-                        Circle().fill(Color(hex: shift.color)).frame(width: 4, height: 4)
-                        Text(shift.name)
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
+                        shiftMark(shift)
                     }
                 }
             }
@@ -212,6 +217,24 @@ struct CalendarPage: View {
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(PressableStyle(scale: 0.95))
+    }
+
+    @ViewBuilder
+    private func shiftMark(_ shift: ShiftClass) -> some View {
+        switch store.settings.classDisplay {
+        case "hide":
+            EmptyView()
+        case "text":
+            Text(shift.name)
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        default:
+            Image(systemName: shift.symbol)
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(Color.primary)
+        }
     }
 
     private func rightTag(_ key: String) -> (name: String, color: Color)? {
@@ -317,6 +340,11 @@ struct CalendarPage: View {
         }
         if rec.settle > 0 {
             detailRow("日结", Cal.money(rec.settle))
+        }
+        if !rec.bt.isEmpty {
+            Text("补扣明细")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
         }
         ForEach(rec.bt) { b in
             detailRow(b.name.isEmpty ? "补贴" : b.name,

@@ -18,6 +18,8 @@ struct SettingsPage: View {
     @State private var bonusKind = "bonus"
     @State private var bonusName = ""
     @State private var bonusMoney = 0.0
+    @State private var importMode = "backup"
+    @State private var holidayYears: [Int] = HolidayData.shared.coveredYears
 
     private var version: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -33,11 +35,14 @@ struct SettingsPage: View {
             ScrollView {
                 LazyVStack(spacing: 14) {
                     header
+                    recordSettingsSection
+                    allowanceSection
                     wageSection
                     bonusSection
                     leaveSection
                     periodSection
                     reminderSection
+                    holidaySection
                     appearanceSection
                     dataSection
                     aboutSection
@@ -60,7 +65,7 @@ struct SettingsPage: View {
             WagePage(palette: palette)
                 .environmentObject(store)
         }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.data]) { result in
             handleImport(result)
         }
         .alert("加一笔\(bonusKind == "bonus" ? "补贴" : "扣款")", isPresented: $showBonusAdd) {
@@ -110,6 +115,168 @@ struct SettingsPage: View {
                 .glassCapsule(tint: palette.primary.opacity(0.08))
         }
         .padding(.horizontal, 2)
+    }
+
+    // MARK: 记录设置
+
+    private var recordSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionTitle(title: "记录设置")
+
+            HStack {
+                Text("发薪日")
+                    .font(.system(size: 15))
+                Spacer()
+                Picker("发薪日", selection: $store.data.settings.payday) {
+                    Text("未设置").tag(0)
+                    ForEach(1...31, id: \.self) { d in
+                        Text("每月 \(d) 日").tag(d)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(palette.primary)
+            }
+
+            Divider().opacity(0.35)
+
+            Text("班次标记")
+                .font(.system(size: 15))
+            HStack(spacing: 6) {
+                ForEach([("icon", "图标"), ("text", "文本"), ("hide", "不显示")], id: \.0) { item in
+                    Button {
+                        store.data.settings.classDisplay = item.0
+                    } label: {
+                        ChipView(title: item.1,
+                                 selected: store.settings.classDisplay == item.0,
+                                 palette: palette)
+                    }
+                    .buttonStyle(PressableStyle())
+                }
+                Spacer()
+            }
+            Text("图标显示太阳/月亮；文本显示白班/晚班；不显示只留日期。")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+
+            Divider().opacity(0.35)
+
+            Text("记录方式")
+                .font(.system(size: 15))
+            HStack(spacing: 6) {
+                Button {
+                    store.data.settings.recordMode = "hour"
+                } label: {
+                    ChipView(title: "时长记录",
+                             selected: store.settings.recordMode != "time",
+                             palette: palette)
+                }
+                .buttonStyle(PressableStyle())
+                Button {
+                    store.data.settings.recordMode = "time"
+                } label: {
+                    ChipView(title: "时间记录",
+                             selected: store.settings.recordMode == "time",
+                             palette: palette)
+                }
+                .buttonStyle(PressableStyle())
+                Spacer()
+            }
+            Text("两版都按时长记账，时间记录只保留这个设置项。")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(radius: store.settings.cardRadius)
+    }
+
+    // MARK: 班次补助
+
+    private var allowanceSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle(title: "班次补助", subtitle: "按班次名自动加")
+
+            Toggle(isOn: $store.data.settings.autoBonus) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("自动加补助")
+                        .font(.system(size: 15))
+                    Text("记账时按班次名匹配，加过就不再重复加")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .tint(palette.primary)
+
+            NumberRow(title: "白班补助", unit: "元",
+                      value: $store.data.settings.dayAllowance,
+                      palette: palette, range: 0...9999)
+            NumberRow(title: "夜班补助", unit: "元",
+                      value: $store.data.settings.nightAllowance,
+                      palette: palette, range: 0...9999)
+
+            Text("名字带白/早发白班补助，带中/晚/夜发夜班补助。填 0 会清掉以前自动加上的那一类。")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(radius: store.settings.cardRadius)
+        .onChange(of: store.settings.dayAllowance) { _, newValue in
+            if newValue <= 0 { store.purgeAutoAllowance(name: "白班补助") }
+        }
+        .onChange(of: store.settings.nightAllowance) { _, newValue in
+            if newValue <= 0 { store.purgeAutoAllowance(name: "夜班补助") }
+        }
+    }
+
+    // MARK: 节假日表
+
+    private var holidaySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionTitle(title: "节假日表",
+                         subtitle: holidayYears.map { String($0) }.joined(separator: " / "))
+            Text("内置 2025、2026 的放假与调休。新的一年把 JSON 导进来就覆盖，不用改代码。")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 8) {
+                Button {
+                    importMode = "holiday"
+                    showImporter = true
+                } label: {
+                    Text("导入节假日 JSON")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.primary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .glassCapsule()
+                }
+                .buttonStyle(PressableStyle())
+
+                if !HolidayData.shared.customYears.isEmpty {
+                    Button {
+                        HolidayData.shared.resetCustom()
+                        holidayYears = HolidayData.shared.coveredYears
+                        ToastCenter.shared.show("已恢复内置表")
+                    } label: {
+                        Text("恢复内置")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color.primary)
+                            .frame(width: 96)
+                            .frame(height: 36)
+                            .glassCapsule()
+                    }
+                    .buttonStyle(PressableStyle())
+                }
+            }
+
+            Text("格式：{\"2027\":{\"holidays\":{\"2027-01-01\":\"元旦\"},\"workdays\":[\"2027-02-06\"]}}")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(radius: store.settings.cardRadius)
     }
 
     // MARK: 工资与项目
@@ -533,7 +700,7 @@ struct SettingsPage: View {
 
     private var dataSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "备份与还原", subtitle: "换手机前先导出")
+            SectionTitle(title: "备份与还原", subtitle: ".gsjilu，两版通用")
 
             Button {
                 exportBackup()
@@ -542,7 +709,7 @@ struct SettingsPage: View {
                     Label("导出备份", systemImage: "arrow.up.doc")
                         .font(.system(size: 14))
                     Spacer()
-                    Text("JSON 文件")
+                    Text(".gsjilu")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -569,6 +736,7 @@ struct SettingsPage: View {
             Divider().opacity(0.35)
 
             Button {
+                importMode = "backup"
                 showImporter = true
             } label: {
                 HStack {
@@ -621,7 +789,7 @@ struct SettingsPage: View {
             ToastCenter.shared.show("导出失败")
             return
         }
-        let name = "工时记录备份-\(Cal.todayKey()).json"
+        let name = "工时记录备份-\(Cal.todayKey()).gsjilu"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
         do {
             try data.write(to: url, options: .atomic)
@@ -639,9 +807,15 @@ struct SettingsPage: View {
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
             do {
                 let raw = try Data(contentsOf: url)
-                try store.importBackup(raw)
-                backupURL = nil
-                ToastCenter.shared.show("导入成功")
+                if importMode == "holiday" {
+                    let years = try HolidayData.shared.importJSON(raw)
+                    holidayYears = HolidayData.shared.coveredYears
+                    ToastCenter.shared.show("节假日表已更新：" + years.map { String($0) }.joined(separator: "、"))
+                } else {
+                    try store.importBackup(raw)
+                    backupURL = nil
+                    ToastCenter.shared.show("导入成功")
+                }
             } catch {
                 ToastCenter.shared.show(error.localizedDescription)
             }
