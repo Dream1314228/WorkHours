@@ -10,6 +10,7 @@ struct MonthSummaryContent: View {
 
     @EnvironmentObject private var store: Store
     @State private var appeared = false
+    @State private var chartMode = 0
 
     private var st: MonthStats { store.monthStats(year: year, month: month) }
     private var rows: [(String, DayRecord)] { store.periodRecords(year: year, month: month) }
@@ -56,12 +57,17 @@ struct MonthSummaryContent: View {
         VStack(alignment: .leading, spacing: 12) {
             IconTitle(icon: "chart.pie.fill", title: "工时构成",
                       subtitle: "共 \(Cal.num(st.hours)) 小时")
-            HStack(spacing: 8) {
-                hourTile("正班", st.zb, palette.primary, "sun.max.fill")
-                hourTile("加班", st.jb, Color.gsOrange, "moon.stars.fill")
-                hourTile("周末", st.zm, Color.gsOrange, "calendar.badge.clock")
-                hourTile("节假", st.jj, Color.gsRed, "flag.fill")
+            HStack(alignment: .center, spacing: 14) {
+                HoursDonut(zb: st.zb, ot: st.jb, zm: st.zm, jj: st.jj, palette: palette)
+                VStack(alignment: .leading, spacing: 8) {
+                    legendRow(palette.primary, "正班", st.zb)
+                    legendRow(Color.gsOrange, "加班", st.jb)
+                    legendRow(Color.gsGreen, "周末", st.zm)
+                    legendRow(Color.gsRed, "节假", st.jj)
+                }
+                Spacer(minLength: 0)
             }
+            .padding(.vertical, 2)
             Divider().opacity(0.4)
             iconRow("yensign.circle.fill", "补贴", "+" + Cal.money(st.bonus), Color.gsGreen)
             iconRow("minus.circle.fill", "扣款", "-" + Cal.money(st.deduct), Color.gsRed)
@@ -116,8 +122,20 @@ struct MonthSummaryContent: View {
 
     private var dayChartCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            IconTitle(icon: "chart.bar.fill", title: "每日工时", subtitle: "单位：小时")
-            DayBarChart(rows: rows, palette: palette)
+            HStack(alignment: .center, spacing: 6) {
+                IconTitle(icon: chartMode == 0 ? "chart.bar.fill" : "chart.line.uptrend.xyaxis",
+                          title: chartMode == 0 ? "每日工时" : "累计工时",
+                          subtitle: chartMode == 0 ? "单位：小时" : "按天累加")
+                Spacer(minLength: 4)
+                miniSegment("柱", 0)
+                miniSegment("线", 1)
+            }
+            if chartMode == 0 {
+                DayBarChart(rows: rows, palette: palette)
+            } else {
+                CumulativeChart(rows: rows, palette: palette)
+                    .transition(.opacity)
+            }
             HStack(spacing: 14) {
                 legend("正班", palette.primary)
                 legend("加班 / 周末 / 节假", Color.gsOrange)
@@ -125,6 +143,41 @@ struct MonthSummaryContent: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius)
+    }
+
+    private func legendRow(_ color: Color, _ name: String, _ v: Double) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(name)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.gsSecondary)
+                .frame(width: 26, alignment: .leading)
+            Text(Cal.num(v))
+                .font(.system(size: 13, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Color.primary)
+            Text("H")
+                .font(.system(size: 9))
+                .foregroundStyle(Color.gsSecondary)
+        }
+    }
+
+    private func miniSegment(_ title: String, _ value: Int) -> some View {
+        Button {
+            withAnimation(.snappy(duration: 0.18)) { chartMode = value }
+        } label: {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(chartMode == value ? palette.onPrimary : Color.gsSecondary)
+                .frame(width: 38, height: 26)
+                .background {
+                    Capsule().fill(chartMode == value ? palette.primary : Color.primary.opacity(0.06))
+                }
+                .contentShape(Capsule())
+        }
+        .buttonStyle(PressableStyle(scale: 0.93))
     }
 
     private func legend(_ title: String, _ color: Color) -> some View {
@@ -346,7 +399,9 @@ struct DayBarChart: View {
         GeometryReader { geo in
             let count = max(rows.count, 1)
             let gap: CGFloat = count > 22 ? 2 : 4
-            let barW = max(3, (geo.size.width - gap * CGFloat(count - 1)) / CGFloat(count))
+            let rawW = (geo.size.width - gap * CGFloat(count - 1)) / CGFloat(count)
+            let barW = min(20, max(3, rawW))
+            let radius = min(4, barW / 2)
             let maxV = max(1, rows.map { $0.1.work.total }.max() ?? 1)
             let labelEvery = count > 24 ? 3 : (count > 14 ? 2 : 1)
 
@@ -356,11 +411,11 @@ struct DayBarChart: View {
                     VStack(spacing: 3) {
                         VStack(spacing: 1) {
                             Spacer(minLength: 0)
-                            RoundedRectangle(cornerRadius: barW / 2.6, style: .continuous)
+                            RoundedRectangle(cornerRadius: radius, style: .continuous)
                                 .fill(Color.gsOrange)
                                 .frame(width: barW,
                                        height: max(0, chartHeight * CGFloat((rec.work.jb + rec.work.zm + rec.work.jj) / maxV) * (grown ? 1 : 0)))
-                            RoundedRectangle(cornerRadius: barW / 2.6, style: .continuous)
+                            RoundedRectangle(cornerRadius: radius, style: .continuous)
                                 .fill(palette.primary)
                                 .frame(width: barW,
                                        height: max(0, chartHeight * CGFloat(rec.work.zb / maxV) * (grown ? 1 : 0)))
@@ -409,5 +464,125 @@ struct IconTitle: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - 工时构成环形图
+
+struct HoursDonut: View {
+    let zb: Double
+    let ot: Double
+    let zm: Double
+    let jj: Double
+    var palette: Palette
+
+    @State private var appeared = false
+
+    private var total: Double { max(0.0001, zb + ot + zm + jj) }
+
+    var body: some View {
+        let a = zb / total
+        let b = (zb + ot) / total
+        let c = (zb + ot + zm) / total
+
+        ZStack {
+            Circle()
+                .stroke(Color.primary.opacity(0.06), lineWidth: 11)
+
+            arc(from: 0, to: appeared ? a : 0, color: palette.primary)
+            arc(from: a, to: appeared ? b : a, color: Color.gsOrange)
+            arc(from: b, to: appeared ? c : b, color: Color.gsGreen)
+            arc(from: c, to: appeared ? 1 : c, color: Color.gsRed)
+
+            VStack(spacing: 0) {
+                Text(Cal.num(zb + ot + zm + jj))
+                    .font(.system(size: 16, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.primary)
+                    .contentTransition(.numericText())
+                Text("小时")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Color.gsSecondary)
+            }
+        }
+        .frame(width: 104, height: 104)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.65)) { appeared = true }
+        }
+    }
+
+    private func arc(from: Double, to: Double, color: Color) -> some View {
+        Circle()
+            .trim(from: from, to: max(from, min(1, to)))
+            .stroke(color, style: StrokeStyle(lineWidth: 11, lineCap: .butt))
+            .rotationEffect(.degrees(-90))
+    }
+}
+
+// MARK: - 累计工时曲线
+
+struct CumulativeChart: View {
+    let rows: [(String, DayRecord)]
+    var palette: Palette
+
+    @State private var appeared = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let g = geometry(geo.size)
+            ZStack(alignment: .topLeading) {
+                g.area
+                    .fill(LinearGradient(colors: [palette.primary.opacity(0.22),
+                                                  palette.primary.opacity(0.02)],
+                                         startPoint: .top, endPoint: .bottom))
+                g.line
+                    .trim(from: 0, to: appeared ? 1 : 0)
+                    .stroke(palette.primary,
+                            style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                Circle()
+                    .fill(palette.primary)
+                    .frame(width: 6, height: 6)
+                    .position(g.last)
+                    .opacity(appeared ? 1 : 0)
+            }
+        }
+        .frame(height: 110)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.7)) { appeared = true }
+        }
+    }
+
+    private func geometry(_ size: CGSize) -> (line: Path, area: Path, last: CGPoint) {
+        var acc: [Double] = []
+        var sum = 0.0
+        for r in rows { sum += r.1.work.total; acc.append(sum) }
+        if acc.isEmpty { acc = [0] }
+        let peak = max(1, acc.last ?? 0)
+        let w = size.width
+        let h = max(20, size.height - 16)
+
+        var pts: [CGPoint] = []
+        for (i, v) in acc.enumerated() {
+            let x = acc.count == 1 ? w / 2 : w * CGFloat(i) / CGFloat(acc.count - 1)
+            let y = h - h * CGFloat(v / peak) * 0.92
+            pts.append(CGPoint(x: x, y: y))
+        }
+
+        var line = Path()
+        var area = Path()
+        if let f = pts.first {
+            line.move(to: f)
+            area.move(to: CGPoint(x: f.x, y: h))
+            area.addLine(to: f)
+            for p in pts.dropFirst() {
+                line.addLine(to: p)
+                area.addLine(to: p)
+            }
+            if let last = pts.last {
+                area.addLine(to: CGPoint(x: last.x, y: h))
+                area.closeSubpath()
+            }
+        }
+        return (line, area, pts.last ?? .zero)
     }
 }

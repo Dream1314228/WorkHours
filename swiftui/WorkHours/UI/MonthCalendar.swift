@@ -166,7 +166,7 @@ private struct CalendarDayCell: View {
             onPick(key)
         } label: {
             VStack(spacing: 0) {
-                shiftTop
+                ZStack { shiftTop }
                     .frame(height: 13)
                     .opacity(shown ? 1 : 0)
                     .scaleEffect(shown ? 1 : 0.5)

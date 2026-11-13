@@ -10,6 +10,10 @@ struct SummaryPage: View {
     @State private var month = Cal.month(Cal.todayKey())
 
     private var ys: YearStats { store.yearStats(year: year) }
+    private var zbTotal: Double { ys.months.reduce(0) { $0 + $1.zb } }
+    private var jbTotal: Double { ys.months.reduce(0) { $0 + $1.jb } }
+    private var zmTotal: Double { ys.months.reduce(0) { $0 + $1.zm } }
+    private var jjTotal: Double { ys.months.reduce(0) { $0 + $1.jj } }
 
     var body: some View {
         ZStack {
@@ -136,12 +140,28 @@ struct SummaryPage: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .glassCard(radius: store.settings.cardRadius)
 
-            VStack(alignment: .leading, spacing: 10) {
-                IconTitle(icon: "sum", title: "全年合计", subtitle: "\(Cal.num(ys.days)) 天 · \(Cal.num(ys.hours)) 小时")
-                iconRow("sun.max.fill", "正班", "\(Cal.num(ys.months.reduce(0) { $0 + $1.zb })) H", palette.primary)
-                iconRow("moon.stars.fill", "加班", "\(Cal.num(ys.ot)) H", Color.gsOrange)
-                iconRow("arrow.up.circle.fill", "补贴", "+" + Cal.money(ys.bonus), Color.gsGreen)
-                iconRow("arrow.down.circle.fill", "扣款", "-" + Cal.money(ys.deduct), Color.gsRed)
+            VStack(alignment: .leading, spacing: 12) {
+                IconTitle(icon: "sum", title: "全年构成",
+                          subtitle: "\(Cal.num(ys.days)) 天 · \(Cal.num(ys.hours)) 小时")
+
+                HStack(alignment: .center, spacing: 14) {
+                    HoursDonut(zb: zbTotal, ot: jbTotal, zm: zmTotal, jj: jjTotal, palette: palette)
+                    VStack(alignment: .leading, spacing: 7) {
+                        legendRow(palette.primary, "正班", zbTotal)
+                        legendRow(Color.gsOrange, "加班", jbTotal)
+                        legendRow(Color.gsGreen, "周末", zmTotal)
+                        legendRow(Color.gsRed, "节假", jjTotal)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 2)
+
+                Divider().opacity(0.4)
+
+                compareBar("补贴", ys.bonus, Color.gsGreen)
+                compareBar("扣款", ys.deduct, Color.gsRed)
+
+                Divider().opacity(0.4)
                 iconRow("gauge.with.dots.needle.33percent", "平均时薪", Cal.money(ys.avg), .primary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -206,6 +226,47 @@ struct SummaryPage: View {
         HStack(spacing: 5) {
             RoundedRectangle(cornerRadius: 2.5).fill(color).frame(width: 9, height: 9)
             Text(title).font(.system(size: 10)).foregroundStyle(Color.gsSecondary)
+        }
+    }
+
+    private func legendRow(_ color: Color, _ name: String, _ v: Double) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 8, height: 8)
+            Text(name)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.gsSecondary)
+                .frame(width: 26, alignment: .leading)
+            Text(Cal.num(v))
+                .font(.system(size: 13, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Color.primary)
+            Text("H")
+                .font(.system(size: 9))
+                .foregroundStyle(Color.gsSecondary)
+        }
+    }
+
+    private func compareBar(_ name: String, _ value: Double, _ color: Color) -> some View {
+        let peak = max(1, ys.bonus, ys.deduct)
+        return HStack(spacing: 10) {
+            Text(name)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.gsSecondary)
+                .frame(width: 30, alignment: .leading)
+            GeometryReader { g in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(color.opacity(0.14))
+                    Capsule().fill(color)
+                        .frame(width: max(value > 0 ? 5 : 0,
+                                          g.size.width * CGFloat(value / peak)))
+                }
+            }
+            .frame(height: 8)
+            Text(Cal.money(value))
+                .font(.system(size: 11, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(color)
+                .frame(width: 74, alignment: .trailing)
         }
     }
 

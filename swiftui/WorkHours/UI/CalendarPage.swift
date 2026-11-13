@@ -10,6 +10,7 @@ struct CalendarPage: View {
     @State private var editorDate = Cal.todayKey()
     @State private var showEditor = false
     @State private var confirmDelete = false
+    @State private var showBill = false
 
     private var today: String { Cal.todayKey() }
 
@@ -101,51 +102,71 @@ struct CalendarPage: View {
         let p = store.monthStats(year: prev.year, month: prev.month)
         let delta = monthStats.pay - p.pay
         let ratio = p.pay > 0 ? delta / p.pay * 100 : 0
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("本期账单")
-                    .font(.system(size: 11, weight: .semibold))
-                    .tracking(1.6)
-                    .foregroundStyle(Ledger.inkSoft)
-                Spacer()
-                Text(monthStats.label)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Ledger.inkSoft)
-                    .monospacedDigit()
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(Cal.money(monthStats.pay))
-                    .font(.system(size: 32, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(Ledger.ink)
-                    .contentTransition(.numericText())
-                Text("元")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Ledger.inkSoft)
-                Spacer()
-                if p.pay > 0 {
-                    HStack(spacing: 3) {
-                        Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
-                            .font(.system(size: 10, weight: .bold))
-                        Text(String(format: "%+.0f%%", ratio))
-                            .font(.system(size: 12, weight: .semibold))
+        return VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.snappy(duration: 0.26)) { showBill.toggle() }
+            } label: {
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("本期账单")
+                            .font(.system(size: 11, weight: .semibold))
+                            .tracking(1.4)
+                            .foregroundStyle(Ledger.inkSoft)
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            Text(Cal.money(monthStats.pay))
+                                .font(.system(size: 24, weight: .bold))
+                                .monospacedDigit()
+                                .foregroundStyle(Ledger.ink)
+                                .contentTransition(.numericText())
+                            Text("元")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Ledger.inkSoft)
+                        }
+                        Text("\(monthStats.label) · 出勤 \(Cal.num(monthStats.days)) 天 · \(Cal.num(monthStats.hours)) H")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Ledger.inkSoft)
                             .monospacedDigit()
                     }
-                    .foregroundStyle(delta >= 0 ? Color.gsGreen : Color.gsRed)
-                    .padding(.horizontal, 8)
-                    .frame(height: 24)
-                    .background {
-                        Capsule().fill((delta >= 0 ? Color.gsGreen : Color.gsRed).opacity(0.12))
+                    Spacer(minLength: 6)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Ledger.inkSoft)
+                        .rotationEffect(.degrees(showBill ? 180 : 0))
+                }
+                .padding(.horizontal, 16)
+                .frame(height: 82)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressableStyle(scale: 0.995))
+
+            if showBill {
+                VStack(alignment: .leading, spacing: 12) {
+                    LedgerRule()
+                    if p.pay > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
+                                .font(.system(size: 9, weight: .bold))
+                            Text(String(format: "%+.0f%%", ratio))
+                                .font(.system(size: 11, weight: .semibold))
+                                .monospacedDigit()
+                            Text("较上期")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Ledger.inkSoft)
+                            Spacer()
+                        }
+                        .foregroundStyle(delta >= 0 ? Color.gsGreen : Color.gsRed)
+                    }
+                    HStack(spacing: 0) {
+                        overviewMetric("工时", "\(Cal.num(monthStats.hours))", "H")
+                        overviewMetric("出勤", "\(Cal.num(monthStats.days))", "天")
+                        overviewMetric("日均", Cal.num(monthStats.days > 0 ? monthStats.hours / monthStats.days : 0), "H")
                     }
                 }
-            }
-            HStack(spacing: 0) {
-                overviewMetric("工时", "\(Cal.num(monthStats.hours))", "H")
-                overviewMetric("出勤", "\(Cal.num(monthStats.days))", "天")
-                overviewMetric("日均", Cal.num(monthStats.days > 0 ? monthStats.hours / monthStats.days : 0), "H")
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Ledger.paper)
         .overlay {

@@ -728,7 +728,7 @@ struct SettingsPage: View {
 
     private var dataSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "备份与还原", subtitle: ".gsjilu，两版通用")
+            SectionTitle(title: "备份与还原", subtitle: ".gsjilu，新版/老版压缩备份都认")
 
             Button {
                 exportBackup()

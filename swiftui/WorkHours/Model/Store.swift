@@ -477,9 +477,24 @@ final class Store: ObservableObject {
         var errorDescription: String? { "这个文件不是工时记录的备份" }
     }
 
+    /// UIKit 老版导出的是 LZFSE 压缩 JSON（文件头 bvx2），新版是纯 JSON；两种都认。
+    static func unwrapBackup(_ raw: Data) -> Data {
+        guard raw.count > 8 else { return raw }
+        let head = [UInt8](raw.prefix(4))
+        let compressed = head == [0x62, 0x76, 0x78, 0x32]   // bvx2
+            || head == [0x62, 0x76, 0x78, 0x31]             // bvx1
+            || head == [0x62, 0x76, 0x78, 0x2d]             // bvx-
+        guard compressed else { return raw }
+        if let out = try? (raw as NSData).decompressed(using: .lzfse) {
+            return out as Data
+        }
+        return raw
+    }
+
     /// 先认旧版 gsjilu-backup；再认整库 JSON（含 records）。
     func importBackup(_ raw: Data) throws {
-        guard let any = try? JSONSerialization.jsonObject(with: raw),
+        let payload = Store.unwrapBackup(raw)
+        guard let any = try? JSONSerialization.jsonObject(with: payload),
               let obj = any as? [String: Any] else { throw ImportError.badFile }
 
         if let days = obj["days"] as? [[String: Any]],
@@ -536,7 +551,7 @@ final class Store: ObservableObject {
         }
 
         if let recObj = obj["records"] {
-            if let d = try? JSONDecoder().decode(AppData.self, from: raw) {
+            if let d = try? JSONDecoder().decode(AppData.self, from: payload) {
                 data = d
                 saveNow()
                 return
