@@ -506,8 +506,7 @@ struct DayEditor: View {
         // 没设过这个班的默认工时，就拿最近一次同样班次的工时兜底
         if def.zb + def.jb + def.zm + def.jj <= 0,
            let last = store.lastWork(forClass: r.classId) {
-            def = ClassDefault(zb: last.zb, jb: last.jb, zm: last.zm,
-                               jj: last.jj, rjgz: def.rjgz)
+            def = WorkHours(zb: last.zb, jb: last.jb, zm: last.zm, jj: last.jj)
         }
         switch r.type {
         case "zm": r.work = WorkHours(zb: 0, jb: def.jb, zm: def.zm, jj: 0)
