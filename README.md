@@ -64,6 +64,29 @@ SDKROOT=/path/to/iPhoneOS27.2.sdk ./build_native.sh
 
 公开仓库的 macOS runner 不花钱；私有仓库要算额度，而且 macOS 是按 10 倍时长扣的。
 
+## SwiftUI 版（swiftui/ 目录）
+
+UIKit 版之外的第二个实现，界面换成 iOS 26 的液态玻璃，功能对齐 UIKit 版。两版各自独立，数据文件同名但沙盒分开，互不影响。
+
+- 纯 SwiftUI，最低 iOS 26.0，没有第三方依赖
+- 玻璃效果用系统 `.glassEffect()`，TabBar、弹窗、按钮自动带液态玻璃
+- `swiftui/project.yml` 用 XcodeGen 描述工程，`swiftui/WorkHours/` 是全部源码
+- 目录：`Model/` 数据与计算，`UI/` 页面与玻璃组件，`WorkHoursApp.swift` 入口
+- 构建工作流：`.github/workflows/build-swiftui.yml`，推 `main` 或手动触发，产物是未签名 ipa
+
+本地构建（需要 Xcode 26 或更新）：
+
+```sh
+cd swiftui
+brew install xcodegen     # 只需一次
+xcodegen generate
+open WorkHours.xcodeproj  # 或者用下面的命令行
+xcodebuild -project WorkHours.xcodeproj -scheme WorkHours \
+  -sdk iphoneos -configuration Release CODE_SIGNING_ALLOWED=NO build
+```
+
+Bundle ID 是 `cn.gongshijilu.jxt.swiftui`，和 UIKit 版分开，可以同时装在一台手机上。
+
 ## 已知限制
 
 - 只有 iOS 端，没有 Android，没有云端同步
