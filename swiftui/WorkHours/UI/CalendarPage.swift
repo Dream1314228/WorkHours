@@ -35,13 +35,13 @@ struct CalendarPage: View {
             ScrollView {
                 VStack(spacing: 14) {
                     header
-                    stackCards
+                    overviewCard
                     calendarCard
                     dayCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
-                .padding(.bottom, 130)
+                .padding(.bottom, 96)
             }
             .scrollIndicators(.hidden)
         }
@@ -96,25 +96,81 @@ struct CalendarPage: View {
         .padding(.top, 2)
     }
 
-    private var stackCards: some View {
+    private var overviewCard: some View {
         let prev = Cal.monthAdd(year, month, -1)
-        let next = Cal.monthAdd(year, month, 1)
-        let p = store.monthStats(year: prev.0, month: prev.1)
-        let n = store.monthStats(year: next.0, month: next.1)
-        return LedgerStack(items: [
-            .init(title: "本期账单", caption: "\(year)-\(String(format: "%02d", month))",
-                  big: Cal.money(monthStats.pay),
-                  foot: "出勤 \(Cal.num(monthStats.days)) 天 · \(Cal.num(monthStats.hours)) H",
-                  tint: Ledger.ink),
-            .init(title: "上期", caption: "\(prev.0)-\(String(format: "%02d", prev.1))",
-                  big: Cal.money(p.pay),
-                  foot: "出勤 \(Cal.num(p.days)) 天 · \(Cal.num(p.hours)) H",
-                  tint: Ledger.inkSoft),
-            .init(title: "下期", caption: "\(next.0)-\(String(format: "%02d", next.1))",
-                  big: Cal.money(n.pay),
-                  foot: "出勤 \(Cal.num(n.days)) 天 · \(Cal.num(n.hours)) H",
-                  tint: Ledger.inkSoft)
-        ])
+        let p = store.monthStats(year: prev.year, month: prev.month)
+        let delta = monthStats.pay - p.pay
+        let ratio = p.pay > 0 ? delta / p.pay * 100 : 0
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("本期账单")
+                    .font(.system(size: 11, weight: .semibold))
+                    .tracking(1.6)
+                    .foregroundStyle(Ledger.inkSoft)
+                Spacer()
+                Text(monthStats.label)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Ledger.inkSoft)
+                    .monospacedDigit()
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(Cal.money(monthStats.pay))
+                    .font(.system(size: 32, weight: .bold))
+                    .monospacedDigit()
+                    .foregroundStyle(Ledger.ink)
+                    .contentTransition(.numericText())
+                Text("元")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Ledger.inkSoft)
+                Spacer()
+                if p.pay > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: delta >= 0 ? "arrow.up.right" : "arrow.down.right")
+                            .font(.system(size: 10, weight: .bold))
+                        Text(String(format: "%+.0f%%", ratio))
+                            .font(.system(size: 12, weight: .semibold))
+                            .monospacedDigit()
+                    }
+                    .foregroundStyle(delta >= 0 ? Color.gsGreen : Color.gsRed)
+                    .padding(.horizontal, 8)
+                    .frame(height: 24)
+                    .background {
+                        Capsule().fill((delta >= 0 ? Color.gsGreen : Color.gsRed).opacity(0.12))
+                    }
+                }
+            }
+            HStack(spacing: 0) {
+                overviewMetric("工时", "\(Cal.num(monthStats.hours))", "H")
+                overviewMetric("出勤", "\(Cal.num(monthStats.days))", "天")
+                overviewMetric("日均", Cal.num(monthStats.days > 0 ? monthStats.hours / monthStats.days : 0), "H")
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Ledger.paper)
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Ledger.rule, lineWidth: 0.8)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private func overviewMetric(_ title: String, _ value: String, _ unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Text(value)
+                    .font(.system(size: 18, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(Ledger.ink)
+                Text(unit)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Ledger.inkSoft)
+            }
+            Text(title)
+                .font(.system(size: 10))
+                .foregroundStyle(Ledger.inkSoft)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func monthButton(_ icon: String, action: @escaping () -> Void) -> some View {
@@ -140,9 +196,11 @@ struct CalendarPage: View {
 
     private func moveMonth(_ delta: Int) {
         let next = Cal.monthAdd(year, month, delta)
-        year = next.year
-        month = next.month
-        selected = String(format: "%04d-%02d-01", next.year, next.month)
+        withAnimation(.snappy(duration: 0.26)) {
+            year = next.year
+            month = next.month
+            selected = String(format: "%04d-%02d-01", next.year, next.month)
+        }
     }
 
     private func jumpToday() {
@@ -155,9 +213,16 @@ struct CalendarPage: View {
     // MARK: 月历
 
     private var calendarCard: some View {
-        MonthCalendar(year: year, month: month, selected: selected, palette: palette) { key in
-            selected = key
-        }
+        MonthCalendar(year: year, month: month, selected: selected,
+                      palette: palette, preferRecordedShift: true,
+                      onPick: { key in
+                          withAnimation(.snappy(duration: 0.16)) { selected = key }
+                      },
+                      onStep: { delta in moveMonth(delta) })
+        .id("\(year)-\(month)")
+        .transition(.asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
+            removal: .opacity))
     }
 
     @ViewBuilder
@@ -293,7 +358,23 @@ struct CalendarPage: View {
                       b.money >= 0 ? Cal.money(b.money) : "-" + Cal.money(-b.money))
         }
         if !rec.note.isEmpty {
-            detailRow("备注", rec.note)
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "text.bubble")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.gsSecondary)
+                    .padding(.top, 1)
+                Text(rec.note)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(palette.primary.opacity(0.07))
+            }
         }
 
         Divider().opacity(0.4)
@@ -342,7 +423,10 @@ struct CalendarPage: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
         .background {
-            Ledger.paper.overlay(alignment: .top) { LedgerRule() }
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .overlay(alignment: .top) { LedgerRule() }
+                .ignoresSafeArea(edges: .bottom)
         }
     }
 

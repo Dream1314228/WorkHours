@@ -97,18 +97,23 @@ struct ShiftPage: View {
 
     private func move(_ delta: Int) {
         let next = Cal.monthAdd(year, month, delta)
-        year = next.year
-        month = next.month
+        withAnimation(.snappy(duration: 0.26)) {
+            year = next.year
+            month = next.month
+        }
     }
 
     // MARK: 月历
 
     private var calendarCard: some View {
         MonthCalendar(year: year, month: month, selected: pendingDate ?? "",
-                      palette: palette, showsHours: false) { key in
-            pendingDate = key
-            showPicker = true
-        }
+                      palette: palette, showsHours: false,
+                      onPick: { key in
+                          pendingDate = key
+                          showPicker = true
+                      },
+                      onStep: { delta in move(delta) })
+        .id("\(year)-\(month)")
     }
 
     // MARK: 图例 + 本月

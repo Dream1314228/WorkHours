@@ -66,8 +66,11 @@ struct SettingsPage: View {
             WagePage(palette: palette)
                 .environmentObject(store)
         }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.item]) { result in
-            handleImport(result)
+        .sheet(isPresented: $showImporter) {
+            DocumentPicker(types: [.item, .data, .json, .text]) { url in
+                showImporter = false
+                handleImportURL(url)
+            }
         }
         .alert("加一笔\(bonusKind == "bonus" ? "补贴" : "扣款")", isPresented: $showBonusAdd) {
             TextField("名称", text: $bonusName)
@@ -852,27 +855,21 @@ struct SettingsPage: View {
         }
     }
 
-    private func handleImport(_ result: Result<URL, Error>) {
-        switch result {
-        case .success(let url):
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            do {
-                let raw = try Data(contentsOf: url)
-                if importMode == "holiday" {
-                    let years = try HolidayData.shared.importJSON(raw)
-                    holidayYears = HolidayData.shared.coveredYears
-                    ToastCenter.shared.show("节假日表已更新：" + years.map { String($0) }.joined(separator: "、"))
-                } else {
-                    try store.importBackup(raw)
-                    backupURL = nil
-                    ToastCenter.shared.show("导入成功")
-                }
-            } catch {
-                ToastCenter.shared.show(error.localizedDescription)
+    private func handleImportURL(_ url: URL) {
+        do {
+            let raw = try Data(contentsOf: url)
+            if importMode == "holiday" {
+                let years = try HolidayData.shared.importJSON(raw)
+                holidayYears = HolidayData.shared.coveredYears
+                ToastCenter.shared.show("节假日表已更新：" + years.map { String($0) }.joined(separator: "、"))
+            } else {
+                try store.importBackup(raw)
+                backupURL = nil
+                ToastCenter.shared.show("导入成功：" + url.lastPathComponent)
             }
-        case .failure:
-            ToastCenter.shared.show("没选到文件")
+        } catch {
+            ToastCenter.shared.show(error.localizedDescription)
         }
     }
+
 }

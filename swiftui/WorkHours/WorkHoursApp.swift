@@ -25,12 +25,15 @@ struct RootView: View {
             StatsPage(palette: palette)
                 .tabItem { Label("统计", systemImage: "chart.bar.xaxis") }
                 .tag(1)
+            SummaryPage(palette: palette)
+                .tabItem { Label("总结", systemImage: "chart.pie.fill") }
+                .tag(2)
             ShiftPage(palette: palette)
                 .tabItem { Label("排班", systemImage: "square.grid.3x3.fill") }
-                .tag(2)
+                .tag(3)
             SettingsPage(palette: palette)
                 .tabItem { Label("我的", systemImage: "person.crop.circle") }
-                .tag(3)
+                .tag(4)
         }
         .tint(palette.primary)
         .overlay(ToastOverlay())

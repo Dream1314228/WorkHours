@@ -21,6 +21,12 @@ struct DayEditor: View {
 
     private var isLeave: Bool { draft.leave != nil }
 
+    /// 当天排班表里排的班次
+    private var plannedShift: ShiftClass? {
+        let plan = store.plan(date)
+        return plan.isEmpty ? nil : store.shiftClass(plan)
+    }
+
     private var total: Double { store.dayPay(draft) }
 
     var body: some View {
@@ -150,6 +156,47 @@ struct DayEditor: View {
                     Text("套用默认工时")
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.primary)
+                        .padding(.horizontal, 10)
+                        .frame(height: 32)
+                        .background(Capsule().fill(Color.primary.opacity(0.06)))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(PressableStyle())
+            }
+
+            if let planned = plannedShift {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.grid.3x3.topleft.filled")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(palette.primary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("排班表：\(planned.name)")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.primary)
+                        Text("点右边直接套用，省得再挑一次")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.gsSecondary)
+                    }
+                    Spacer(minLength: 6)
+                    Button {
+                        draft.classId = planned.id
+                        draft.work = store.defaultWork(forClass: planned.id)
+                        ToastCenter.shared.show("已按排班套用 \(planned.name)")
+                    } label: {
+                        Text("套用")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(palette.onPrimary)
+                            .padding(.horizontal, 12)
+                            .frame(height: 28)
+                            .background(Capsule().fill(palette.primary))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(PressableStyle())
+                }
+                .padding(10)
+                .background {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(palette.primary.opacity(0.07))
                 }
             }
             ScrollView(.horizontal, showsIndicators: false) {

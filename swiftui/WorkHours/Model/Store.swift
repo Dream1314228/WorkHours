@@ -605,6 +605,117 @@ final class Store: ObservableObject {
 
     // MARK: 报表文本
 
+    /// 按考勤期取记录（会跨月）
+    func periodRecords(year: Int, month: Int) -> [(String, DayRecord)] {
+        let r = periodRange(year: year, month: month)
+        return data.records.filter { $0.key >= r.start && $0.key <= r.end }
+            .sorted { $0.key < $1.key }
+            .map { ($0.key, $0.value) }
+    }
+
+    /// 导出 HTML 报表：周期汇总 + 逐日明细 + 补扣/补助明细，可直接在浏览器看或打印成 PDF。
+    func htmlReport(year: Int, month: Int) -> String {
+        let st = monthStats(year: year, month: month)
+        let rows = periodRecords(year: year, month: month)
+        let mk = monthKey(year, month)
+        let bonuses = data.bonuses[mk] ?? []
+        let deductions = data.deductions[mk] ?? []
+
+        var dayRows = ""
+        for (key, rec) in rows {
+            let shift = shiftClass(rec.classId)?.name ?? "—"
+            let note = rec.note.isEmpty ? "" : escapeHTML(rec.note)
+            let pay = Cal.money(dayPay(rec))
+            let extra = rec.bt.isEmpty ? "" : rec.bt.map { "\(escapeHTML($0.name)): \($0.money >= 0 ? "+" : "") \(Cal.money($0.money))" }.joined(separator: "；")
+            dayRows += """
+            <tr><td class="c">\(String(format: "%02d", Cal.day(key)))</td><td>\(Cal.weekdayName(key))</td>\
+<td>\(escapeHTML(shift))</td><td class="n">\(Cal.num(rec.work.zb))</td><td class="n">\(Cal.num(rec.work.jb))</td>\
+<td class="n">\(Cal.num(rec.work.zm))</td><td class="n">\(Cal.num(rec.work.jj))</td>\
+<td class="n">\(Cal.num(rec.work.total))</td><td class="n b">\(pay)</td><td class="note">\(note)\(extra.isEmpty ? "" : " · " + extra)</td></tr>
+            """
+        }
+        if dayRows.isEmpty {
+            dayRows = "<tr><td colspan=\"10\" class=\"empty\">这个周期还没有记录</td></tr>"
+        }
+
+        func extraRows(_ list: [BonusItem], _ cls: String) -> String {
+            if list.isEmpty { return "<tr><td colspan=\"2\" class=\"empty\">无</td></tr>" }
+            return list.map { "<tr><td>\(escapeHTML($0.name))</td><td class=\"n \(cls)\">\(Cal.money($0.money))</td></tr>" }.joined()
+        }
+
+        return """
+        <!doctype html>
+        <html lang="zh-CN"><head><meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>工时记录 \(year) 年 \(month) 月</title>
+        <style>
+        :root { color-scheme: light dark; }
+        body { margin: 0; padding: 24px 18px 48px; background: #f8f6f1; color: #14161a;
+               font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans SC", sans-serif; }
+        .wrap { max-width: 880px; margin: 0 auto; }
+        h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: .5px; }
+        .sub { color: #5d6b82; font-size: 12px; margin-bottom: 20px; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+        .card { background: #fff; border: 1px solid #e2ded4; border-radius: 14px; padding: 12px 14px; }
+        .card .k { font-size: 11px; color: #5d6b82; }
+        .card .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
+        h2 { font-size: 14px; margin: 22px 0 8px; color: #3d4757; letter-spacing: .6px; }
+        table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2ded4; border-radius: 12px; overflow: hidden; }
+        th, td { padding: 7px 9px; border-bottom: 1px solid #ece8de; text-align: left; font-size: 12px; vertical-align: top; }
+        th { background: #f1eee6; color: #3d4757; font-weight: 600; white-space: nowrap; }
+        tr:last-child td { border-bottom: none; }
+        .n { text-align: right; font-variant-numeric: tabular-nums; }
+        .c { text-align: center; }
+        .b { font-weight: 700; }
+        .pos { color: #1d7a45; }
+        .neg { color: #b42318; }
+        .note { color: #5d6b82; max-width: 220px; }
+        .empty { color: #8a94a6; text-align: center; padding: 16px; }
+        .total { display: flex; justify-content: space-between; margin-top: 12px; font-size: 13px; }
+        .total b { font-size: 20px; }
+        footer { margin-top: 28px; color: #8a94a6; font-size: 11px; }
+        @media print { body { background: #fff; padding: 0; } .card, table { break-inside: avoid; } }
+        @media (prefers-color-scheme: dark) {
+          body { background: #14161a; color: #f2f4f8; }
+          .card, table { background: #1c2027; border-color: #2a2f39; }
+          th { background: #232831; color: #c9d0da; }
+          th, td { border-color: #2a2f39; }
+          .sub, .note, footer, .card .k { color: #9aa4b4; }
+          .empty { color: #7d8797; }
+        }
+        </style></head><body><div class="wrap">
+        <h1>工时记录 · \(year) 年 \(month) 月</h1>
+        <div class="sub">考勤期 \(st.start) 至 \(st.end) · 导出 \(Cal.todayKey())</div>
+        <div class="cards">
+          <div class="card"><div class="k">总工时</div><div class="v">\(Cal.num(st.hours)) H</div></div>
+          <div class="card"><div class="k">出勤</div><div class="v">\(Cal.num(st.days)) 天</div></div>
+          <div class="card"><div class="k">补贴</div><div class="v pos">+\(Cal.money(st.bonus))</div></div>
+          <div class="card"><div class="k">扣款</div><div class="v neg">-\(Cal.money(st.deduct))</div></div>
+          <div class="card"><div class="k">实发工资</div><div class="v">\(Cal.money(st.pay))</div></div>
+        </div>
+        <h2>工时构成</h2>
+        <table><tr><th>正班</th><th>加班</th><th>周末</th><th>节假</th><th>平均时薪</th></tr>
+        <tr><td class="n">\(Cal.num(st.zb)) H</td><td class="n">\(Cal.num(st.jb)) H</td><td class="n">\(Cal.num(st.zm)) H</td><td class="n">\(Cal.num(st.jj)) H</td><td class="n">\(Cal.money(st.avg))</td></tr></table>
+        <h2>逐日明细</h2>
+        <table><tr><th>日</th><th>星期</th><th>班次</th><th>正班</th><th>加班</th><th>周末</th><th>节假</th><th>合计</th><th>金额</th><th>备注</th></tr>
+        \(dayRows)</table>
+        <div class="total"><span>合计 \(Cal.num(st.days)) 天 · \(Cal.num(st.hours)) H</span><b>\(Cal.money(st.pay)) 元</b></div>
+        <h2>补贴明细</h2>
+        <table><tr><th>项目</th><th class="n">金额</th></tr>\(extraRows(bonuses, "pos"))</table>
+        <h2>扣款明细</h2>
+        <table><tr><th>项目</th><th class="n">金额</th></tr>\(extraRows(deductions, "neg"))</table>
+        <footer>由工时记录 App 导出 · 数据仅存于本机</footer>
+        </div></body></html>
+        """
+    }
+
+    private func escapeHTML(_ s: String) -> String {
+        s.replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+    }
+
     func reportText(year: Int, month: Int) -> String {
         let st = monthStats(year: year, month: month)
         var lines: [String] = []
