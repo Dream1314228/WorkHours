@@ -91,7 +91,7 @@ struct MonthCalendar: View {
                         .foregroundStyle(isSelected ? palette.onPrimary : Ledger.ink)
                         .frame(height: 21)
 
-                    Text(Cal.lunarDay(key))
+                    Text(Cal.lunarCellText(key))
                         .font(.system(size: 9))
                         .foregroundStyle(isSelected ? palette.onPrimary.opacity(0.88) : Ledger.inkSoft)
                         .frame(height: 11)
