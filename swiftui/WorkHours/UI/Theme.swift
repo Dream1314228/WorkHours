@@ -101,8 +101,8 @@ enum Theme {
             return Palette(key: key, name: "石墨", primary: Color(hex: "#55606F"),
                            deep: Color(hex: "#333B47"), onPrimary: .white)
         default:
-            return Palette(key: "blue", name: "海蓝", primary: Color(hex: "#2F6BFF"),
-                           deep: Color(hex: "#1A3FCC"), onPrimary: .white)
+            return Palette(key: "blue", name: "墨蓝", primary: Color(hex: "#1F3A5F"),
+                           deep: Color(hex: "#14263D"), onPrimary: .white)
         }
     }
 }
@@ -111,33 +111,9 @@ enum Theme {
 
 struct AppBackdrop: View {
     var palette: Palette
-    @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: scheme == .dark
-                    ? [Color(hex: "#0A0D13"), Color(hex: "#151B26")]
-                    : [Color(hex: "#F2F5FB"), Color(hex: "#E6EDF8")],
-                startPoint: .top, endPoint: .bottom
-            )
-            Circle()
-                .fill(palette.primary.opacity(scheme == .dark ? 0.42 : 0.28))
-                .frame(width: 340, height: 340)
-                .blur(radius: 90)
-                .offset(x: -120, y: -260)
-            Circle()
-                .fill(palette.primary.opacity(scheme == .dark ? 0.22 : 0.16))
-                .frame(width: 280, height: 280)
-                .blur(radius: 90)
-                .offset(x: 140, y: -60)
-            Circle()
-                .fill(Color(hex: "#FFB020").opacity(scheme == .dark ? 0.10 : 0.14))
-                .frame(width: 260, height: 260)
-                .blur(radius: 100)
-                .offset(x: 130, y: 340)
-        }
-        .ignoresSafeArea()
+        LedgerPaper()
     }
 }
 
@@ -151,8 +127,12 @@ struct GlassCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(padding)
-            .glassEffect(.regular.tint(tint),
-                         in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .background(Ledger.paper)
+            .overlay {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(Ledger.rule, lineWidth: 0.8)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 }
 
@@ -164,7 +144,8 @@ extension View {
 
     /// 玻璃胶囊（按钮、标签用）
     func glassCapsule(tint: Color = .clear) -> some View {
-        glassEffect(.regular.tint(tint), in: Capsule())
+        background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.ink.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
     }
 }
 
@@ -193,21 +174,23 @@ struct GlassActionButtonStyle: ButtonStyle {
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
                     .background(
-                        Capsule().fill(
-                            LinearGradient(colors: [palette.primary, palette.deep],
-                                           startPoint: .topLeading, endPoint: .bottomTrailing)
-                        )
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(palette.deep)
                     )
-                    .overlay {
-                        Capsule().strokeBorder(.white.opacity(0.18), lineWidth: 0.8)
-                    }
             } else {
                 configuration.label
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
-                    .glassEffect(.regular, in: Capsule())
+                    .background(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(Ledger.ink.opacity(0.05))
+                    )
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .strokeBorder(Ledger.rule, lineWidth: 0.8)
+                    }
             }
         }
         .scaleEffect(configuration.isPressed ? 0.97 : 1)
@@ -237,14 +220,16 @@ struct ChipView: View {
                     .foregroundStyle(selectedText)
                     .padding(.horizontal, 14)
                     .frame(height: 34)
-                    .background(Capsule().fill(color ?? palette.primary))
+                    .background(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(color ?? palette.primary))
             } else {
                 Text(title)
                     .font(.system(size: 13))
                     .foregroundStyle(Color.primary)
                     .padding(.horizontal, 14)
                     .frame(height: 34)
-                    .glassEffect(.regular, in: Capsule())
+                    .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.ink.opacity(0.05)))
+                    .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
             }
         }
         .contentShape(Capsule())
@@ -273,8 +258,8 @@ struct StatTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 12)
         .padding(.horizontal, 12)
-        .glassEffect(.regular.tint(.clear),
-                     in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.paper))
+        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
     }
 }
 

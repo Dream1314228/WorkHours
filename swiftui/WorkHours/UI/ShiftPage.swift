@@ -79,7 +79,8 @@ struct ShiftPage: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: store.settings.headerRadius, style: .continuous))
+        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.paper))
+        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
     }
 
     private func menuButton(_ icon: String, action: @escaping () -> Void) -> some View {

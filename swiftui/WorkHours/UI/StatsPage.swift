@@ -188,59 +188,97 @@ struct StatsPage: View {
     }
 
     private var monthDetailCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let rows = store.records(in: year, month: month)
+        return VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("月度明细")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.gsSecondary)
+                LedgerCaption(text: "账目明细")
                 Spacer()
                 Button {
                     UIPasteboard.general.string = shareText
                     ToastCenter.shared.show("报表已复制")
                 } label: {
-                    Label("复制报表", systemImage: "doc.on.doc")
+                    Text("复制")
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(palette.primary)
-                        .padding(.vertical, 8)
+                        .foregroundStyle(Ledger.blue)
+                        .padding(.horizontal, 9)
+                        .frame(height: 26)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .strokeBorder(Ledger.rule, lineWidth: 0.8)
+                        }
+                        .padding(.vertical, 7)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(PressableStyle())
             }
-            let rows = store.records(in: year, month: month)
+            .padding(.bottom, 6)
+
+            LedgerRule(strong: true)
+
+            HStack(spacing: 8) {
+                Text("日").frame(width: 26, alignment: .leading)
+                Text("班次").frame(width: 44, alignment: .leading)
+                Text("工时").frame(width: 44, alignment: .trailing)
+                Spacer()
+                Text("金额").frame(width: 72, alignment: .trailing)
+            }
+            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .tracking(0.5)
+            .foregroundStyle(Ledger.inkSoft)
+            .padding(.vertical, 7)
+
+            LedgerRule()
+
             if rows.isEmpty {
-                EmptyHint(text: "这个月还没有记录")
+                Text("这个月还没有记录")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Ledger.inkSoft)
+                    .padding(.vertical, 22)
+                    .frame(maxWidth: .infinity)
             } else {
                 ForEach(rows, id: \.0) { row in
                     let key = row.0
                     let rec = row.1
-                    HStack(spacing: 10) {
-                        Text("\(Cal.day(key))")
-                            .font(.system(size: 13, weight: .semibold))
-                            .monospacedDigit()
-                            .frame(width: 24, alignment: .leading)
+                    HStack(spacing: 8) {
+                        Text(String(format: "%02d", Cal.day(key)))
+                            .font(.system(size: 13, weight: .medium, design: .monospaced))
+                            .foregroundStyle(Ledger.ink)
+                            .frame(width: 26, alignment: .leading)
                         Text(store.shiftClass(rec.classId)?.name ?? "—")
                             .font(.system(size: 12))
-                            .foregroundStyle(Color.gsSecondary)
-                            .frame(width: 40, alignment: .leading)
-                        Text(Cal.kindName(rec.type))
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.gsSecondary)
-                            .frame(width: 32, alignment: .leading)
-                        Text("\(Cal.num(rec.work.total))H")
-                            .font(.system(size: 13, weight: .medium))
-                            .monospacedDigit()
+                            .foregroundStyle(Ledger.inkSoft)
+                            .lineLimit(1)
+                            .frame(width: 44, alignment: .leading)
+                        Text(Cal.num(rec.work.total))
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(Ledger.ink)
+                            .frame(width: 44, alignment: .trailing)
                         Spacer()
-                        Text(Cal.money(store.dayPay(rec)))
-                            .font(.system(size: 13, weight: .semibold))
-                            .monospacedDigit()
-                            .foregroundStyle(Color.primary)
+                        AmountText(text: Cal.money(store.dayPay(rec)), size: 13)
+                            .frame(width: 72, alignment: .trailing)
                     }
-                    .frame(height: 32)
+                    .padding(.vertical, 8)
+                    LedgerRule()
                 }
+
+                HStack {
+                    Text("合计 \(Cal.num(monthStats.days)) 天 · \(Cal.num(monthStats.hours)) H")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Ledger.inkSoft)
+                    Spacer()
+                    AmountText(text: Cal.money(monthStats.pay), size: 15, color: Ledger.red)
+                }
+                .padding(.top, 11)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius)
+        .padding(16)
+        .background(Ledger.paper)
+        .overlay {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .strokeBorder(Ledger.rule, lineWidth: 0.8)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
     }
 
     // MARK: 年

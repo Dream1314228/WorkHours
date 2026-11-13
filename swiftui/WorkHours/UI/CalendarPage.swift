@@ -35,8 +35,8 @@ struct CalendarPage: View {
             ScrollView {
                 VStack(spacing: 14) {
                     header
+                    stackCards
                     calendarCard
-                    summaryCard
                     dayCard
                 }
                 .padding(.horizontal, 16)
@@ -63,35 +63,67 @@ struct CalendarPage: View {
     // MARK: 顶部
 
     private var header: some View {
-        HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(Cal.monthTitle(year: year, month: month))
-                    .font(.system(size: 26, weight: .bold))
-                Text("考勤期 \(monthStats.start) 至 \(monthStats.end)")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.gsSecondary)
-                    .monospacedDigit()
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                LedgerCaption(text: "工时账本")
+                Spacer()
+                Text("NO. \(String(format: "%04d-%02d", year, month))")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Ledger.inkSoft)
             }
-            Spacer()
-            HStack(spacing: 8) {
-                monthButton("chevron.left") { moveMonth(-1) }
-                monthButton("chevron.right") { moveMonth(1) }
+            LedgerRule(strong: true)
+
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(year) 年 \(month) 月")
+                        .font(.system(size: 30, weight: .medium, design: .serif))
+                        .foregroundStyle(Ledger.ink)
+                    Text(monthStats.label)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Ledger.inkSoft)
+                        .monospacedDigit()
+                }
+                Spacer()
+                HStack(spacing: 6) {
+                    monthButton("chevron.left") { moveMonth(-1) }
+                    monthButton("chevron.right") { moveMonth(1) }
+                    Button {
+                        jumpToday()
+                    } label: {
+                        Text("今天")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Ledger.paper)
+                            .padding(.horizontal, 12)
+                            .frame(height: 32)
+                            .background(RoundedRectangle(cornerRadius: 3).fill(Ledger.ink))
+                    }
+                    .buttonStyle(PressableStyle())
+                }
             }
-            Button {
-                jumpToday()
-            } label: {
-                Text("今天")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(palette.onPrimary)
-                    .padding(.horizontal, 14)
-                    .frame(height: 34)
-                    .background(Capsule().fill(palette.primary))
-            }
-            .buttonStyle(PressableStyle())
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: store.settings.headerRadius, style: .continuous))
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+    }
+
+    private var stackCards: some View {
+        let prev = Cal.monthAdd(year, month, -1)
+        let next = Cal.monthAdd(year, month, 1)
+        let p = store.monthStats(year: prev.0, month: prev.1)
+        let n = store.monthStats(year: next.0, month: next.1)
+        return LedgerStack(items: [
+            .init(title: "本期账单", caption: "\(year)-\(String(format: "%02d", month))",
+                  big: Cal.money(monthStats.pay),
+                  foot: "出勤 \(Cal.num(monthStats.days)) 天 · \(Cal.num(monthStats.hours)) H",
+                  tint: Ledger.ink),
+            .init(title: "上期", caption: "\(prev.0)-\(String(format: "%02d", prev.1))",
+                  big: Cal.money(p.pay),
+                  foot: "出勤 \(Cal.num(p.days)) 天 · \(Cal.num(p.hours)) H",
+                  tint: Ledger.inkSoft),
+            .init(title: "下期", caption: "\(next.0)-\(String(format: "%02d", next.1))",
+                  big: Cal.money(n.pay),
+                  foot: "出勤 \(Cal.num(n.days)) 天 · \(Cal.num(n.hours)) H",
+                  tint: Ledger.inkSoft)
+        ])
     }
 
     private func monthButton(_ icon: String, action: @escaping () -> Void) -> some View {
@@ -208,15 +240,17 @@ struct CalendarPage: View {
             .padding(.vertical, 5)
             .frame(height: 62)
             .background {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isSelected ? palette.primary.opacity(0.16)
-                          : (isToday ? palette.primary.opacity(0.07) : Color.clear))
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(isSelected ? Ledger.ink.opacity(0.06)
+                          : (isToday ? Ledger.ink.opacity(0.03) : Color.clear))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isSelected ? palette.primary : Color.clear, lineWidth: 1.4)
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .strokeBorder(isSelected ? Ledger.ruleStrong
+                                  : (isToday ? Ledger.ruleStrong.opacity(0.5) : Color.clear),
+                                  lineWidth: isSelected ? 1.2 : 0.8)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
         }
         .buttonStyle(PressableStyle(scale: 0.95))
     }
@@ -292,7 +326,8 @@ struct CalendarPage: View {
                             .font(.system(size: 13, weight: .semibold))
                             .padding(.horizontal, 14)
                             .frame(height: 32)
-                            .glassEffect(.regular.interactive(), in: Capsule())
+                            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.ink.opacity(0.05)))
+                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
                     }
                     .buttonStyle(PressableStyle())
                 }
@@ -385,7 +420,8 @@ struct CalendarPage: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.gsRed)
                     .frame(width: 52, height: 46)
-                    .glassEffect(.regular.interactive(), in: Capsule())
+                    .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.ink.opacity(0.05)))
+                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
             }
             .buttonStyle(PressableStyle())
         }

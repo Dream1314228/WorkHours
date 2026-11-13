@@ -108,7 +108,8 @@ struct ProjectEditor: View {
             .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Ledger.paper))
+            .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
             .padding(.horizontal, 12)
         }
         .alert("删除这个项目？", isPresented: $confirmDelete) {
@@ -264,7 +265,8 @@ struct PeriodEditor: View {
             .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
             .padding(.horizontal, 18)
             .padding(.vertical, 10)
-            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Ledger.paper))
+            .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
             .padding(.horizontal, 12)
         }
     }

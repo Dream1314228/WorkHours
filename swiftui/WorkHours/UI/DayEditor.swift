@@ -431,7 +431,8 @@ struct DayEditor: View {
         .padding(.horizontal, 18)
         .padding(.top, 12)
         .padding(.bottom, 8)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Ledger.paper))
+            .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
         .padding(.horizontal, 12)
         .padding(.bottom, 4)
     }
