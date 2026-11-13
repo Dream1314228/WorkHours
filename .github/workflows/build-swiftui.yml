@@ -1,0 +1,85 @@
+name: Build SwiftUI IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "swiftui/**"
+      - ".github/workflows/build-swiftui.yml"
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 40
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 打印工具链
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: 生成 Xcode 工程
+        working-directory: swiftui
+        run: |
+          set -eux
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+          xcodegen generate
+          ls -la
+          ls -la WorkHours.xcodeproj
+
+      - name: 编译（不签名）
+        working-directory: swiftui
+        run: |
+          set -eux
+          xcodebuild \
+            -project WorkHours.xcodeproj \
+            -scheme WorkHours \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: 校验产物
+        working-directory: swiftui
+        run: |
+          set -eux
+          APP="build/Build/Products/Release-iphoneos/WorkHours.app"
+          test -d "$APP"
+          file "$APP/WorkHours"
+          lipo -info "$APP/WorkHours"
+          plutil -lint "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP/Info.plist"
+
+      - name: 组装未签名 ipa
+        working-directory: swiftui
+        run: |
+          set -eux
+          APP="build/Build/Products/Release-iphoneos/WorkHours.app"
+          rm -rf Payload
+          mkdir Payload
+          cp -R "$APP" Payload/
+          VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Info.plist")
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          zip -qry "WorkHours-SwiftUI-$VER-unsigned.ipa" Payload
+          ls -lh *.ipa
+
+      - name: 上传 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: workhours-swiftui-ipa
+          path: swiftui/WorkHours-SwiftUI-*.ipa
+          if-no-files-found: error
+          retention-days: 90
