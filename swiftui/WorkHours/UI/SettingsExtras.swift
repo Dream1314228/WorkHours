@@ -63,7 +63,7 @@ struct ProjectEditor: View {
                         NumberRow(title: "节假", unit: "元", value: $draft.rates.jj, palette: palette, range: 0...9999)
                         Text("加班一般是正班的 1.5 倍，周末 2 倍，法定节假日 3 倍。按你厂里的算法填就行。")
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -132,7 +132,7 @@ struct ProjectEditor: View {
                     .font(.system(size: 24, weight: .bold))
                 Text(draft.name.isEmpty ? "未命名" : draft.name)
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             }
             Spacer()
             Button {
@@ -141,7 +141,9 @@ struct ProjectEditor: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 34, height: 34)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .contentShape(Circle().inset(by: -5))
+                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
             }
             .buttonStyle(PressableStyle())
         }
@@ -201,7 +203,7 @@ struct PeriodEditor: View {
                                 .font(.system(size: 24, weight: .bold))
                             Text("排班起止不固定时，直接填真实日期")
                                 .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                         }
                         Spacer()
                         Button {
@@ -210,7 +212,9 @@ struct PeriodEditor: View {
                             Image(systemName: "xmark")
                                 .font(.system(size: 14, weight: .semibold))
                                 .frame(width: 34, height: 34)
-                                .glassEffect(.regular.interactive(), in: Circle())
+                                .contentShape(Circle().inset(by: -5))
+                                .background(Circle().fill(Color.primary.opacity(0.08)))
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
                         }
                         .buttonStyle(PressableStyle())
                     }
@@ -236,10 +240,10 @@ struct PeriodEditor: View {
                             .font(.system(size: 13, weight: .medium))
                         Text("共 \(daysBetween) 天。")
                             .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                         Text("一个自然月只能挂一期，同月再填会覆盖原来那一期。因为起始日落在哪个月，就用哪个月的格子来记。")
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -321,7 +325,7 @@ struct WagePage: View {
                                 .font(.system(size: 24, weight: .bold))
                             Text("临时算一笔，不写进记录")
                                 .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                         }
                         Spacer()
                         Button {
@@ -330,7 +334,9 @@ struct WagePage: View {
                             Image(systemName: "xmark")
                                 .font(.system(size: 14, weight: .semibold))
                                 .frame(width: 34, height: 34)
-                                .glassEffect(.regular.interactive(), in: Circle())
+                                .contentShape(Circle().inset(by: -5))
+                                .background(Circle().fill(Color.primary.opacity(0.08)))
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
                         }
                         .buttonStyle(PressableStyle())
                     }
@@ -363,7 +369,7 @@ struct WagePage: View {
                     VStack(spacing: 8) {
                         Text("预计工资")
                             .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                         Text(Cal.money(total))
                             .font(.system(size: 38, weight: .bold))
                             .monospacedDigit()
@@ -372,7 +378,7 @@ struct WagePage: View {
                             .minimumScaleFactor(0.6)
                         Text(detail)
                             .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -382,7 +388,7 @@ struct WagePage: View {
 
                     Text("只做估算：按项目时薪算，不含社保、个税和其他扣款规则。")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 10)

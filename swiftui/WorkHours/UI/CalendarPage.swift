@@ -69,7 +69,7 @@ struct CalendarPage: View {
                     .font(.system(size: 26, weight: .bold))
                 Text("考勤期 \(monthStats.start) 至 \(monthStats.end)")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                     .monospacedDigit()
             }
             Spacer()
@@ -99,7 +99,9 @@ struct CalendarPage: View {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
                 .frame(width: 34, height: 34)
-                .glassEffect(.regular.interactive(), in: Circle())
+                .contentShape(Circle().inset(by: -5))
+                .background(Circle().fill(Color.primary.opacity(0.08)))
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
         .buttonStyle(PressableStyle())
     }
@@ -126,7 +128,7 @@ struct CalendarPage: View {
                 ForEach(weekdayHeaders, id: \.self) { w in
                     Text(w)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -182,7 +184,7 @@ struct CalendarPage: View {
                 }
                 Text(store.settings.showLunar ? Cal.lunarCellText(key) : "")
                     .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Spacer(minLength: 0)
@@ -227,7 +229,7 @@ struct CalendarPage: View {
         case "text":
             Text(shift.name)
                 .font(.system(size: 9))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         default:
@@ -278,7 +280,7 @@ struct CalendarPage: View {
                         if store.settings.showLunar { Text("· " + Cal.lunarFull(selected)) }
                     }
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                 }
                 Spacer()
                 if selectedRecord != nil {
@@ -318,14 +320,14 @@ struct CalendarPage: View {
             }
             Text(store.project(rec.projectId).name)
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
                 .padding(.horizontal, 10)
                 .frame(height: 26)
                 .glassCapsule()
             Spacer()
             Text(Cal.kindName(rec.type))
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
         }
 
         HStack(spacing: 8) {
@@ -344,7 +346,7 @@ struct CalendarPage: View {
         if !rec.bt.isEmpty {
             Text("补扣明细")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
         }
         ForEach(rec.bt) { b in
             detailRow(b.name.isEmpty ? "补贴" : b.name,
@@ -359,7 +361,7 @@ struct CalendarPage: View {
         HStack {
             Text("当天合计")
                 .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
             Spacer()
             Text(Cal.money(store.dayPay(rec)))
                 .font(.system(size: 22, weight: .bold))
@@ -398,7 +400,7 @@ struct CalendarPage: View {
                     .foregroundStyle(Color.primary)
                 Text(store.plan(selected).isEmpty ? "这天还没有记录" : "这天排了 \(store.shiftClass(store.plan(selected))?.name ?? "班")，还没记工时")
                     .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                 Spacer()
             }
             Button {
@@ -419,7 +421,7 @@ struct CalendarPage: View {
                 .foregroundStyle(value > 0 ? Color.primary : Color.secondary)
             Text(title)
                 .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -433,7 +435,7 @@ struct CalendarPage: View {
         HStack(alignment: .top) {
             Text(title)
                 .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
             Spacer(minLength: 12)
             Text(value)
                 .font(.system(size: 13, weight: .medium))

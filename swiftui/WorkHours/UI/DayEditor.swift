@@ -77,7 +77,7 @@ struct DayEditor: View {
                     .font(.system(size: 24, weight: .bold))
                 Text(Cal.weekdayName(date) + (Cal.holidayName(date).map { " · \($0)" } ?? ""))
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             }
             Spacer()
             Button {
@@ -86,7 +86,9 @@ struct DayEditor: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 34, height: 34)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .contentShape(Circle().inset(by: -5))
+                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
             }
             .buttonStyle(PressableStyle())
         }
@@ -166,16 +168,13 @@ struct DayEditor: View {
                             .padding(.horizontal, 14)
                             .frame(height: 36)
                             .background {
-                                if draft.classId == c.id {
-                                    Capsule().fill(Color(hex: c.color))
-                                } else {
-                                    Capsule().fill(Color.clear)
-                                }
+                                Capsule().fill(draft.classId == c.id
+                                               ? Color(hex: c.color)
+                                               : Color.primary.opacity(0.06))
                             }
-                            .glassEffect(draft.classId == c.id
-                                          ? .regular.tint(Color(hex: c.color).opacity(0.001))
-                                          : .regular,
-                                          in: Capsule())
+                            .overlay {
+                                Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8)
+                            }
                         }
                         .buttonStyle(PressableStyle())
                     }
@@ -222,7 +221,7 @@ struct DayEditor: View {
                 Spacer()
                 Text("填了就不按工时算")
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             }
             NumberRow(title: "", unit: "元", value: $draft.settle, palette: palette, range: 0...99999)
         }
@@ -289,14 +288,15 @@ struct DayEditor: View {
                                     .foregroundStyle(leave.multiple == m && leave.rule == "hour" ? palette.onPrimary : Color.primary)
                                     .padding(.horizontal, 9)
                                     .frame(height: 30)
+                                    .padding(.vertical, 7)
                                     .background {
-                                        if leave.multiple == m && leave.rule == "hour" {
-                                            Capsule().fill(palette.primary)
-                                        }
+                                        Capsule().fill(leave.multiple == m && leave.rule == "hour"
+                                                       ? palette.primary
+                                                       : Color.primary.opacity(0.06))
                                     }
-                                    .glassEffect(leave.multiple == m && leave.rule == "hour"
-                                                  ? .regular.tint(palette.primary.opacity(0.001)) : .regular,
-                                                  in: Capsule())
+                                    .overlay {
+                                        Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8)
+                                    }
                             }
                             .buttonStyle(PressableStyle())
                         }
@@ -342,7 +342,8 @@ struct DayEditor: View {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .bold))
                         .frame(width: 28, height: 28)
-                        .glassEffect(.regular.interactive(), in: Circle())
+                        .background(Circle().fill(Color.primary.opacity(0.08)))
+                        .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
                 }
                 .buttonStyle(PressableStyle())
             }
@@ -364,13 +365,13 @@ struct DayEditor: View {
                             .frame(width: 80)
                         Text("元")
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                         Button {
                             draft.bt.removeAll { $0.id == item.id }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 16))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -412,7 +413,7 @@ struct DayEditor: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("当天合计")
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                 Text(Cal.money(total))
                     .font(.system(size: 21, weight: .bold))
                     .monospacedDigit()

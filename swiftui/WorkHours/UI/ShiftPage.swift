@@ -71,7 +71,7 @@ struct ShiftPage: View {
                     .font(.system(size: 26, weight: .bold))
                 Text("点日期排班，批量一次设好一周")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             }
             Spacer()
             menuButton("chevron.left") { move(-1) }
@@ -87,7 +87,9 @@ struct ShiftPage: View {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
                 .frame(width: 34, height: 34)
-                .glassEffect(.regular.interactive(), in: Circle())
+                .contentShape(Circle().inset(by: -5))
+                .background(Circle().fill(Color.primary.opacity(0.08)))
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
         .buttonStyle(PressableStyle())
     }
@@ -106,7 +108,7 @@ struct ShiftPage: View {
                 ForEach(weekdayHeaders, id: \.self) { w in
                     Text(w)
                         .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -184,7 +186,7 @@ struct ShiftPage: View {
                         }
                         Text(c.name)
                             .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
@@ -220,12 +222,12 @@ struct ShiftPage: View {
                             .font(.system(size: 15, weight: .semibold))
                         Text("多选日期，统一设班次和工时")
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
                 .padding(.vertical, 4)
             }
@@ -245,12 +247,12 @@ struct ShiftPage: View {
                             .font(.system(size: 15, weight: .semibold))
                         Text("名称、颜色、默认工时")
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
                 .padding(.vertical, 4)
             }
@@ -281,7 +283,7 @@ struct ShiftManager: View {
                                 .font(.system(size: 24, weight: .bold))
                             Text("名字带「夜 / 中 / 晚」发夜班补助，带「白 / 早」发白班补助")
                                 .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                         }
                         Spacer()
                         Button {
@@ -290,7 +292,9 @@ struct ShiftManager: View {
                             Image(systemName: "xmark")
                                 .font(.system(size: 14, weight: .semibold))
                                 .frame(width: 34, height: 34)
-                                .glassEffect(.regular.interactive(), in: Circle())
+                                .contentShape(Circle().inset(by: -5))
+                                .background(Circle().fill(Color.primary.opacity(0.08)))
+                                .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
                         }
                         .buttonStyle(PressableStyle())
                     }
@@ -375,7 +379,7 @@ struct ShiftManager: View {
             if store.classes.count > 1 {
                 Text("默认工时：新人记这个班次时自动带出")
                     .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             }
         }
         .glassCard(radius: store.settings.cardRadius)
@@ -395,7 +399,7 @@ struct ShiftManager: View {
                 }
             Text(title)
                 .font(.system(size: 9))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
         }
     }
 }

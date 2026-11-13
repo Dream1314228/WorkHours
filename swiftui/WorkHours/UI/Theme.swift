@@ -267,7 +267,7 @@ struct StatTile: View {
                 .minimumScaleFactor(0.7)
             Text(label)
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -286,12 +286,12 @@ struct SectionTitle: View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
             Spacer()
             if let subtitle = subtitle {
                 Text(subtitle)
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             }
         }
         .padding(.horizontal, 4)
@@ -303,7 +303,7 @@ struct EmptyHint: View {
     var body: some View {
         Text(text)
             .font(.system(size: 13))
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.gsSecondary)
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 22)
     }
@@ -343,7 +343,7 @@ struct NumberRow: View {
             if !unit.isEmpty {
                 Text(unit)
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                     .frame(width: 18, alignment: .leading)
             }
         }

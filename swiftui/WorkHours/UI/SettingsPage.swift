@@ -104,7 +104,7 @@ struct SettingsPage: View {
                     .font(.system(size: 26, weight: .bold))
                 Text("数据只存在这台手机里，不联网")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             }
             Spacer()
             Text("工时记录")
@@ -156,7 +156,7 @@ struct SettingsPage: View {
             }
             Text("图标显示太阳/月亮；文本显示白班/晚班；不显示只留日期。")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
 
             Divider().opacity(0.35)
 
@@ -183,7 +183,7 @@ struct SettingsPage: View {
             }
             Text("两版都按时长记账，时间记录只保留这个设置项。")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius)
@@ -201,7 +201,7 @@ struct SettingsPage: View {
                         .font(.system(size: 15))
                     Text("记账时按班次名匹配，加过就不再重复加")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
             }
             .tint(palette.primary)
@@ -215,7 +215,7 @@ struct SettingsPage: View {
 
             Text("名字带白/早发白班补助，带中/晚/夜发夜班补助。填 0 会清掉以前自动加上的那一类。")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -236,7 +236,7 @@ struct SettingsPage: View {
                          subtitle: holidayYears.map { String($0) }.joined(separator: " / "))
             Text("内置 2025、2026 的放假与调休。新的一年把 JSON 导进来就覆盖，不用改代码。")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
@@ -250,6 +250,8 @@ struct SettingsPage: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 36)
                         .glassCapsule()
+                        .padding(.vertical, 4)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(PressableStyle())
 
@@ -265,6 +267,8 @@ struct SettingsPage: View {
                             .frame(width: 96)
                             .frame(height: 36)
                             .glassCapsule()
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(PressableStyle())
                 }
@@ -272,7 +276,7 @@ struct SettingsPage: View {
 
             Text("格式：{\"2027\":{\"holidays\":{\"2027-01-01\":\"元旦\"},\"workdays\":[\"2027-02-06\"]}}")
                 .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -295,7 +299,7 @@ struct SettingsPage: View {
                                 .font(.system(size: 15, weight: .semibold))
                             Text("正班 \(Cal.num(p.rates.zb)) · 加班 \(Cal.num(p.rates.jb)) · 周末 \(Cal.num(p.rates.zm)) · 节假 \(Cal.num(p.rates.jj))")
                                 .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                         }
@@ -310,7 +314,7 @@ struct SettingsPage: View {
                         }
                         Image(systemName: "chevron.right")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                     }
                     .padding(.vertical, 6)
                     .contentShape(Rectangle())
@@ -342,10 +346,10 @@ struct SettingsPage: View {
                     Spacer()
                     Text("试算一笔")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
                 .frame(height: 36)
             }
@@ -437,7 +441,7 @@ struct SettingsPage: View {
             if items.isEmpty {
                 Text("这个月没有")
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 2)
             } else {
@@ -448,7 +452,7 @@ struct SettingsPage: View {
                         if !item.note.isEmpty {
                             Text(item.note)
                                 .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                         }
                         Spacer()
                         Text(Cal.money(item.money))
@@ -459,7 +463,7 @@ struct SettingsPage: View {
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 14))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -487,7 +491,7 @@ struct SettingsPage: View {
             HStack {
                 Text("今年已用")
                     .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                 Spacer()
                 Text("\(Cal.num(store.annualLeaveUsed(year: Cal.year(Cal.todayKey())))) 天")
                     .font(.system(size: 13, weight: .medium))
@@ -528,14 +532,14 @@ struct SettingsPage: View {
                  ? "当前：自然月，1 号到月底。"
                  : "当前：每月 \(store.settings.period) 号开始，到次月 \(store.settings.period - 1) 号结束。本月这一期是 \(range.start) 至 \(range.end)。")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
 
             Divider().opacity(0.35)
 
             HStack {
                 Text("手动指定的期")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                 Spacer()
                 Button {
                     showPeriodEditor = true
@@ -551,7 +555,7 @@ struct SettingsPage: View {
             if periods.isEmpty {
                 Text("没有手动期。排班每期不固定时，在这里直接填起止日期。")
                     .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             } else {
                 ForEach(periods) { p in
                     HStack {
@@ -561,13 +565,13 @@ struct SettingsPage: View {
                         Spacer()
                         Text("覆盖 \(String(p.start.prefix(7)))")
                             .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                         Button {
                             store.data.settings.customPeriods.removeAll { $0.id == p.id }
                         } label: {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 14))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                         }
                         .buttonStyle(.plain)
                     }
@@ -590,7 +594,7 @@ struct SettingsPage: View {
                         .font(.system(size: 15))
                     Text("到点弹一条通知，提醒补今天的工时")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
             }
             .tint(palette.primary)
@@ -662,7 +666,7 @@ struct SettingsPage: View {
                     Text(Cal.num(store.settings.cardRadius))
                         .font(.system(size: 12))
                         .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
                 Slider(value: $store.data.settings.cardRadius, in: 0...36, step: 1)
                     .tint(palette.primary)
@@ -676,7 +680,7 @@ struct SettingsPage: View {
                     Text(Cal.num(store.settings.headerRadius))
                         .font(.system(size: 12))
                         .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
                 Slider(value: $store.data.settings.headerRadius, in: 0...40, step: 1)
                     .tint(palette.primary)
@@ -711,7 +715,7 @@ struct SettingsPage: View {
                     Spacer()
                     Text(".gsjilu")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
                 .frame(height: 36)
             }
@@ -726,7 +730,7 @@ struct SettingsPage: View {
                         Spacer()
                         Text(url.lastPathComponent)
                             .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                             .lineLimit(1)
                     }
                     .frame(height: 34)
@@ -745,7 +749,7 @@ struct SettingsPage: View {
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
                 .frame(height: 36)
             }
@@ -776,7 +780,7 @@ struct SettingsPage: View {
                 .font(.system(size: 12, weight: .medium))
             Text("液态玻璃界面，iOS 26 起可用。数据存在 App 沙盒里的 gsjilu.json，卸载或清除会一起消失。")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

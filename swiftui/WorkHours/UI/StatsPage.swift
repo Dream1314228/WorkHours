@@ -42,7 +42,7 @@ struct StatsPage: View {
                     .font(.system(size: 26, weight: .bold))
                 Text(mode == 0 ? "考勤期 \(monthStats.start) 至 \(monthStats.end)" : "全年 \(Cal.num(yearStats.hours)) 小时")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                     .monospacedDigit()
             }
             Spacer()
@@ -57,7 +57,9 @@ struct StatsPage: View {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 34, height: 34)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .contentShape(Circle().inset(by: -5))
+                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
             }
             .buttonStyle(PressableStyle())
         }
@@ -80,7 +82,9 @@ struct StatsPage: View {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
                 .frame(width: 34, height: 34)
-                .glassEffect(.regular.interactive(), in: Circle())
+                .contentShape(Circle().inset(by: -5))
+                .background(Circle().fill(Color.primary.opacity(0.08)))
+                .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
         .buttonStyle(PressableStyle())
     }
@@ -160,7 +164,7 @@ struct StatsPage: View {
                 .foregroundStyle(color)
             Text(title)
                 .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 9)
@@ -174,7 +178,7 @@ struct StatsPage: View {
         HStack {
             Text(title)
                 .font(.system(size: 13))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
             Spacer()
             Text(value)
                 .font(.system(size: 14, weight: .semibold))
@@ -188,7 +192,7 @@ struct StatsPage: View {
             HStack {
                 Text("月度明细")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
                 Spacer()
                 Button {
                     UIPasteboard.general.string = shareText
@@ -197,6 +201,8 @@ struct StatsPage: View {
                     Label("复制报表", systemImage: "doc.on.doc")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(palette.primary)
+                        .padding(.vertical, 8)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(PressableStyle())
             }
@@ -214,11 +220,11 @@ struct StatsPage: View {
                             .frame(width: 24, alignment: .leading)
                         Text(store.shiftClass(rec.classId)?.name ?? "—")
                             .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                             .frame(width: 40, alignment: .leading)
                         Text(Cal.kindName(rec.type))
                             .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Color.gsSecondary)
                             .frame(width: 32, alignment: .leading)
                         Text("\(Cal.num(rec.work.total))H")
                             .font(.system(size: 13, weight: .medium))
@@ -278,7 +284,7 @@ struct StatsPage: View {
                                 .frame(width: 36, alignment: .leading)
                             Text("\(Cal.num(st.days))天")
                                 .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                                 .frame(width: 40, alignment: .leading)
                             Text("\(Cal.num(st.hours))H")
                                 .font(.system(size: 12))
@@ -290,7 +296,7 @@ struct StatsPage: View {
                                 .foregroundStyle(st.pay > 0 ? Color.gsOrange : Color.secondary)
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.gsSecondary)
                         }
                         .frame(height: 34)
                         .contentShape(Rectangle())
@@ -330,7 +336,7 @@ struct StatsPage: View {
                 .frame(width: 8, height: 8)
             Text(title)
                 .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
         }
     }
 }

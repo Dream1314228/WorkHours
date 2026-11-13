@@ -49,7 +49,7 @@ struct BatchSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("已选 \(selected.count) 天")
                         .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                     Text(classId.isEmpty ? "未选班次" : (store.shiftClass(classId)?.name ?? ""))
                         .font(.system(size: 16, weight: .bold))
                 }
@@ -82,7 +82,7 @@ struct BatchSheet: View {
                     .font(.system(size: 24, weight: .bold))
                 Text("\(Cal.monthTitle(year: year, month: month)) · 点日期多选")
                     .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.gsSecondary)
             }
             Spacer()
             Button {
@@ -91,7 +91,9 @@ struct BatchSheet: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 34, height: 34)
-                    .glassEffect(.regular.interactive(), in: Circle())
+                    .contentShape(Circle().inset(by: -5))
+                    .background(Circle().fill(Color.primary.opacity(0.08)))
+                    .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
             }
             .buttonStyle(PressableStyle())
         }
@@ -103,7 +105,7 @@ struct BatchSheet: View {
                 ForEach(weekdayHeaders, id: \.self) { w in
                     Text(w)
                         .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -140,7 +142,7 @@ struct BatchSheet: View {
                     .font(.system(size: 13, weight: on ? .bold : .regular))
                     .monospacedDigit()
                 if weekend {
-                    Text("休").font(.system(size: 8)).foregroundStyle(.secondary)
+                    Text("休").font(.system(size: 8)).foregroundStyle(Color.gsSecondary)
                 }
             }
             .foregroundStyle(on ? palette.onPrimary : Color.primary)
@@ -162,7 +164,10 @@ struct BatchSheet: View {
                 .foregroundStyle(Color.primary)
                 .padding(.horizontal, 12)
                 .frame(height: 30)
-                .glassCapsule(tint: palette.primary.opacity(0.06))
+                .background(Capsule().fill(palette.primary.opacity(0.08)))
+                .overlay(Capsule().strokeBorder(palette.primary.opacity(0.12), lineWidth: 0.8))
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
         }
         .buttonStyle(PressableStyle())
     }
@@ -192,7 +197,7 @@ struct BatchSheet: View {
 
             Text("正常工时自动落到正班 / 周末 / 节假，加班统一记加班。")
                 .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.gsSecondary)
 
             Divider().opacity(0.4)
 
@@ -202,7 +207,7 @@ struct BatchSheet: View {
                         .font(.system(size: 15))
                     Text("勾上以后，选中的周末日期不会被改")
                         .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Color.gsSecondary)
                 }
             }
             .tint(palette.primary)
