@@ -678,6 +678,15 @@ struct RadarChart: View {
         .onChange(of: store.chartToken) { _, _ in replay() }
     }
 
+    private func replay() {
+        guard store.chartMotion else {
+            appeared = true
+            return
+        }
+        appeared = false
+        withAnimation(.easeOut(duration: 0.65)) { appeared = true }
+    }
+
     private func point(_ i: Int, _ v: Double, _ cx: CGFloat, _ cy: CGFloat,
                        _ r: CGFloat, _ n: Int) -> CGPoint {
         let angle = -CGFloat.pi / 2 + CGFloat(i) * 2 * CGFloat.pi / CGFloat(n)
