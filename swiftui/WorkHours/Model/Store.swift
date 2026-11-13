@@ -627,12 +627,18 @@ final class Store: ObservableObject {
             let note = rec.note.isEmpty ? "" : escapeHTML(rec.note)
             let pay = Cal.money(dayPay(rec))
             let extra = rec.bt.isEmpty ? "" : rec.bt.map { "\(escapeHTML($0.name)): \($0.money >= 0 ? "+" : "") \(Cal.money($0.money))" }.joined(separator: "；")
-            dayRows += """
-            <tr><td class="c">\(String(format: "%02d", Cal.day(key)))</td><td>\(Cal.weekdayName(key))</td>\
-<td>\(escapeHTML(shift))</td><td class="n">\(Cal.num(rec.work.zb))</td><td class="n">\(Cal.num(rec.work.jb))</td>\
-<td class="n">\(Cal.num(rec.work.zm))</td><td class="n">\(Cal.num(rec.work.jj))</td>\
-<td class="n">\(Cal.num(rec.work.total))</td><td class="n b">\(pay)</td><td class="note">\(note)\(extra.isEmpty ? "" : " · " + extra)</td></tr>
-            """
+            var cells: [String] = []
+            cells.append("<td class=\"c\">" + String(format: "%02d", Cal.day(key)) + "</td>")
+            cells.append("<td>" + Cal.weekdayName(key) + "</td>")
+            cells.append("<td>" + escapeHTML(shift) + "</td>")
+            cells.append("<td class=\"n\">" + Cal.num(rec.work.zb) + "</td>")
+            cells.append("<td class=\"n\">" + Cal.num(rec.work.jb) + "</td>")
+            cells.append("<td class=\"n\">" + Cal.num(rec.work.zm) + "</td>")
+            cells.append("<td class=\"n\">" + Cal.num(rec.work.jj) + "</td>")
+            cells.append("<td class=\"n\">" + Cal.num(rec.work.total) + "</td>")
+            cells.append("<td class=\"n b\">" + pay + "</td>")
+            cells.append("<td class=\"note\">" + note + (extra.isEmpty ? "" : " · " + extra) + "</td>")
+            dayRows += "<tr>" + cells.joined() + "</tr>"
         }
         if dayRows.isEmpty {
             dayRows = "<tr><td colspan=\"10\" class=\"empty\">这个周期还没有记录</td></tr>"
