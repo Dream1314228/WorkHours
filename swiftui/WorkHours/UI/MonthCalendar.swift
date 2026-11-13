@@ -15,7 +15,8 @@ struct MonthCalendar: View {
     var onStep: ((Int) -> Void)? = nil
 
     @EnvironmentObject private var store: Store
-    @State private var dragX: CGFloat = 0
+    @State private var drag: CGFloat = 0
+    @State private var axis = 0
 
     private var headers: [String] {
         store.settings.weekStart == 1
@@ -29,7 +30,7 @@ struct MonthCalendar: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 3) {
             HStack(spacing: 0) {
                 ForEach(headers, id: \.self) { w in
                     Text(w)
@@ -38,7 +39,7 @@ struct MonthCalendar: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, 5)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7),
                       spacing: 2) {
@@ -48,22 +49,48 @@ struct MonthCalendar: View {
             }
         }
         .padding(.horizontal, 8)
-        .padding(.bottom, 10)
+        .padding(.bottom, 6)
         .background(Ledger.paper)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .offset(x: dragX * 0.28)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 22)
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Ledger.rule, lineWidth: 0.6)
+        }
+        .offset(x: drag)
+        .scaleEffect(1 - min(abs(drag), 150) / 2600, anchor: .center)
+        .opacity(1 - min(abs(drag), 150) / 1100)
+        .gesture(
+            DragGesture(minimumDistance: 6)
                 .onChanged { v in
-                    guard abs(v.translation.width) > abs(v.translation.height) else { return }
-                    dragX = CGFloat(Int(v.translation.width))
+                    if axis == 0 {
+                        axis = abs(v.translation.width) > abs(v.translation.height) ? 1 : 2
+                    }
+                    guard axis == 1 else { return }
+                    let dx = v.translation.width
+                    // 1:1 跟手，超出 110pt 后加阻尼，拖不出屏
+                    if abs(dx) <= 110 {
+                        drag = dx
+                    } else {
+                        let over = abs(dx) - 110
+                        drag = (dx < 0 ? -1 : 1) * (110 + over * 0.22)
+                    }
                 }
                 .onEnded { v in
                     let dx = v.translation.width
-                    let horizontal = abs(dx) > abs(v.translation.height) * 1.2
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
-                        dragX = 0
-                        if horizontal, abs(dx) > 55 { onStep?(dx < 0 ? 1 : -1) }
+                    let horizontal = axis == 1
+                    axis = 0
+                    if horizontal, abs(drag) > 58 {
+                        withAnimation(.snappy(duration: 0.24)) {
+                            drag = dx < 0 ? -240 : 240
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                            onStep?(dx < 0 ? 1 : -1)
+                            drag = 0
+                        }
+                    } else {
+                        withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.8)) {
+                            drag = 0
+                        }
                     }
                 }
         )
@@ -75,7 +102,7 @@ struct MonthCalendar: View {
         let dayNum = i - lead + 1
 
         if dayNum < 1 || dayNum > days {
-            Color.clear.frame(height: 64)
+            Color.clear.frame(height: 58)
         } else {
             let key = String(format: "%04d-%02d-%02d", year, month, dayNum)
             CalendarDayCell(
@@ -131,21 +158,30 @@ private struct CalendarDayCell: View {
 
     private var markColor: Color {
         if selected { return palette.onPrimary }
-        if isPayday { return Color.gsOrange }
+        if isPayday { return gold }
         if kind == "jj" { return Color.gsRed }
         if Cal.isMakeupWorkday(key) { return Color.gsGreen }
         return Ledger.inkSoft
     }
 
+    /// 发薪日的金，亮色模式偏沉、暗色模式偏亮，都带一点发光。
+    private var gold: Color {
+        Color(uiColor: UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(red: 1.00, green: 0.82, blue: 0.36, alpha: 1)
+                : UIColor(red: 0.72, green: 0.50, blue: 0.05, alpha: 1)
+        })
+    }
+
     private var dayColor: Color {
         if selected { return palette.onPrimary }
-        if isPayday { return Color.gsOrange }
+        if isPayday { return gold }
         return Ledger.ink
     }
 
     private var barColor: Color {
         if selected { return palette.onPrimary }
-        if isPayday { return Color.gsOrange }
+        if isPayday { return gold }
         return palette.primary
     }
 
@@ -175,6 +211,8 @@ private struct CalendarDayCell: View {
                     .font(.system(size: 17, weight: selected ? .bold : .semibold))
                     .monospacedDigit()
                     .foregroundStyle(dayColor)
+                    .shadow(color: isPayday && !selected ? gold.opacity(0.55) : .clear,
+                            radius: 5)
                     .frame(height: 21)
 
                 Text(Cal.lunarCellText(key))
@@ -188,7 +226,9 @@ private struct CalendarDayCell: View {
                         Text(store.daySummary(r))
                             .font(.system(size: 9, weight: .bold))
                             .monospacedDigit()
-                            .foregroundStyle(selected ? palette.onPrimary : palette.primary)
+                            .foregroundStyle(selected ? palette.onPrimary : (isPayday ? gold : palette.primary))
+                            .shadow(color: isPayday && !selected ? gold.opacity(0.45) : .clear,
+                                    radius: 4)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
@@ -199,12 +239,13 @@ private struct CalendarDayCell: View {
 
                 Capsule()
                     .fill(barColor)
-                    .frame(width: 16, height: 2.5)
+                    .frame(width: isPayday ? 20 : 16, height: isPayday ? 3 : 2.5)
+                    .shadow(color: isPayday && !selected ? gold.opacity(0.6) : .clear, radius: 4)
                     .opacity(showsBar ? 1 : 0)
-                    .padding(.bottom, 4)
+                    .padding(.bottom, 3)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 64)
+            .frame(height: 58)
             .background {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     .fill(selected ? palette.primary : Color.clear)
@@ -216,6 +257,7 @@ private struct CalendarDayCell: View {
                     Text(mark)
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(markColor)
+                        .shadow(color: isPayday && !selected ? gold.opacity(0.5) : .clear, radius: 4)
                         .padding(.top, 1)
                         .padding(.trailing, 3)
                 }

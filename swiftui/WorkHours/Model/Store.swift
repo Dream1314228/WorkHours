@@ -6,8 +6,21 @@ final class Store: ObservableObject {
     static let shared = Store()
 
     @Published var data: AppData = AppData() {
-        didSet { scheduleSave() }
+        didSet {
+            guard loaded else { return }
+            revision &+= 1
+            chartToken &+= 1
+            scheduleSave()
+        }
     }
+
+    /// 每次数据变动 +1。图表用它重播动画，切页面也会重来。
+    @Published private(set) var revision = 0
+
+    /// 图表专用的重播信号：数据变了、切到别的标签页，都让它 +1。
+    @Published private(set) var chartToken = 0
+
+    func refreshCharts() { chartToken &+= 1 }
 
     private var loaded = false
     private var saveWork: DispatchWorkItem?
@@ -54,6 +67,27 @@ final class Store: ObservableObject {
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let raw = try? enc.encode(data) else { return }
         try? raw.write(to: Self.fileURL, options: .atomic)
+    }
+
+    /// 节假日自动更新：七天一次，成功才记时间；失败静默，下次再试。
+    func autoUpdateHoliday(force: Bool = false) async {
+        let stampKey = "holidaySyncAt"
+        let defaults = UserDefaults.standard
+        let last = defaults.double(forKey: stampKey)
+        let now = Date().timeIntervalSince1970
+        if !force, last > 0, now - last < 7 * 24 * 3600 { return }
+
+        let thisYear = Cal.gregorian.component(.year, from: Date())
+        var got = 0
+        for y in [thisYear, thisYear + 1] {
+            guard let year = try? await HolidayRemote.fetch(year: y) else { continue }
+            guard let payload = try? JSONEncoder().encode([String(y): year]) else { continue }
+            if (try? HolidayData.shared.importJSON(payload)) != nil { got += 1 }
+        }
+        if got > 0 {
+            defaults.set(now, forKey: stampKey)
+            await MainActor.run { self.revision &+= 1 }
+        }
     }
 
     // MARK: 设置别名
@@ -350,6 +384,15 @@ final class Store: ObservableObject {
             }
         }
         if kind == "bonus" { data.bonuses[mk] = list } else { data.deductions[mk] = list }
+    }
+
+    /// 最近一次同班次的实际工时，用来给没设默认值的新记录兜底。
+    func lastWork(forClass id: String) -> WorkHours? {
+        for key in data.records.keys.sorted(by: >) {
+            guard let r = data.records[key], r.classId == id, r.work.total > 0 else { continue }
+            return r.work
+        }
+        return nil
     }
 
     /// 每月第一次打开，把上月补贴扣款带过来（旧版行为）

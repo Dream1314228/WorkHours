@@ -124,6 +124,28 @@ struct SummaryPage: View {
                          color: Color.gsOrange, palette: palette)
             }
 
+            VStack(alignment: .leading, spacing: 9) {
+                IconTitle(icon: "square.grid.3x3.fill", title: "全年热力",
+                          subtitle: "一格一天，颜色越深工时越多")
+                YearHeatmap(year: year, palette: palette)
+                HStack(spacing: 5) {
+                    Text("少").font(.system(size: 9)).foregroundStyle(Ledger.inkSoft)
+                    ForEach([0.06, 0.25, 0.45, 0.68, 1.0], id: \.self) { o in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(palette.primary.opacity(o))
+                            .frame(width: 10, height: 10)
+                    }
+                    Text("多").font(.system(size: 9)).foregroundStyle(Ledger.inkSoft)
+                    Spacer()
+                    Text("\(Cal.num(ys.days)) 天有记录")
+                        .font(.system(size: 9))
+                        .monospacedDigit()
+                        .foregroundStyle(Ledger.inkSoft)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard(radius: store.settings.cardRadius)
+
             VStack(alignment: .leading, spacing: 10) {
                 IconTitle(icon: "chart.bar.xaxis", title: "每月工时", subtitle: "单位：小时 · 点柱子看整月")
                 MonthBarChart(months: ys.months, palette: palette) { m in
@@ -290,56 +312,186 @@ struct SummaryPage: View {
 
 // MARK: - 12 个月柱状图
 
-/// 只画工时，不掺补贴；柱宽、圆角、间距按 12 个月平分，看着整。
+/// 顶圆角、底齐平，配三条参考线；最高月标数值，当月下标用主题色。
 struct MonthBarChart: View {
     var months: [MonthStats]
     var palette: Palette
     var onSelect: (Int) -> Void
 
+    @EnvironmentObject private var store: Store
     @State private var grown = false
+
+    private let plotH: CGFloat = 100
 
     private var maxHours: Double {
         max(1, months.map { $0.hours }.max() ?? 1)
     }
 
+    private var peakIdx: Int? {
+        months.indices.first { abs(months[$0].hours - maxHours) < 0.001 }
+    }
+
+    private var currentMonth: Int { Cal.month(Cal.todayKey()) }
+
     var body: some View {
-        HStack(alignment: .bottom, spacing: 6) {
-            ForEach(0..<12, id: \.self) { i in
-                let m = months[i]
-                Button {
-                    onSelect(i + 1)
-                } label: {
-                    VStack(spacing: 5) {
-                        VStack(spacing: 1.5) {
-                            Spacer(minLength: 0)
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(Color.gsOrange.opacity(0.85))
-                                .frame(height: max(0, 96 * CGFloat((m.jb + m.zm + m.jj) / maxHours) * (grown ? 1 : 0)))
-                            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(palette.primary.opacity(0.9))
-                                .frame(height: max(0, 96 * CGFloat(m.zb / maxHours) * (grown ? 1 : 0)))
-                            if m.hours <= 0 {
-                                RoundedRectangle(cornerRadius: 2)
-                                    .fill(Ledger.rule)
-                                    .frame(height: 2)
+        ZStack(alignment: .bottom) {
+            VStack(spacing: 0) {
+                rule(0.12)
+                Spacer(minLength: 0)
+                rule(0.05)
+                Spacer(minLength: 0)
+                rule(0.05)
+            }
+            .frame(height: plotH - 14)
+
+            HStack(alignment: .bottom, spacing: 6) {
+                ForEach(0..<12, id: \.self) { i in
+                    let m = months[i]
+                    let h = (plotH - 14) * CGFloat(m.hours / maxHours)
+                    let otH = m.hours > 0 ? h * CGFloat((m.jb + m.zm + m.jj) / m.hours) : 0
+                    let zbH = max(0, h - otH)
+                    let isNow = i + 1 == currentMonth
+
+                    Button {
+                        onSelect(i + 1)
+                    } label: {
+                        VStack(spacing: 4) {
+                            ZStack(alignment: .bottom) {
+                                if i == peakIdx, m.hours > 0 {
+                                    Text(Cal.num(m.hours))
+                                        .font(.system(size: 8, weight: .semibold))
+                                        .monospacedDigit()
+                                        .foregroundStyle(palette.primary)
+                                        .fixedSize()
+                                        .offset(y: -h - 10)
+                                        .opacity(grown ? 1 : 0)
+                                }
+                                VStack(spacing: 1) {
+                                    if otH > 0.6 {
+                                        UnevenRoundedRectangle(topLeadingRadius: 3,
+                                                               bottomLeadingRadius: 0,
+                                                               bottomTrailingRadius: 0,
+                                                               topTrailingRadius: 3,
+                                                               style: .continuous)
+                                            .fill(Color.gsOrange.opacity(0.9))
+                                            .frame(height: otH)
+                                    }
+                                    UnevenRoundedRectangle(topLeadingRadius: otH > 0.6 ? 0 : 3,
+                                                           bottomLeadingRadius: 0,
+                                                           bottomTrailingRadius: 0,
+                                                           topTrailingRadius: otH > 0.6 ? 0 : 3,
+                                                           style: .continuous)
+                                        .fill(palette.primary.opacity(0.92))
+                                        .frame(height: zbH)
+                                }
+                                .scaleEffect(y: grown ? 1 : 0.001, anchor: .bottom)
+                                .animation(.spring(response: 0.5, dampingFraction: 0.82)
+                                            .delay(Double(i) * 0.016), value: grown)
                             }
+                            .frame(height: plotH - 14, alignment: .bottom)
+
+                            Rectangle()
+                                .fill(isNow ? palette.primary : Color.primary.opacity(0.12))
+                                .frame(height: 1.2)
+
+                            Text("\(i + 1)")
+                                .font(.system(size: 9, weight: isNow ? .bold : (m.hours > 0 ? .medium : .regular)))
+                                .monospacedDigit()
+                                .foregroundStyle(isNow ? palette.primary : Color.gsSecondary)
                         }
-                        .frame(height: 96, alignment: .bottom)
-                        Text("\(i + 1)")
-                            .font(.system(size: 9, weight: m.hours > 0 ? .medium : .regular))
-                            .monospacedDigit()
-                            .foregroundStyle(m.hours > 0 ? Color.gsSecondary : Color.gsSecondary.opacity(0.55))
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
                     }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
+                    .buttonStyle(PressableStyle(scale: 0.94))
                 }
-                .buttonStyle(PressableStyle(scale: 0.94))
             }
         }
+        .frame(height: plotH + 6)
+        .onAppear { play() }
+        .onChange(of: store.chartToken) { _, _ in play() }
+    }
+
+    private func rule(_ opacity: Double) -> some View {
+        Rectangle()
+            .fill(Color.primary.opacity(opacity))
+            .frame(height: 0.7)
+    }
+
+    private func play() {
+        grown = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
+            grown = true
+        }
+    }
+}
+
+// MARK: - 全年热力图
+
+/// 53 列 × 7 行，周一在行首；一格一天，按当天总工时上色。
+struct YearHeatmap: View {
+    let year: Int
+    var palette: Palette
+
+    @EnvironmentObject private var store: Store
+    @State private var appeared = false
+
+    private var lead: Int {
+        (Cal.weekday(String(format: "%04d-01-01", year)) + 5) % 7
+    }
+
+    private var keys: [String] {
+        var out: [String] = []
+        var comps = DateComponents()
+        comps.year = year; comps.month = 1; comps.day = 1
+        guard let start = Cal.gregorian.date(from: comps) else { return out }
+        let days = Cal.gregorian.range(of: .day, in: .year, for: start)?.count ?? 365
+        for i in 0..<days {
+            guard let d = Cal.gregorian.date(byAdding: .day, value: i, to: start) else { continue }
+            out.append(String(format: "%04d-%02d-%02d", year,
+                              Cal.gregorian.component(.month, from: d),
+                              Cal.gregorian.component(.day, from: d)))
+        }
+        return out
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let cols: CGFloat = 53
+            let gap: CGFloat = 1.6
+            let cell = max(2, (geo.size.width - gap * (cols - 1)) / cols)
+            let list = keys
+            let base = lead
+
+            Canvas { ctx, _ in
+                for (i, key) in list.enumerated() {
+                    let slot = base + i
+                    let col = slot / 7
+                    let row = slot % 7
+                    let rect = CGRect(x: CGFloat(col) * (cell + gap),
+                                      y: CGFloat(row) * (cell + gap),
+                                      width: cell, height: cell)
+                    let hours = store.record(key)?.work.total ?? 0
+                    ctx.fill(Path(roundedRect: rect, cornerRadius: max(1, cell * 0.2)),
+                             with: .color(shade(hours)))
+                }
+            }
+            .opacity(appeared ? 1 : 0)
+        }
+        .frame(height: 56)
         .onAppear {
-            withAnimation(.spring(response: 0.7, dampingFraction: 0.85).delay(0.05)) {
-                grown = true
-            }
+            withAnimation(.easeOut(duration: 0.35)) { appeared = true }
         }
+        .onChange(of: store.chartToken) { _, _ in
+            appeared = false
+            withAnimation(.easeOut(duration: 0.35)) { appeared = true }
+        }
+    }
+
+    private func shade(_ hours: Double) -> Color {
+        if hours <= 0 { return Color.primary.opacity(0.055) }
+        if hours <= 4 { return palette.primary.opacity(0.24) }
+        if hours <= 8 { return palette.primary.opacity(0.45) }
+        if hours <= 10 { return palette.primary.opacity(0.68) }
+        return palette.primary
     }
 }

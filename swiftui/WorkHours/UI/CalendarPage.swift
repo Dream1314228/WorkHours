@@ -34,20 +34,20 @@ struct CalendarPage: View {
         ZStack {
             AppBackdrop(palette: palette)
             ScrollView {
-                VStack(spacing: 14) {
+                VStack(spacing: 10) {
                     header
                     overviewCard
                     calendarCard
                     dayCard
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 6)
+                .padding(.top, 2)
                 .padding(.bottom, 96)
             }
             .scrollIndicators(.hidden)
         }
         .safeAreaInset(edge: .bottom) { bottomBar }
-        .task { await autoFetchHoliday() }
+        .task { await store.autoUpdateHoliday() }
         .sheet(isPresented: $showEditor) {
             DayEditor(date: editorDate, palette: palette)
                 .environmentObject(store)
@@ -69,7 +69,7 @@ struct CalendarPage: View {
         HStack(alignment: .center, spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(year) 年 \(month) 月")
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Ledger.ink)
                 Text(monthStats.label)
                     .font(.system(size: 12))
@@ -86,9 +86,9 @@ struct CalendarPage: View {
                     Text("今天")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Ledger.paper)
-                        .padding(.horizontal, 14)
-                        .frame(height: 44)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Ledger.ink))
+                        .padding(.horizontal, 12)
+                        .frame(height: 38)
+                        .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Ledger.ink))
                 }
                 .buttonStyle(PressableStyle())
             }
@@ -134,7 +134,7 @@ struct CalendarPage: View {
                         .rotationEffect(.degrees(showBill ? 180 : 0))
                 }
                 .padding(.horizontal, 16)
-                .frame(height: 82)
+                .frame(height: 74)
                 .contentShape(Rectangle())
             }
             .buttonStyle(PressableStyle(scale: 0.995))
@@ -198,21 +198,12 @@ struct CalendarPage: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
-                .frame(width: 44, height: 44)
+                .frame(width: 38, height: 38)
                 .contentShape(RoundedRectangle(cornerRadius: 12))
                 .background(Circle().fill(Color.primary.opacity(0.08)))
                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
         .buttonStyle(PressableStyle())
-    }
-
-    /// 每年第一次打开自动补当年的节假日，失败就静默跳过。
-    private func autoFetchHoliday() async {
-        let y = Cal.year(Cal.todayKey())
-        guard !HolidayData.shared.customYears.contains(String(y)) else { return }
-        guard let year = try? await HolidayRemote.fetch(year: y) else { return }
-        guard let payload = try? JSONEncoder().encode([String(y): year]) else { return }
-        try? HolidayData.shared.importJSON(payload)
     }
 
     private func moveMonth(_ delta: Int) {
@@ -307,18 +298,28 @@ struct CalendarPage: View {
                     .font(.system(size: 12))
                     .foregroundStyle(Color.gsSecondary)
                 }
-                Spacer()
-                if selectedRecord != nil {
+                Spacer(minLength: 8)
+                if let rec = selectedRecord {
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(Cal.money(store.dayPay(rec)))
+                            .font(.system(size: 20, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.gsOrange)
+                            .contentTransition(.numericText())
+                        Text("当天合计")
+                            .font(.system(size: 9))
+                            .foregroundStyle(Ledger.inkSoft)
+                    }
                     Button {
                         editorDate = selected
                         showEditor = true
                     } label: {
                         Text("编辑")
                             .font(.system(size: 13, weight: .semibold))
-                            .padding(.horizontal, 14)
-                            .frame(height: 44)
-                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Ledger.ink.opacity(0.05)))
-                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+                            .padding(.horizontal, 12)
+                            .frame(height: 38)
+                            .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(Ledger.ink.opacity(0.05)))
+                            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
                     }
                     .buttonStyle(PressableStyle())
                 }
@@ -396,19 +397,6 @@ struct CalendarPage: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(palette.primary.opacity(0.07))
             }
-        }
-
-        Divider().opacity(0.4)
-
-        HStack {
-            Text("当天合计")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.gsSecondary)
-            Spacer()
-            Text(Cal.money(store.dayPay(rec)))
-                .font(.system(size: 22, weight: .bold))
-                .monospacedDigit()
-                .foregroundStyle(Color.gsOrange)
         }
 
     }

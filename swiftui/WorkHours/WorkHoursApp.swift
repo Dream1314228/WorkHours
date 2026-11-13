@@ -14,11 +14,12 @@ struct WorkHoursApp: App {
 
 struct RootView: View {
     @EnvironmentObject var store: Store
+    @State private var tab = 0
 
     var palette: Palette { Theme.of(store.data.settings.theme) }
 
     var body: some View {
-        TabView {
+        TabView(selection: $tab) {
             CalendarPage(palette: palette)
                 .tabItem { Label("记录", systemImage: "calendar") }
                 .tag(0)
@@ -36,6 +37,10 @@ struct RootView: View {
                 .tag(4)
         }
         .tint(palette.primary)
+        .onChange(of: tab) { _, _ in
+            // 换标签页时让图表重新播一遍
+            store.refreshCharts()
+        }
         .overlay(ToastOverlay())
         .onAppear {
             let s = store.settings

@@ -173,7 +173,9 @@ struct DayEditor: View {
                         Text("排班表：\(planned.name)")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color.primary)
-                        Text("点右边直接套用，省得再挑一次")
+                        Text(draft.classId == planned.id
+                             ? "已自动套用这个班的工时，不用再挑"
+                             : "点右边直接套用，省得再挑一次")
                             .font(.system(size: 10))
                             .foregroundStyle(Color.gsSecondary)
                     }
@@ -500,7 +502,13 @@ struct DayEditor: View {
         if store.shiftClass(r.classId) == nil { r.classId = store.classes.first?.id ?? "1" }
         r.projectId = store.project(store.settings.projectId).id
         r.type = Cal.dayKind(date)
-        let def = store.defaultWork(forClass: r.classId)
+        var def = store.defaultWork(forClass: r.classId)
+        // 没设过这个班的默认工时，就拿最近一次同样班次的工时兜底
+        if def.zb + def.jb + def.zm + def.jj <= 0,
+           let last = store.lastWork(forClass: r.classId) {
+            def = ClassDefault(zb: last.zb, jb: last.jb, zm: last.zm,
+                               jj: last.jj, rjgz: def.rjgz)
+        }
         switch r.type {
         case "zm": r.work = WorkHours(zb: 0, jb: def.jb, zm: def.zm, jj: 0)
         case "jj": r.work = WorkHours(zb: 0, jb: def.jb, zm: 0, jj: def.jj)
