@@ -104,71 +104,11 @@ struct ShiftPage: View {
     // MARK: 月历
 
     private var calendarCard: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 0) {
-                ForEach(weekdayHeaders, id: \.self) { w in
-                    Text(w)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.gsSecondary)
-                        .frame(maxWidth: .infinity)
-                }
-            }
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 7), spacing: 4) {
-                ForEach(0..<firstOffset, id: \.self) { _ in
-                    Color.clear.frame(height: 56)
-                }
-                ForEach(1...Cal.daysInMonth(year, month), id: \.self) { d in
-                    dayCell(d)
-                }
-            }
-        }
-        .glassCard(radius: store.settings.cardRadius, padding: 10)
-    }
-
-    private func dayCell(_ d: Int) -> some View {
-        let key = String(format: "%04d-%02d-%02d", year, month, d)
-        let planId = store.plan(key)
-        let shift = planId.isEmpty ? nil : store.shiftClass(planId)
-        let rec = store.record(key)
-        let isToday = key == Cal.todayKey()
-
-        return Button {
+        MonthCalendar(year: year, month: month, selected: pendingDate ?? "",
+                      palette: palette, showsHours: false) { key in
             pendingDate = key
             showPicker = true
-        } label: {
-            VStack(spacing: 2) {
-                Text("\(d)")
-                    .font(.system(size: 15, weight: isToday ? .bold : .medium))
-                    .monospacedDigit()
-                    .foregroundStyle(Color.primary)
-                Spacer(minLength: 0)
-                if let shift = shift {
-                    Text(shift.name)
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(Color.primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .padding(.horizontal, 3)
-                        .padding(.vertical, 1)
-                        .background(Capsule().fill(Color(hex: shift.color).opacity(0.16)))
-                } else if rec != nil {
-                    Circle().fill(palette.primary.opacity(0.5)).frame(width: 4, height: 4)
-                }
-            }
-            .padding(.vertical, 5)
-            .frame(height: 56)
-            .background {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(isToday ? palette.primary.opacity(0.07) : Color.clear)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(isToday ? palette.primary.opacity(0.6) : Color.clear, lineWidth: 1)
-            }
-            .contentShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
-        .buttonStyle(PressableStyle(scale: 0.94))
     }
 
     // MARK: 图例 + 本月
