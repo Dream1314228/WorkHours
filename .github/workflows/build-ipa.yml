@@ -1,7 +1,12 @@
-name: Build IPA
+name: Build UIKit IPA
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "uikit/**"
+      - ".github/workflows/build-ipa.yml"
 
 jobs:
   build:
@@ -25,10 +30,11 @@ jobs:
           mkdir -p "$APP"
           clang -target arm64-apple-ios15.0 \
                 -isysroot "$SDK" \
-                -fobjc-arc -O2 -Wall -Inative \
+                -fobjc-arc -O2 -Wall -Iuikit \
                 -framework UIKit -framework Foundation \
                 -framework QuartzCore -framework CoreGraphics \
-                native/*.m \
+                -framework UserNotifications \
+                uikit/*.m \
                 -o "$APP/GSJilu"
           codesign -f -s - "$APP/GSJilu" || echo "ad-hoc 签名失败，不阻塞（自签时会重签）"
 
@@ -36,11 +42,11 @@ jobs:
         run: |
           set -eux
           APP=build/Payload/GSJilu.app
-          cp shell/Info.plist "$APP/Info.plist"
-          cp shell/icons/AppIcon60x60@2x.png "$APP/"
-          cp shell/icons/AppIcon60x60@3x.png "$APP/"
+          cp uikit/Info.plist "$APP/Info.plist"
+          cp uikit/icons/AppIcon60x60@2x.png "$APP/"
+          cp uikit/icons/AppIcon60x60@3x.png "$APP/"
           printf 'APPL????' > "$APP/PkgInfo"
-          VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" shell/Info.plist)
+          VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" uikit/Info.plist)
           echo "VER=$VER" >> "$GITHUB_ENV"
           echo "版本号: $VER"
 
@@ -56,14 +62,14 @@ jobs:
         run: |
           set -eux
           cd build
-          zip -qry "../工时记录-$VER-unsigned.ipa" Payload
+          zip -qry "../WorkHours-uikit-$VER-unsigned.ipa" Payload
           cd ..
           ls -l *.ipa
 
       - name: 上传 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: workhours-ipa
-          path: 工时记录-*.ipa
+          name: workhours-uikit-ipa
+          path: WorkHours-uikit-*.ipa
           if-no-files-found: error
           retention-days: 90

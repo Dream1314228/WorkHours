@@ -9,6 +9,7 @@
 @property (nonatomic, strong) GSGradientView *header;
 @property (nonatomic, strong) UILabel *yearLabel, *bigPay, *subLabel;
 @property (nonatomic, strong) UILabel *h1, *h2, *h3, *h4;
+@property (nonatomic, strong) NSArray<UILabel *> *statTitles;
 @property (nonatomic, strong) UISegmentedControl *seg;
 @property (nonatomic, strong) UIStackView *stack;
 @property (nonatomic, assign) NSInteger year, month;
@@ -21,9 +22,11 @@
 @property (nonatomic, strong) NSLayoutConstraint *headerHeight, *statusHeight, *yearTop;
 @property (nonatomic, assign) BOOL statusDark;
 - (void)buildBoard:(NSDictionary *)st;
+- (void)exportHTML;
+@end
+@interface GSScheduleViewController (Build)
 - (void)buildIncome:(NSDictionary *)st;
 - (void)buildSchedule;
-- (void)exportHTML;
 @end
 @implementation GSScheduleViewController
 - (void)viewDidLoad {
@@ -55,10 +58,10 @@
     GSAddHeaderOrbs(self.header);
     GSApplyHeaderCorners(self.header);
     [self.scroll addSubview:self.header];
-    self.yearLabel = GSLabel(@"", GSFont(15, UIFontWeightBold), UIColor.whiteColor);
+    self.yearLabel = GSLabel(@"", GSFont(16, UIFontWeightBold), UIColor.whiteColor);
     self.bigPay = GSLabel(@"", GSFont(45, UIFontWeightBold), UIColor.whiteColor);
-    self.subLabel = GSLabel(@"", GSFont(11, UIFontWeightRegular), [UIColor colorWithWhite:1 alpha:.92]);
-    UILabel *annual = GSLabel(@"ANNUAL", GSFont(9, UIFontWeightSemibold), [UIColor colorWithWhite:1 alpha:.92]);
+    self.subLabel = GSLabel(@"", GSFont(12, UIFontWeightRegular), [UIColor colorWithWhite:1 alpha:.92]);
+    UILabel *annual = GSLabel(@"ANNUAL", GSFont(10, UIFontWeightSemibold), [UIColor colorWithWhite:1 alpha:.92]);
     annual.layer.borderWidth = 1; annual.layer.borderColor = [UIColor colorWithWhite:1 alpha:.25].CGColor;
     annual.layer.cornerRadius = 10; annual.clipsToBounds = YES; annual.textAlignment = NSTextAlignmentCenter;
     for (UILabel *l in @[self.yearLabel, self.bigPay, self.subLabel, annual]) { l.translatesAutoresizingMaskIntoConstraints = NO; [self.header addSubview:l]; }
@@ -75,12 +78,14 @@
     [self.header addSubview:stats];
     NSMutableArray *boxes = [NSMutableArray array];
     NSMutableArray *vals = [NSMutableArray array];
+    NSMutableArray *titleLabels = [NSMutableArray array];
     NSArray *titles = @[@"总工时", @"出勤", @"平均时薪", @"加班"];
     for (NSInteger i = 0; i < 4; i++) {
         UILabel *v = GSLabel(@"", GSFont(17, UIFontWeightBold), UIColor.whiteColor); v.textAlignment = NSTextAlignmentCenter;
-        UILabel *t = GSLabel(titles[i], GSFont(9, UIFontWeightRegular), [UIColor colorWithWhite:1 alpha:.92]); t.textAlignment = NSTextAlignmentCenter;
-        [boxes addObject:GSStack(@[v, t], UILayoutConstraintAxisVertical, 2)]; [vals addObject:v];
+        UILabel *t = GSLabel(titles[i], GSFont(10, UIFontWeightRegular), [UIColor colorWithWhite:1 alpha:.92]); t.textAlignment = NSTextAlignmentCenter;
+        [boxes addObject:GSStack(@[v, t], UILayoutConstraintAxisVertical, 2)]; [vals addObject:v]; [titleLabels addObject:t];
     }
+    self.statTitles = titleLabels;
     self.h1 = vals[0]; self.h2 = vals[1]; self.h3 = vals[2]; self.h4 = vals[3];
     UIStackView *statStack = GSStack(boxes, UILayoutConstraintAxisHorizontal, 0);
     statStack.distribution = UIStackViewDistributionFillEqually;
@@ -88,8 +93,8 @@
     self.seg = [[UISegmentedControl alloc] initWithItems:@[@"排班", @"看板"]];
     self.seg.selectedSegmentIndex = 1;
     self.seg.selectedSegmentTintColor = UIColor.whiteColor;
-    [self.seg setTitleTextAttributes:@{NSForegroundColorAttributeName:[UIColor colorWithWhite:1 alpha:.95], NSFontAttributeName:GSFont(13, UIFontWeightSemibold)} forState:UIControlStateNormal];
-    [self.seg setTitleTextAttributes:@{NSForegroundColorAttributeName:GSThemeColor(), NSFontAttributeName:GSFont(13, UIFontWeightSemibold)} forState:UIControlStateSelected];
+    [self.seg setTitleTextAttributes:@{NSForegroundColorAttributeName:[UIColor colorWithWhite:1 alpha:.95], NSFontAttributeName:GSFont(14, UIFontWeightSemibold)} forState:UIControlStateNormal];
+    [self.seg setTitleTextAttributes:@{NSForegroundColorAttributeName:GSThemeColor(), NSFontAttributeName:GSFont(14, UIFontWeightSemibold)} forState:UIControlStateSelected];
     self.seg.backgroundColor = [UIColor colorWithWhite:0 alpha:.10]; self.seg.layer.cornerRadius = 12; self.seg.clipsToBounds = YES;
     [self.seg addTarget:self action:@selector(viewChanged) forControlEvents:UIControlEventValueChanged];
     self.seg.translatesAutoresizingMaskIntoConstraints = NO;
@@ -144,8 +149,8 @@
         [self.seg.topAnchor constraintEqualToAnchor:stats.bottomAnchor constant:14],
         [self.seg.heightAnchor constraintEqualToConstant:40],
         [self.stack.topAnchor constraintEqualToAnchor:self.header.bottomAnchor constant:16],
-        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:16],
-        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-16],
+        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:GSPageMargin],
+        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-GSPageMargin],
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-120]
     ]];
     [self.view bringSubviewToFront:self.statusBg];
@@ -166,18 +171,18 @@
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView { [self updateStatusStyle]; }
 - (void)updateStatusStyle {
     CGFloat threshold = MAX(0, self.headerHeight.constant - self.view.safeAreaInsets.top);
-    BOOL dark = self.scroll.contentOffset.y > threshold;
+    BOOL dark = _statusDark ? (self.scroll.contentOffset.y > threshold - 8.0) : (self.scroll.contentOffset.y > threshold + 2.0);
     if (dark != _statusDark) { _statusDark = dark; [self setNeedsStatusBarAppearanceUpdate]; [self.parentViewController setNeedsStatusBarAppearanceUpdate]; }
 }
-- (void)prevYear { self.year--; [self reload]; }
-- (void)nextYear { self.year++; [self reload]; }
-- (void)viewChanged { self.boardView = self.seg.selectedSegmentIndex == 1; [self reload]; }
+- (void)prevYear { self.year--; GSHaptic(); [self reload]; }
+- (void)nextYear { self.year++; GSHaptic(); [self reload]; }
+- (void)viewChanged { self.boardView = self.seg.selectedSegmentIndex == 1; GSHaptic(); [self reload]; }
 - (GSCardView *)cardWithTitle:(NSString *)title content:(UIView *)content {
     GSCardView *card = [[GSCardView alloc] init];
     UIStackView *v = [[UIStackView alloc] init];
     v.axis = UILayoutConstraintAxisVertical; v.spacing = 12; v.translatesAutoresizingMaskIntoConstraints = NO;
     [card addSubview:v];
-    UILabel *t = GSLabel(title, GSFont(15, UIFontWeightBold), GSColorHex(@"#101828"));
+    UILabel *t = GSLabel(title, GSFont(16, UIFontWeightBold), GSTextPrimary());
     [v addArrangedSubview:t];
     if (content) [v addArrangedSubview:content];
     [NSLayoutConstraint activateConstraints:@[
@@ -190,33 +195,56 @@
 }
 - (void)reload {
     NSDictionary *st = [[GSStore shared] yearStats:self.year];
-    self.yearLabel.text = [NSString stringWithFormat:@"%ld 年度", (long)self.year];
-    self.bigPay.text = [NSString stringWithFormat:@"¥%@", GSNum([st[@"pay"] doubleValue])];
-    self.subLabel.text = [NSString stringWithFormat:@"时薪 %.0f元  ·  %ld年 %@ 天出勤", [st[@"avg"] doubleValue], (long)self.year, GSNum([st[@"days"] doubleValue])];
-    self.h1.text = [NSString stringWithFormat:@"%@H", GSNum([st[@"hours"] doubleValue])];
-    self.h2.text = [NSString stringWithFormat:@"%@天", GSNum([st[@"days"] doubleValue])];
-    self.h3.text = [NSString stringWithFormat:@"%.0f元", [st[@"avg"] doubleValue]];
-    self.h4.text = [NSString stringWithFormat:@"%@H", GSNum([st[@"ot"] doubleValue])];
+    if (self.boardView) {
+        self.yearLabel.text = [NSString stringWithFormat:@"%ld 年度", (long)self.year];
+        self.bigPay.text = [NSString stringWithFormat:@"¥%@", GSNum([st[@"pay"] doubleValue])];
+        self.subLabel.text = [NSString stringWithFormat:@"时薪 %.0f元  ·  %ld年 %@ 天出勤", [st[@"avg"] doubleValue], (long)self.year, GSNum([st[@"days"] doubleValue])];
+        self.h1.text = [NSString stringWithFormat:@"%@H", GSNum([st[@"hours"] doubleValue])];
+        self.h2.text = [NSString stringWithFormat:@"%@天", GSNum([st[@"days"] doubleValue])];
+        self.h3.text = [NSString stringWithFormat:@"%.0f元", [st[@"avg"] doubleValue]];
+        self.h4.text = [NSString stringWithFormat:@"%@H", GSNum([st[@"ot"] doubleValue])];
+        NSArray *names = @[@"总工时", @"出勤", @"平均时薪", @"加班"];
+        for (NSInteger i = 0; i < 4; i++) self.statTitles[i].text = names[i];
+    } else {
+        NSInteger dim = GSDaysInMonth(self.year, self.month), planned = 0, recorded = 0;
+        NSMutableSet *classSet = [NSMutableSet set];
+        for (NSInteger day = 1; day <= dim; day++) {
+            NSString *key = [NSString stringWithFormat:@"%04ld-%02ld-%02ld", (long)self.year, (long)self.month, (long)day];
+            NSString *plan = [[GSStore shared] planForDate:key];
+            if (plan.length) { planned++; [classSet addObject:plan]; }
+            if ([[GSStore shared] recordForDate:key]) recorded++;
+        }
+        self.yearLabel.text = [NSString stringWithFormat:@"%ld 年 %ld 月", (long)self.year, (long)self.month];
+        self.bigPay.text = @"排班计划";
+        self.subLabel.text = [NSString stringWithFormat:@"已排 %ld 天 · 未排 %ld 天 · 点日期切换班次", (long)planned, (long)(dim - planned)];
+        self.h1.text = [NSString stringWithFormat:@"%ld天", (long)planned];
+        self.h2.text = [NSString stringWithFormat:@"%ld天", (long)(dim - planned)];
+        self.h3.text = [NSString stringWithFormat:@"%ld", (long)classSet.count];
+        self.h4.text = [NSString stringWithFormat:@"%ld天", (long)recorded];
+        NSArray *names = @[@"已排", @"未排", @"班次数", @"已记录"];
+        for (NSInteger i = 0; i < 4; i++) self.statTitles[i].text = names[i];
+    }
     self.seg.selectedSegmentIndex = self.boardView ? 1 : 0;
     for (UIView *v in self.stack.arrangedSubviews) { [self.stack removeArrangedSubview:v]; [v removeFromSuperview]; }
     if (self.boardView) [self buildBoard:st]; else [self buildSchedule];
 }
 - (void)buildBoard:(NSDictionary *)st {
-    UIButton *export = [UIButton buttonWithType:UIButtonTypeSystem];
+    GSPressButton *export = [[GSPressButton alloc] initWithFrame:CGRectZero];
     [export setTitle:@"导出 HTML 报表" forState:UIControlStateNormal];
     [export setImage:GSIcon(@"square.and.arrow.up", 14) forState:UIControlStateNormal];
     export.tintColor = GSThemeColor();
-    export.titleLabel.font = GSFont(13, UIFontWeightSemibold);
+    export.titleLabel.font = GSFont(14, UIFontWeightSemibold);
     [export setTitleColor:GSThemeColor() forState:UIControlStateNormal];
     export.backgroundColor = UIColor.whiteColor;
-    export.layer.cornerRadius = 14;
+    export.layer.cornerRadius = 16;
+    export.layer.borderWidth = 1.0 / MAX(1.0, UIScreen.mainScreen.scale);
+    export.layer.borderColor = GSBorderColor().CGColor;
     [export.heightAnchor constraintEqualToConstant:44].active = YES;
     [export addTarget:self action:@selector(exportHTML) forControlEvents:UIControlEventTouchUpInside];
     [self.stack addArrangedSubview:export];
     NSArray *months = st[@"months"];
     double totalH = [st[@"hours"] doubleValue], totalDays = [st[@"days"] doubleValue];
     double totalOT = [st[@"ot"] doubleValue], totalPay = [st[@"pay"] doubleValue];
-    double totalBonus = [st[@"bonus"] doubleValue], totalDeduct = [st[@"deduct"] doubleValue];
     double weekendH = 0, holidayH = 0, normalH = 0, overtimeH = 0, bestH = 0, maxPay = 0, minPay = 0;
     NSInteger activeMonths = 0, bestMonth = 0, bestPayMonth = 0, lowestPayMonth = 0;
     for (NSInteger i = 0; i < (NSInteger)months.count; i++) {
@@ -247,7 +275,7 @@
         box.layer.cornerRadius = 12;
         UILabel *v = GSLabel(value, GSFont(16, UIFontWeightBold), color);
         v.adjustsFontSizeToFitWidth = YES; v.minimumScaleFactor = .65;
-        UILabel *t = GSLabel(title, GSFont(9, UIFontWeightRegular), GSColorHex(@"#667085"));
+        UILabel *t = GSLabel(title, GSFont(10, UIFontWeightRegular), GSTextSecondary());
         v.textAlignment = NSTextAlignmentCenter; t.textAlignment = NSTextAlignmentCenter;
         UIStackView *sv = GSStack(@[v, t], UILayoutConstraintAxisVertical, 3);
         sv.translatesAutoresizingMaskIntoConstraints = NO;
@@ -261,20 +289,20 @@
     };
     UIStackView *row1 = GSStack(@[
         metricBox(@"日均工时", [NSString stringWithFormat:@"%@H", GSNum(avgDaily)], GSThemeColor()),
-        metricBox(@"加班占比", [NSString stringWithFormat:@"%.0f%%", otRate], GSColorHex(@"#B54708")),
-        metricBox(@"有记录月份", [NSString stringWithFormat:@"%ld", (long)activeMonths], GSColorHex(@"#067647"))
+        metricBox(@"加班占比", [NSString stringWithFormat:@"%.0f%%", otRate], GSWarningColor()),
+        metricBox(@"有记录月份", [NSString stringWithFormat:@"%ld", (long)activeMonths], GSSuccessColor())
     ], UILayoutConstraintAxisHorizontal, 8);
     row1.distribution = UIStackViewDistributionFillEqually;
     UIStackView *row2 = GSStack(@[
         metricBox(@"月均工时", [NSString stringWithFormat:@"%@H", GSNum(avgMonth)], GSThemeColor()),
         metricBox(@"年假使用", [NSString stringWithFormat:@"%@/%@天", GSNum(leaveUsed), GSNum(leaveTotal)], GSColorHex(@"#6941C6")),
-        metricBox(@"最高月", bestMonth > 0 ? [NSString stringWithFormat:@"%ld月", (long)bestMonth] : @"—", GSColorHex(@"#B42318"))
+        metricBox(@"最高月", bestMonth > 0 ? [NSString stringWithFormat:@"%ld月", (long)bestMonth] : @"—", GSDangerColor())
     ], UILayoutConstraintAxisHorizontal, 8);
     row2.distribution = UIStackViewDistributionFillEqually;
     UIStackView *row3 = GSStack(@[
-        metricBox(@"最高月工资", bestPayMonth > 0 ? [NSString stringWithFormat:@"%ld月 %@", (long)bestPayMonth, GSMoney(maxPay)] : @"—", GSColorHex(@"#067647")),
+        metricBox(@"最高月工资", bestPayMonth > 0 ? [NSString stringWithFormat:@"%ld月 %@", (long)bestPayMonth, GSMoney(maxPay)] : @"—", GSSuccessColor()),
         metricBox(@"月均工资", GSMoney(avgMonthPay), GSThemeColor()),
-        metricBox(@"最低月工资", lowestPayMonth > 0 ? [NSString stringWithFormat:@"%ld月 %@", (long)lowestPayMonth, GSMoney(minPay)] : @"—", GSColorHex(@"#B54708"))
+        metricBox(@"最低月工资", lowestPayMonth > 0 ? [NSString stringWithFormat:@"%ld月 %@", (long)lowestPayMonth, GSMoney(minPay)] : @"—", GSWarningColor())
     ], UILayoutConstraintAxisHorizontal, 8);
     row3.distribution = UIStackViewDistributionFillEqually;
     UIStackView *grid = GSStack(@[row1, row2, row3], UILayoutConstraintAxisVertical, 8);
@@ -282,13 +310,13 @@
 
     NSArray *partNames = @[@"正班", @"加班", @"周末", @"节假"];
     NSArray *partVals = @[@(normalH), @(overtimeH), @(weekendH), @(holidayH)];
-    NSArray *partColors = @[GSThemeColor(), GSColorHex(@"#D92D20"), GSColorHex(@"#F79009"), GSColorHex(@"#6941C6")];
+    NSArray *partColors = @[GSColorHex(@"#1859D9"), GSColorHex(@"#D92D20"), GSColorHex(@"#12B76A"), GSColorHex(@"#F79009")];
     NSMutableArray *partRows = [NSMutableArray array];
     for (NSInteger i = 0; i < 4; i++) {
         double v = [partVals[i] doubleValue];
         double ratio = totalH > 0 ? v / totalH : 0;
-        UILabel *name = GSLabel(partNames[i], GSFont(12, UIFontWeightSemibold), GSColorHex(@"#344054"));
-        UILabel *value = GSLabel([NSString stringWithFormat:@"%@H · %.0f%%", GSNum(v), ratio * 100], GSFont(11, UIFontWeightMedium), partColors[i]);
+        UILabel *name = GSLabel(partNames[i], GSFont(13, UIFontWeightSemibold), GSTextStrong());
+        UILabel *value = GSLabel([NSString stringWithFormat:@"%@H · %.0f%%", GSNum(v), ratio * 100], GSFont(12, UIFontWeightMedium), partColors[i]);
         value.textAlignment = NSTextAlignmentRight;
         UIView *top = [[UIView alloc] init];
         [top addSubview:name]; [top addSubview:value];
@@ -326,7 +354,7 @@
         bar.backgroundColor = GSColorHex(@"#E7EDF6");
         bar.layer.cornerRadius = 5;
         bar.clipsToBounds = YES;
-        UILabel *lab = GSLabel([NSString stringWithFormat:@"%ld", (long)(i + 1)], GSFont(9, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+        UILabel *lab = GSLabel([NSString stringWithFormat:@"%ld", (long)(i + 1)], GSFont(10, UIFontWeightRegular), GSTextSecondary());
         lab.textAlignment = NSTextAlignmentCenter;
         bar.translatesAutoresizingMaskIntoConstraints = NO; lab.translatesAutoresizingMaskIntoConstraints = NO;
         [col addSubview:bar]; [col addSubview:lab];
@@ -373,16 +401,20 @@
         [chart.trailingAnchor constraintEqualToAnchor:chartWrap.trailingAnchor], [chart.bottomAnchor constraintEqualToAnchor:chartWrap.bottomAnchor],
         [chartWrap.heightAnchor constraintEqualToConstant:160]
     ]];
-    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(7, 1)];
-    UIImage *dashImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
-        [[UIColor clearColor] setFill]; UIRectFill(CGRectMake(0, 0, 7, 1));
-        [GSColorHex(@"#98A2B3") setFill]; UIRectFill(CGRectMake(0, 0, 4, 1));
-    }];
+    static UIImage *dashImage;
+    static dispatch_once_t dashOnce;
+    dispatch_once(&dashOnce, ^{
+        UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(7, 1)];
+        dashImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext *ctx) {
+            [[UIColor clearColor] setFill]; UIRectFill(CGRectMake(0, 0, 7, 1));
+            [GSTextTertiary() setFill]; UIRectFill(CGRectMake(0, 0, 4, 1));
+        }];
+    });
     UIView *avgLine = [[UIView alloc] init];
     avgLine.backgroundColor = [UIColor colorWithPatternImage:dashImage];
     avgLine.translatesAutoresizingMaskIntoConstraints = NO;
     [chartWrap addSubview:avgLine];
-    UILabel *avgLabel = GSLabel([NSString stringWithFormat:@"均值 %@H", GSNum(avgMonth)], GSFont(8, UIFontWeightMedium), GSColorHex(@"#667085"));
+    UILabel *avgLabel = GSLabel([NSString stringWithFormat:@"均值 %@H", GSNum(avgMonth)], GSFont(10, UIFontWeightMedium), GSTextSecondary());
     avgLabel.textAlignment = NSTextAlignmentRight;
     avgLabel.translatesAutoresizingMaskIntoConstraints = NO;
     [chartWrap addSubview:avgLabel];
@@ -396,23 +428,40 @@
         [avgLabel.trailingAnchor constraintEqualToAnchor:chartWrap.trailingAnchor],
         [avgLabel.bottomAnchor constraintEqualToAnchor:avgLine.topAnchor constant:-1]
     ]];
-    NSArray *legendColors = @[GSThemeColor(), GSColorHex(@"#D92D20")];
+    NSArray *legendColors = @[GSColorHex(@"#1859D9"), GSColorHex(@"#D92D20")];
     NSArray *legendNames = @[@"正班工时", @"加班/周末/节假"];
     NSMutableArray *legendItems = [NSMutableArray array];
     for (NSInteger i = 0; i < 2; i++) {
         UIView *dot = [[UIView alloc] init];
         dot.backgroundColor = legendColors[i]; dot.layer.cornerRadius = 3;
         [dot.widthAnchor constraintEqualToConstant:8].active = YES; [dot.heightAnchor constraintEqualToConstant:8].active = YES;
-        UILabel *l = GSLabel(legendNames[i], GSFont(9, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+        UILabel *l = GSLabel(legendNames[i], GSFont(10, UIFontWeightRegular), GSTextSecondary());
         l.numberOfLines = 1;
         UIStackView *item = GSStack(@[dot, l], UILayoutConstraintAxisHorizontal, 4);
         [legendItems addObject:item];
     }
     UIStackView *legend = GSStack(legendItems, UILayoutConstraintAxisHorizontal, 16);
     legend.distribution = UIStackViewDistributionFillEqually;
-    UILabel *chartNote = GSLabel(@"柱高为当月总工时；颜色只分段正班与其他工时，补贴不在工时图中。", GSFont(9, UIFontWeightRegular), GSColorHex(@"#98A2B3"));
+    UILabel *chartNote = GSLabel(@"柱高为当月总工时；颜色只分段正班与其他工时，补贴不在工时图中。", GSFont(10, UIFontWeightRegular), GSTextTertiary());
     chartNote.numberOfLines = 0;
     [self.stack addArrangedSubview:[self cardWithTitle:@"十二个月工时结构" content:GSStack(@[chartWrap, legend, chartNote], UILayoutConstraintAxisVertical, 8)]];
+
+    NSMutableArray *payValues = [NSMutableArray array];
+    NSMutableArray *payLabels = [NSMutableArray array];
+    for (NSInteger i = 0; i < 12; i++) {
+        NSDictionary *m = months[i];
+        [payValues addObject:@([m[@"pay"] doubleValue])];
+        [payLabels addObject:[NSString stringWithFormat:@"%ld", (long)(i + 1)]];
+    }
+    GSTrendChartView *payTrend = [[GSTrendChartView alloc] init];
+    payTrend.translatesAutoresizingMaskIntoConstraints = NO;
+    payTrend.values = payValues;
+    payTrend.labels = payLabels;
+    payTrend.lineColor = GSColorHex(@"#1859D9");
+    [payTrend.heightAnchor constraintEqualToConstant:150].active = YES;
+    UILabel *payTrendNote = GSLabel(@"按月实发工资；包含补贴、扣款，不含未记录月份。", GSFont(10, UIFontWeightRegular), GSTextTertiary());
+    payTrendNote.numberOfLines = 0;
+    [self.stack addArrangedSubview:[self cardWithTitle:@"月度工资趋势" content:GSStack(@[payTrend, payTrendNote], UILayoutConstraintAxisVertical, 8)]];
 
     UIStackView *heat = [[UIStackView alloc] init];
     heat.axis = UILayoutConstraintAxisVertical; heat.spacing = 3;
@@ -439,6 +488,24 @@
         [heat addArrangedSubview:row];
     }
     [self.stack addArrangedSubview:[self cardWithTitle:@"全年节奏" content:heat]];
+
+    double boardWork = MAX(0, [st[@"workPay"] doubleValue]);
+    double boardBonus = MAX(0, [st[@"bonus"] doubleValue]);
+    GSDonutChartView *incomeDonut = [[GSDonutChartView alloc] init];
+    incomeDonut.translatesAutoresizingMaskIntoConstraints = NO;
+    incomeDonut.values = @[@(boardWork), @(boardBonus)];
+    incomeDonut.colors = @[GSColorHex(@"#1859D9"), GSColorHex(@"#12B76A")];
+    incomeDonut.centerTitle = GSNum([st[@"pay"] doubleValue]);
+    incomeDonut.centerSubtitle = @"实发工资";
+    [incomeDonut.widthAnchor constraintEqualToConstant:112].active = YES;
+    [incomeDonut.heightAnchor constraintEqualToConstant:112].active = YES;
+    UILabel *boardWorkLabel = GSLabel([NSString stringWithFormat:@"工时工资  %@", GSMoney(boardWork)], GSFont(11, UIFontWeightRegular), GSTextSecondary());
+    UILabel *boardBonusLabel = GSLabel([NSString stringWithFormat:@"补贴  +%@", GSMoney(boardBonus)], GSFont(11, UIFontWeightRegular), GSSuccessColor());
+    UILabel *boardDeductLabel = GSLabel([NSString stringWithFormat:@"扣款  -%@", GSMoney([st[@"deduct"] doubleValue])], GSFont(11, UIFontWeightRegular), GSDangerColor());
+    UIStackView *boardLegend = GSStack(@[boardWorkLabel, boardBonusLabel, boardDeductLabel], UILayoutConstraintAxisVertical, 7);
+    UIStackView *boardIncomeRow = GSStack(@[incomeDonut, boardLegend], UILayoutConstraintAxisHorizontal, 14);
+    boardIncomeRow.alignment = UIStackViewAlignmentCenter;
+    [self.stack addArrangedSubview:[self cardWithTitle:@"收入构成 · 全年" content:boardIncomeRow]];
     [self buildIncome:st];
 }
 - (void)tapBar:(UITapGestureRecognizer *)g { GSHaptic(); }
@@ -452,6 +519,10 @@
         if ([m[@"hours"] doubleValue] > 0) activeMonths++;
     }
     double avgMonthPay = activeMonths > 0 ? [st[@"pay"] doubleValue] / activeMonths : 0;
+    double workIncome = MAX(0, [st[@"workPay"] doubleValue]);
+    double bonusIncome = MAX(0, [st[@"bonus"] doubleValue]);
+    double incomeTotal = workIncome + bonusIncome;
+    double workShare = incomeTotal > 0 ? workIncome / incomeTotal * 100 : 50;
     NSString *accent = GSThemeHexValue() ?: @"#1859D9";
     NSString *(^esc)(NSString *) = ^NSString *(NSString *text) {
         if (![text isKindOfClass:[NSString class]]) return @"";
@@ -465,11 +536,12 @@
     [html appendString:@"<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>工时记录年度看板</title><style>"];
     [html appendString:@":root{--accent:"];
     [html appendString:accent];
-    [html appendString:@";--ink:#14213d;--muted:#667085;--line:#e6ebf5;--soft:#f2f6ff}*{box-sizing:border-box}body{margin:0;background:#eef3fb;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}.wrap{max-width:920px;margin:0 auto;padding:20px}.hero{background:linear-gradient(135deg,var(--accent),#123b8f);color:white;border-radius:28px;padding:26px;box-shadow:0 18px 45px rgba(18,59,143,.22)}.eyebrow{margin:0 0 8px;font-size:12px;letter-spacing:.12em;opacity:.8}.hero h1{margin:0;font-size:34px}.hero .pay{font-size:38px;font-weight:800;margin-top:8px}.hero p{margin:8px 0 0;color:rgba(255,255,255,.82);font-size:13px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}.stat{background:white;border:1px solid var(--line);border-radius:16px;padding:13px}.stat b{display:block;font-size:18px}.stat span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.card{background:white;border:1px solid var(--line);border-radius:22px;padding:18px;margin-top:14px}.card h2{font-size:16px;margin:0 0 14px}.chart{display:flex;align-items:flex-end;gap:7px;height:160px;padding-top:10px}.col{flex:1;text-align:center;display:flex;flex-direction:column;justify-content:flex-end;height:100%}.bar{min-height:4px;display:flex;flex-direction:column-reverse;border-radius:6px;overflow:hidden;background:var(--soft);margin:0 auto;width:16px}.bar span{display:block;width:100%}.col small{color:var(--muted);font-size:9px;margin-top:5px}.legend{display:flex;gap:16px;color:var(--muted);font-size:11px;margin-top:8px}.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:1px}.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px;min-width:680px}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:500;font-size:10px}tr:last-child td{border-bottom:0}.money{font-weight:700}.green{color:#067647}.red{color:#b42318}.foot{color:var(--muted);font-size:10px;text-align:center;padding:18px 0 32px}@media(max-width:640px){.wrap{padding:12px}.grid{grid-template-columns:repeat(2,1fr)}.hero{border-radius:22px;padding:20px}.hero h1{font-size:28px}.hero .pay{font-size:30px}}</style></head><body><div class=\"wrap\">"];
+    [html appendString:@";--ink:#14213d;--muted:#667085;--line:#e6ebf5;--soft:#f2f6ff}*{box-sizing:border-box}body{margin:0;background:#eef3fb;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}.wrap{max-width:920px;margin:0 auto;padding:20px}.hero{background:linear-gradient(135deg,var(--accent),#123b8f);color:white;border-radius:28px;padding:26px;box-shadow:0 18px 45px rgba(18,59,143,.22)}.eyebrow{margin:0 0 8px;font-size:12px;letter-spacing:.12em;opacity:.8}.hero h1{margin:0;font-size:34px}.hero .pay{font-size:38px;font-weight:800;margin-top:8px}.hero p{margin:8px 0 0;color:rgba(255,255,255,.82);font-size:13px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}.stat{background:white;border:1px solid var(--line);border-radius:16px;padding:13px}.stat b{display:block;font-size:18px}.stat span{display:block;color:var(--muted);font-size:11px;margin-top:3px}.card{background:white;border:1px solid var(--line);border-radius:22px;padding:18px;margin-top:14px}.card h2{font-size:16px;margin:0 0 14px}.chart{display:flex;align-items:flex-end;gap:7px;height:160px;padding-top:10px}.col{flex:1;text-align:center;display:flex;flex-direction:column;justify-content:flex-end;height:100%}.bar{min-height:4px;display:flex;flex-direction:column-reverse;border-radius:6px;overflow:hidden;background:var(--soft);margin:0 auto;width:16px}.bar span{display:block;width:100%}.col small{color:var(--muted);font-size:9px;margin-top:5px}.legend{display:flex;gap:16px;color:var(--muted);font-size:11px;margin-top:8px}.dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:1px}.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:12px;min-width:680px}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}th{color:var(--muted);font-weight:500;font-size:10px}tr:last-child td{border-bottom:0}.money{font-weight:700}.green{color:#067647}.red{color:#b42318}.foot{color:var(--muted);font-size:10px;text-align:center;padding:18px 0 32px}.split{display:flex;gap:22px;align-items:center}.donut{width:158px;height:158px;border-radius:50%;position:relative;flex:0 0 158px}.donut .hole{position:absolute;inset:24px;background:#fff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center}.donut b{font-size:22px}.donut span{font-size:10px;color:var(--muted);margin-top:2px}.legend-list{display:grid;gap:10px;flex:1}.legend-list div{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}.legend-list b{color:var(--ink)}@media(max-width:640px){.wrap{padding:12px}.grid{grid-template-columns:repeat(2,1fr)}.hero{border-radius:22px;padding:20px}.hero h1{font-size:28px}.hero .pay{font-size:30px}.split{flex-direction:column}.donut{flex:none}}</style></head><body><div class=\"wrap\">"];
     [html appendFormat:@"<header class=\"hero\"><p class=\"eyebrow\">工时记录 · 年度看板</p><h1>%ld 年</h1><div class=\"pay\">%@</div><p>%@ 天出勤 · %@ 小时 · 平均时薪 %.0f 元</p></header>", (long)self.year, esc(GSMoney([st[@"pay"] doubleValue])), GSNum([st[@"days"] doubleValue]), GSNum([st[@"hours"] doubleValue]), [st[@"avg"] doubleValue]];
     [html appendString:@"<div class=\"grid\">"];
     [html appendFormat:@"<div class=\"stat\"><b>%@H</b><span>总工时</span></div><div class=\"stat\"><b>%@天</b><span>出勤</span></div><div class=\"stat\"><b>%@H</b><span>加班/周末/节假</span></div><div class=\"stat\"><b>%@</b><span>补贴</span></div><div class=\"stat\"><b>%@</b><span>扣款</span></div><div class=\"stat\"><b>%@</b><span>实发工资</span></div><div class=\"stat\"><b>%@H</b><span>日均工时</span></div><div class=\"stat\"><b>%@</b><span>月均工资</span></div>", GSNum([st[@"hours"] doubleValue]), GSNum([st[@"days"] doubleValue]), GSNum([st[@"ot"] doubleValue]), esc(GSMoney([st[@"bonus"] doubleValue])), esc(GSMoney([st[@"deduct"] doubleValue])), esc(GSMoney([st[@"pay"] doubleValue])), GSNum([st[@"days"] doubleValue] > 0 ? [st[@"hours"] doubleValue] / [st[@"days"] doubleValue] : 0), esc(GSMoney(avgMonthPay))];
     [html appendString:@"</div>"];
+    [html appendFormat:@"<section class=\"card split\"><div class=\"donut\" style=\"background:conic-gradient(#1859D9 0 %.1f%%, #12B76A %.1f%% 100%%)\"><div class=\"hole\"><b>%.0f%%</b><span>工时工资</span></div></div><div class=\"legend-list\"><div><span>工时工资</span><b>%@</b></div><div><span>补贴</span><b>+%@</b></div><div><span>扣款</span><b>-%@</b></div><div><span>实发工资</span><b>%@</b></div><div><span>月均工资</span><b>%@</b></div></div></section>", workShare, workShare, workShare, esc(GSMoney(workIncome)), esc(GSMoney(bonusIncome)), esc(GSMoney([st[@"deduct"] doubleValue])), esc(GSMoney([st[@"pay"] doubleValue])), esc(GSMoney(avgMonthPay))];
     [html appendString:@"<section class=\"card\"><h2>十二个月工时结构</h2><div class=\"chart\">"];
     for (NSInteger i = 0; i < 12; i++) {
         NSDictionary *m = months[i];
@@ -479,11 +551,9 @@
         double full = total > 0 ? 4 + total / maxH * 108 : 4;
         double nh = total > 0 ? full * normal / total : 0;
         double oh = total > 0 ? full * other / total : 0;
-        [html appendFormat:@"<div class=\"col\"><div class=\"bar\" style=\"height:%.0fpx\"><span style=\"height:%.0fpx;background:%@\"></span><span style=\"height:%.0fpx;background:#D92D20\"></span></div><small>%ld</small></div>", full, nh, accent, oh, (long)(i + 1)];
+        [html appendFormat:@"<div class=\"col\"><div class=\"bar\" style=\"height:%.0fpx\"><span style=\"height:%.0fpx;background:#1859D9\"></span><span style=\"height:%.0fpx;background:#D92D20\"></span></div><small>%ld</small></div>", full, nh, oh, (long)(i + 1)];
     }
-    [html appendString:@"</div><div class=\"legend\"><span><i class=\"dot\" style=\"background:"];
-    [html appendString:accent];
-    [html appendString:@"\"></i>正班</span><span><i class=\"dot\" style=\"background:#D92D20\"></i>加班/周末/节假</span></div></section>"];
+    [html appendString:@"</div><div class=\"legend\"><span><i class=\"dot\" style=\"background:#1859D9\"></i>正班</span><span><i class=\"dot\" style=\"background:#D92D20\"></i>加班/周末/节假</span></div></section>"];
     [html appendString:@"<section class=\"card\"><h2>月度明细</h2><div class=\"scroll\"><table><thead><tr><th>月份</th><th>出勤</th><th>总工时</th><th>正班</th><th>加班</th><th>周末</th><th>节假</th><th>补贴</th><th>扣款</th><th>实发</th></tr></thead><tbody>"];
     for (NSInteger i = 0; i < 12; i++) {
         NSDictionary *m = months[i];
@@ -525,34 +595,34 @@
     double avgDayPay = allDays > 0 ? allPay / allDays : 0;
     GSStackedBar *bar = [[GSStackedBar alloc] init];
     bar.values = @[@(MAX(0, work)), @(MAX(0, bonus))];
-    bar.colors = @[GSThemeColor(), GSColorHex(@"#067647")];
+    bar.colors = @[GSThemeColor(), GSSuccessColor()];
     bar.layer.cornerRadius = 6; bar.clipsToBounds = YES;
     [bar.heightAnchor constraintEqualToConstant:12].active = YES;
-    UILabel *l1 = GSLabel([NSString stringWithFormat:@"工时工资  %@", GSMoney(work)], GSFont(12, UIFontWeightRegular), GSColorHex(@"#667085"));
-    UILabel *l2 = GSLabel([NSString stringWithFormat:@"日均工资  %@", GSMoney(avgDayPay)], GSFont(12, UIFontWeightRegular), GSColorHex(@"#667085"));
-    UILabel *l3 = GSLabel([NSString stringWithFormat:@"补贴  %@", GSMoney(bonus)], GSFont(12, UIFontWeightRegular), GSColorHex(@"#667085"));
-    UILabel *l4 = GSLabel([NSString stringWithFormat:@"扣款  -%@", GSMoney(deduct)], GSFont(12, UIFontWeightRegular), GSColorHex(@"#667085"));
+    UILabel *l1 = GSLabel([NSString stringWithFormat:@"工时工资  %@", GSMoney(work)], GSFont(13, UIFontWeightRegular), GSTextSecondary());
+    UILabel *l2 = GSLabel([NSString stringWithFormat:@"日均工资  %@", GSMoney(avgDayPay)], GSFont(13, UIFontWeightRegular), GSTextSecondary());
+    UILabel *l3 = GSLabel([NSString stringWithFormat:@"补贴  %@", GSMoney(bonus)], GSFont(13, UIFontWeightRegular), GSTextSecondary());
+    UILabel *l4 = GSLabel([NSString stringWithFormat:@"扣款  -%@", GSMoney(deduct)], GSFont(13, UIFontWeightRegular), GSTextSecondary());
     UIStackView *r1 = GSStack(@[l1, l2], UILayoutConstraintAxisHorizontal, 12); r1.distribution = UIStackViewDistributionFillEqually;
     UIStackView *r2 = GSStack(@[l3, l4], UILayoutConstraintAxisHorizontal, 12); r2.distribution = UIStackViewDistributionFillEqually;
     UIStackView *legend = GSStack(@[r1, r2], UILayoutConstraintAxisVertical, 6);
-    UILabel *netPay = GSLabel([NSString stringWithFormat:@"实发工资  %@", GSMoney(allPay)], GSFont(13, UIFontWeightBold), GSThemeColor());
+    UILabel *netPay = GSLabel([NSString stringWithFormat:@"实发工资  %@", GSMoney(allPay)], GSFont(14, UIFontWeightBold), GSThemeColor());
     GSCardView *card = [self cardWithTitle:@"收入构成" content:GSStack(@[bar, legend, netPay], UILayoutConstraintAxisVertical, 10)];
     [self.stack addArrangedSubview:card];
 
     NSMutableArray *rows = [NSMutableArray array];
-    UILabel *head = GSLabel(@"月度明细", GSFont(15, UIFontWeightBold), GSColorHex(@"#101828"));
+    UILabel *head = GSLabel(@"月度明细", GSFont(16, UIFontWeightBold), GSTextPrimary());
     [rows addObject:head];
     NSArray *months = st[@"months"];
     for (NSInteger i = 0; i < 12; i++) {
         NSDictionary *m = months[i];
-        UILabel *name = GSLabel([NSString stringWithFormat:@"%ld月", (long)(i + 1)], GSFont(13, UIFontWeightSemibold), GSColorHex(@"#101828"));
-        UILabel *p = GSLabel(GSMoney([m[@"pay"] doubleValue]), GSFont(13, UIFontWeightBold), GSColorHex(@"#101828"));
+        UILabel *name = GSLabel([NSString stringWithFormat:@"%ld月", (long)(i + 1)], GSFont(14, UIFontWeightSemibold), GSTextPrimary());
+        UILabel *p = GSLabel(GSMoney([m[@"pay"] doubleValue]), GSFont(14, UIFontWeightBold), GSTextPrimary());
         p.textAlignment = NSTextAlignmentRight;
         UIView *sp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
         UIStackView *top = GSStack(@[name, sp, p], UILayoutConstraintAxisHorizontal, 8);
-        UILabel *detail = GSLabel([NSString stringWithFormat:@"%@天 · %@H · 正班 %@H / 加班 %@H / 周末 %@H / 节假 %@H", GSNum([m[@"days"] doubleValue]), GSNum([m[@"hours"] doubleValue]), GSNum([m[@"zb"] doubleValue]), GSNum([m[@"jb"] doubleValue]), GSNum([m[@"zm"] doubleValue]), GSNum([m[@"jj"] doubleValue])], GSFont(9, UIFontWeightRegular), GSColorHex(@"#667085"));
+        UILabel *detail = GSLabel([NSString stringWithFormat:@"%@天 · %@H · 正班 %@H / 加班 %@H / 周末 %@H / 节假 %@H", GSNum([m[@"days"] doubleValue]), GSNum([m[@"hours"] doubleValue]), GSNum([m[@"zb"] doubleValue]), GSNum([m[@"jb"] doubleValue]), GSNum([m[@"zm"] doubleValue]), GSNum([m[@"jj"] doubleValue])], GSFont(10, UIFontWeightRegular), GSTextSecondary());
         detail.numberOfLines = 0;
-        UILabel *extra = GSLabel([NSString stringWithFormat:@"补贴 +%@  ·  扣款 -%@  ·  净额 %@", GSMoney([m[@"bonus"] doubleValue]), GSMoney([m[@"deduct"] doubleValue]), GSMoney([m[@"bonus"] doubleValue] - [m[@"deduct"] doubleValue])], GSFont(9, UIFontWeightRegular), GSColorHex(@"#98A2B3"));
+        UILabel *extra = GSLabel([NSString stringWithFormat:@"补贴 +%@  ·  扣款 -%@  ·  净额 %@", GSMoney([m[@"bonus"] doubleValue]), GSMoney([m[@"deduct"] doubleValue]), GSMoney([m[@"bonus"] doubleValue] - [m[@"deduct"] doubleValue])], GSFont(10, UIFontWeightRegular), GSTextTertiary());
         extra.numberOfLines = 0;
         UIStackView *row = GSStack(@[top, detail, extra], UILayoutConstraintAxisVertical, 2);
         [rows addObject:row];
@@ -563,10 +633,10 @@
             [rows addObject:line];
         }
     }
-    UILabel *allTitle = GSLabel(@"全年合计", GSFont(12, UIFontWeightBold), GSThemeColor());
-    UILabel *allDetail = GSLabel([NSString stringWithFormat:@"%@天 · %@H · 补贴 +%@ · 扣款 -%@", GSNum([st[@"days"] doubleValue]), GSNum([st[@"hours"] doubleValue]), GSMoney([st[@"bonus"] doubleValue]), GSMoney([st[@"deduct"] doubleValue])], GSFont(9, UIFontWeightRegular), GSColorHex(@"#667085"));
+    UILabel *allTitle = GSLabel(@"全年合计", GSFont(13, UIFontWeightBold), GSThemeColor());
+    UILabel *allDetail = GSLabel([NSString stringWithFormat:@"%@天 · %@H · 补贴 +%@ · 扣款 -%@", GSNum([st[@"days"] doubleValue]), GSNum([st[@"hours"] doubleValue]), GSMoney([st[@"bonus"] doubleValue]), GSMoney([st[@"deduct"] doubleValue])], GSFont(10, UIFontWeightRegular), GSTextSecondary());
     allDetail.numberOfLines = 0;
-    UILabel *allPayLabel = GSLabel(GSMoney([st[@"pay"] doubleValue]), GSFont(15, UIFontWeightBold), GSThemeColor());
+    UILabel *allPayLabel = GSLabel(GSMoney([st[@"pay"] doubleValue]), GSFont(16, UIFontWeightBold), GSThemeColor());
     allPayLabel.textAlignment = NSTextAlignmentRight;
     UIView *allSp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     [rows addObject:GSStack(@[allTitle, allSp, allPayLabel], UILayoutConstraintAxisHorizontal, 8)];
@@ -582,15 +652,15 @@
 }
 - (void)buildSchedule {
     NSMutableArray *navViews = [NSMutableArray array];
-    UIButton *prev = GSIconButton(@"chevron.left", GSColorHex(@"#101828"), 15);
-    UIButton *next = GSIconButton(@"chevron.right", GSColorHex(@"#101828"), 15);
+    UIButton *prev = GSIconButton(@"chevron.left", GSTextPrimary(), 15);
+    UIButton *next = GSIconButton(@"chevron.right", GSTextPrimary(), 15);
     prev.backgroundColor = UIColor.whiteColor; prev.layer.cornerRadius = 12;
     next.backgroundColor = UIColor.whiteColor; next.layer.cornerRadius = 12;
     [prev.widthAnchor constraintEqualToConstant:34].active = YES; [prev.heightAnchor constraintEqualToConstant:34].active = YES;
     [next.widthAnchor constraintEqualToConstant:34].active = YES; [next.heightAnchor constraintEqualToConstant:34].active = YES;
     [prev addTarget:self action:@selector(prevScheduleMonth) forControlEvents:UIControlEventTouchUpInside];
     [next addTarget:self action:@selector(nextScheduleMonth) forControlEvents:UIControlEventTouchUpInside];
-    UILabel *month = GSLabel([NSString stringWithFormat:@"%ld年 %ld月", (long)self.year, (long)self.month], GSFont(15, UIFontWeightBold), GSColorHex(@"#101828"));
+    UILabel *month = GSLabel([NSString stringWithFormat:@"%ld年 %ld月", (long)self.year, (long)self.month], GSFont(16, UIFontWeightBold), GSTextPrimary());
     UIView *sp1 = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIView *sp2 = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIStackView *nav = GSStack(@[prev, sp1, month, sp2, next], UILayoutConstraintAxisHorizontal, 8);
@@ -612,30 +682,30 @@
     NSArray *classes = [[GSStore shared] classes];
     for (NSDictionary *c in classes) {
         UIButton *b = [UIButton buttonWithType:UIButtonTypeCustom];
-        [b setTitle:c[@"name"] forState:UIControlStateNormal]; b.titleLabel.font = GSFont(12, UIFontWeightSemibold);
+        [b setTitle:c[@"name"] forState:UIControlStateNormal]; b.titleLabel.font = GSFont(13, UIFontWeightSemibold);
         b.tag = [classes indexOfObject:c];
         BOOL on = [self.palette isEqual:c[@"id"]];
         b.backgroundColor = on ? GSThemeSoftColor() : GSColorHex(@"#F2F5FA");
         b.layer.cornerRadius = 12; b.layer.borderWidth = 1.5;
         b.layer.borderColor = (on ? GSThemeColor() : UIColor.clearColor).CGColor;
-        [b setTitleColor:(on ? GSThemeColor() : GSColorHex(@"#667085")) forState:UIControlStateNormal];
+        [b setTitleColor:(on ? GSThemeColor() : GSTextSecondary()) forState:UIControlStateNormal];
         [b.heightAnchor constraintEqualToConstant:36].active = YES;
         [b addTarget:self action:@selector(paletteTapped:) forControlEvents:UIControlEventTouchUpInside];
         [chips addObject:b]; [classChips addObject:b];
     }
     self.classChips = classChips;
     UIButton *clear = [UIButton buttonWithType:UIButtonTypeCustom];
-    [clear setTitle:@"清除" forState:UIControlStateNormal]; clear.titleLabel.font = GSFont(12, UIFontWeightSemibold);
+    [clear setTitle:@"清除" forState:UIControlStateNormal]; clear.titleLabel.font = GSFont(13, UIFontWeightSemibold);
     clear.backgroundColor = GSColorHex(@"#F2F5FA"); clear.layer.cornerRadius = 10;
-    [clear setTitleColor:GSColorHex(@"#667085") forState:UIControlStateNormal];
+    [clear setTitleColor:GSTextSecondary() forState:UIControlStateNormal];
     [clear.heightAnchor constraintEqualToConstant:36].active = YES;
     [clear addTarget:self action:@selector(clearPlan) forControlEvents:UIControlEventTouchUpInside];
     [chips addObject:clear];
     UIStackView *palette = GSStack(chips, UILayoutConstraintAxisHorizontal, 6);
     palette.distribution = UIStackViewDistributionFillEqually;
     GSCardView *pc = [[GSCardView alloc] init];
-    UILabel *pt = GSLabel(@"班次 · 选一个再点日期", GSFont(11, UIFontWeightMedium), GSColorHex(@"#5D6B82"));
-    self.scheduleHint = GSLabel(@"", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    UILabel *pt = GSLabel(@"排班标记 · 先选班次，再点日期", GSFont(12, UIFontWeightMedium), GSTextSecondary());
+    self.scheduleHint = GSLabel(@"", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     UIStackView *pv = GSStack(@[pt, self.scheduleHint, palette], UILayoutConstraintAxisVertical, 8);
     pv.translatesAutoresizingMaskIntoConstraints = NO; [pc addSubview:pv];
     [NSLayoutConstraint activateConstraints:@[
@@ -644,7 +714,7 @@
     ]];
     [navViews addObject:pc];
     [self updateScheduleHint];
-    [navViews addObject:GSLabel(@"排班只做标记，不会自动生成工时；记录页仍按实际工时算工资。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#5D6B82"))];
+    [navViews addObject:GSLabel(@"排班只做标记，不会自动生成工时；记录页仍按实际工时算工资。", GSFont(11, UIFontWeightRegular), GSTextSecondary())];
     GSCardView *card = [[GSCardView alloc] init];
     UIStackView *v = GSStack(navViews, UILayoutConstraintAxisVertical, 14);
     v.translatesAutoresizingMaskIntoConstraints = NO; [card addSubview:v];
@@ -676,7 +746,7 @@
         b.backgroundColor = on ? GSThemeSoftColor() : GSColorHex(@"#F2F5FA");
         b.layer.borderWidth = 1.5;
         b.layer.borderColor = (on ? GSThemeColor() : UIColor.clearColor).CGColor;
-        [b setTitleColor:(on ? GSThemeColor() : GSColorHex(@"#667085")) forState:UIControlStateNormal];
+        [b setTitleColor:(on ? GSThemeColor() : GSTextSecondary()) forState:UIControlStateNormal];
     }
 }
 - (void)updateScheduleHint {

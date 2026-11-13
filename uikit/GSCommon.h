@@ -6,6 +6,20 @@ NS_ASSUME_NONNULL_BEGIN
 UIColor *GSColorHex(NSString *hex);
 UIColor *GSColorHexA(NSString *hex, CGFloat alpha);
 UIFont *GSFont(CGFloat size, UIFontWeight weight);
+
+extern const CGFloat GSPageMargin;
+extern const CGFloat GSCardPadding;
+extern const CGFloat GSCardRadius;
+UIColor *GSTextPrimary(void);
+UIColor *GSTextSecondary(void);
+UIColor *GSTextTertiary(void);
+UIColor *GSTextStrong(void);
+UIColor *GSSurfaceMuted(void);
+UIColor *GSBorderColor(void);
+UIColor *GSSuccessColor(void);
+UIColor *GSWarningColor(void);
+UIColor *GSDangerColor(void);
+UIColor *GSMoneyColor(void);
 NSString *GSMoney(double v);
 NSString *GSNum(double v);
 double GSRound2(double v);
@@ -22,6 +36,7 @@ UIColor *GSThemeSoftColor(void);
 void GSSetThemeKey(NSString *key);
 extern NSNotificationName const GSThemeDidChangeNotification;
 extern NSNotificationName const GSHeaderRadiusDidChangeNotification;
+extern NSNotificationName const GSUIConfigDidChangeNotification;
 
 NSString *GSKeyFromDate(NSDate *date);
 NSDate *GSDateFromKey(NSString *key);

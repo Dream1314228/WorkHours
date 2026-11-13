@@ -1,7 +1,11 @@
 build-native/
+build/
 out/
 *.o
 *.o.tmp
 Payload/
 .DS_Store
+
+# 源码仓库里只留 releases/ 下的成品包
 *.ipa
+!releases/*.ipa

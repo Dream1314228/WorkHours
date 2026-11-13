@@ -39,9 +39,9 @@
         [self.scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-        [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:16],
-        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:16],
-        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-16],
+        [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:GSPageMargin],
+        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:GSPageMargin],
+        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-GSPageMargin],
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-40]
     ]];
     NSDictionary *rates = self.project[@"rates"] ?: @{};
@@ -59,13 +59,13 @@
         [self row:@"周末时薪" field:self.zmField],
         [self row:@"节假时薪" field:self.jjField]
     ]]];
-    UILabel *note = GSLabel(@"底薪和四类时薪只在本项目生效；修改后，已记录工时的工资会按新费率重新计算。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#667085"));
+    UILabel *note = GSLabel(@"底薪和四类时薪只在本项目生效；修改后，已记录工时的工资会按新费率重新计算。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     note.numberOfLines = 0;
     [self.stack addArrangedSubview:note];
     UIButton *saveBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     [saveBtn setTitle:@"保存项目" forState:UIControlStateNormal];
     [saveBtn setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    saveBtn.titleLabel.font = GSFont(15, UIFontWeightSemibold);
+    saveBtn.titleLabel.font = GSFont(16, UIFontWeightSemibold);
     saveBtn.backgroundColor = GSThemeColor(); saveBtn.layer.cornerRadius = 14;
     [saveBtn.heightAnchor constraintEqualToConstant:50].active = YES;
     [saveBtn addTarget:self action:@selector(save) forControlEvents:UIControlEventTouchUpInside];
@@ -75,14 +75,14 @@
     UITextField *f = [[UITextField alloc] init];
     f.text = text; f.keyboardType = keyboard;
     f.font = GSFont(14, UIFontWeightSemibold);
-    f.textColor = GSColorHex(@"#101828");
+    f.textColor = GSTextPrimary();
     f.textAlignment = NSTextAlignmentRight;
     f.clearButtonMode = UITextFieldViewModeWhileEditing;
     return f;
 }
 - (UIView *)row:(NSString *)title field:(UITextField *)field {
     UIView *row = [[UIView alloc] init];
-    UILabel *l = GSLabel(title, GSFont(13, UIFontWeightRegular), GSColorHex(@"#344054"));
+    UILabel *l = GSLabel(title, GSFont(14, UIFontWeightRegular), GSTextStrong());
     l.translatesAutoresizingMaskIntoConstraints = NO; field.translatesAutoresizingMaskIntoConstraints = NO;
     [row addSubview:l]; [row addSubview:field];
     [NSLayoutConstraint activateConstraints:@[
@@ -100,8 +100,8 @@
     [card addSubview:v];
     [NSLayoutConstraint activateConstraints:@[
         [v.topAnchor constraintEqualToAnchor:card.topAnchor constant:8],
-        [v.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:16],
-        [v.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-16],
+        [v.leadingAnchor constraintEqualToAnchor:card.leadingAnchor constant:GSCardPadding],
+        [v.trailingAnchor constraintEqualToAnchor:card.trailingAnchor constant:-GSCardPadding],
         [v.bottomAnchor constraintEqualToAnchor:card.bottomAnchor constant:-8]
     ]];
     return card;

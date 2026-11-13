@@ -1,6 +1,7 @@
 #import "GSBatchViewController.h"
 #import "GSComponents.h"
 #import "GSStore.h"
+#import "GSReminder.h"
 
 @interface GSBatchViewController ()
 @property (nonatomic, copy) NSString *initialKey;
@@ -56,9 +57,9 @@
         [self.scroll.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.scroll.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.scroll.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
-        [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:16],
-        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:16],
-        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-16],
+        [self.stack.topAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.topAnchor constant:GSPageMargin],
+        [self.stack.leadingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.leadingAnchor constant:GSPageMargin],
+        [self.stack.trailingAnchor constraintEqualToAnchor:self.scroll.frameLayoutGuide.trailingAnchor constant:-GSPageMargin],
         [self.stack.bottomAnchor constraintEqualToAnchor:self.scroll.contentLayoutGuide.bottomAnchor constant:-130]
     ]];
 
@@ -77,7 +78,7 @@
     prev.translatesAutoresizingMaskIntoConstraints = NO; next.translatesAutoresizingMaskIntoConstraints = NO;
     [prev addTarget:self action:@selector(prevMonth) forControlEvents:UIControlEventTouchUpInside];
     [next addTarget:self action:@selector(nextMonth) forControlEvents:UIControlEventTouchUpInside];
-    self.monthLabel = GSLabel(@"", GSFont(16, UIFontWeightBold), GSColorHex(@"#101828"));
+    self.monthLabel = GSLabel(@"", GSFont(16, UIFontWeightBold), GSTextPrimary());
     self.monthLabel.textAlignment = NSTextAlignmentCenter;
     UIView *sp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIStackView *head = GSStack(@[prev, self.monthLabel, sp, next], UILayoutConstraintAxisHorizontal, 8);
@@ -89,7 +90,7 @@
     NSArray *weekNames = weekStart == 0 ? @[@"日", @"一", @"二", @"三", @"四", @"五", @"六"] : @[@"一", @"二", @"三", @"四", @"五", @"六", @"日"];
     NSMutableArray *weekLabels = [NSMutableArray array];
     for (NSString *name in weekNames) {
-        UILabel *l = GSLabel(name, GSFont(10, UIFontWeightMedium), GSColorHex(@"#98A2B3"));
+        UILabel *l = GSLabel(name, GSFont(11, UIFontWeightMedium), GSTextTertiary());
         l.textAlignment = NSTextAlignmentCenter;
         [weekLabels addObject:l];
     }
@@ -100,14 +101,14 @@
     self.calendarStack.axis = UILayoutConstraintAxisVertical; self.calendarStack.spacing = 2;
 
     UIButton *all = [UIButton buttonWithType:UIButtonTypeSystem];
-    [all setTitle:@"全月" forState:UIControlStateNormal]; all.titleLabel.font = GSFont(11, UIFontWeightSemibold);
+    [all setTitle:@"全月" forState:UIControlStateNormal]; all.titleLabel.font = GSFont(12, UIFontWeightSemibold);
     [all setTitleColor:GSThemeColor() forState:UIControlStateNormal];
     [all addTarget:self action:@selector(selectWholeMonth) forControlEvents:UIControlEventTouchUpInside];
     UIButton *clear = [UIButton buttonWithType:UIButtonTypeSystem];
-    [clear setTitle:@"清空" forState:UIControlStateNormal]; clear.titleLabel.font = GSFont(11, UIFontWeightSemibold);
-    [clear setTitleColor:GSColorHex(@"#667085") forState:UIControlStateNormal];
+    [clear setTitle:@"清空" forState:UIControlStateNormal]; clear.titleLabel.font = GSFont(12, UIFontWeightSemibold);
+    [clear setTitleColor:GSTextSecondary() forState:UIControlStateNormal];
     [clear addTarget:self action:@selector(clearSelection) forControlEvents:UIControlEventTouchUpInside];
-    self.countLabel = GSLabel(@"", GSFont(11, UIFontWeightRegular), GSColorHex(@"#5D6B82"));
+    self.countLabel = GSLabel(@"", GSFont(12, UIFontWeightRegular), GSTextSecondary());
     UIView *countSp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIStackView *bottom = GSStack(@[all, clear, countSp, self.countLabel], UILayoutConstraintAxisHorizontal, 12);
     bottom.alignment = UIStackViewAlignmentCenter;
@@ -154,7 +155,7 @@
             b.accessibilityIdentifier = key;
             b.titleLabel.font = GSFont(13, selected ? UIFontWeightBold : UIFontWeightRegular);
             [b setTitle:[NSString stringWithFormat:@"%ld", (long)index] forState:UIControlStateNormal];
-            [b setTitleColor:selected ? UIColor.whiteColor : GSColorHex(@"#101828") forState:UIControlStateNormal];
+            [b setTitleColor:selected ? UIColor.whiteColor : GSTextPrimary() forState:UIControlStateNormal];
             b.backgroundColor = selected ? GSThemeColor() : UIColor.clearColor;
             b.layer.cornerRadius = 18;
             [b.heightAnchor constraintEqualToConstant:36].active = YES;
@@ -208,25 +209,25 @@
 - (void)buildOptions {
     self.classes = [[GSStore shared] classes];
     GSCardView *hoursCard = [[GSCardView alloc] init];
-    UILabel *hoursTitle = GSLabel(@"每天工时", GSFont(13, UIFontWeightSemibold), GSColorHex(@"#344054"));
+    UILabel *hoursTitle = GSLabel(@"每天工时", GSFont(14, UIFontWeightSemibold), GSTextStrong());
     self.hoursField = [self numberField:@"8" color:GSThemeColor() size:22];
     self.otField = [self numberField:@"0" color:GSColorHex(@"#D92D20") size:22];
-    UILabel *normalL = GSLabel(@"正常工时", GSFont(10, UIFontWeightRegular), GSColorHex(@"#667085"));
-    UILabel *otL = GSLabel(@"加班工时", GSFont(10, UIFontWeightRegular), GSColorHex(@"#667085"));
+    UILabel *normalL = GSLabel(@"正常工时", GSFont(11, UIFontWeightRegular), GSTextSecondary());
+    UILabel *otL = GSLabel(@"加班工时", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     normalL.textAlignment = NSTextAlignmentCenter; otL.textAlignment = NSTextAlignmentCenter;
     UIStackView *normalCol = GSStack(@[self.hoursField, normalL], UILayoutConstraintAxisVertical, 4);
     UIStackView *otCol = GSStack(@[self.otField, otL], UILayoutConstraintAxisVertical, 4);
     UIStackView *fields = GSStack(@[normalCol, otCol], UILayoutConstraintAxisHorizontal, 10);
     fields.distribution = UIStackViewDistributionFillEqually;
-    UILabel *hoursHint = GSLabel(@"正常工时自动落到正班/周末/节假；加班统一记加班。识别周末和法定节假日。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#667085"));
+    UILabel *hoursHint = GSLabel(@"正常工时自动落到正班/周末/节假；加班统一记加班。识别周末和法定节假日。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     hoursHint.numberOfLines = 0;
     UIStackView *hv = GSStack(@[hoursTitle, fields, hoursHint], UILayoutConstraintAxisVertical, 10);
     hv.translatesAutoresizingMaskIntoConstraints = NO; [hoursCard addSubview:hv];
     [NSLayoutConstraint activateConstraints:@[
-        [hv.topAnchor constraintEqualToAnchor:hoursCard.topAnchor constant:16],
-        [hv.leadingAnchor constraintEqualToAnchor:hoursCard.leadingAnchor constant:16],
-        [hv.trailingAnchor constraintEqualToAnchor:hoursCard.trailingAnchor constant:-16],
-        [hv.bottomAnchor constraintEqualToAnchor:hoursCard.bottomAnchor constant:-16]
+        [hv.topAnchor constraintEqualToAnchor:hoursCard.topAnchor constant:GSCardPadding],
+        [hv.leadingAnchor constraintEqualToAnchor:hoursCard.leadingAnchor constant:GSCardPadding],
+        [hv.trailingAnchor constraintEqualToAnchor:hoursCard.trailingAnchor constant:-GSCardPadding],
+        [hv.bottomAnchor constraintEqualToAnchor:hoursCard.bottomAnchor constant:-GSCardPadding]
     ]];
     [self.stack addArrangedSubview:hoursCard];
 
@@ -237,49 +238,49 @@
     self.classSeg.selectedSegmentIndex = currentNight ? 1 : 0;
     self.classSeg.selectedSegmentTintColor = GSThemeColor();
     self.bonusField = [self numberField:@"0" color:GSColorHex(@"#12B76A") size:18];
-    UILabel *bonusL = GSLabel(@"补贴（元/天）", GSFont(13, UIFontWeightSemibold), GSColorHex(@"#344054"));
+    UILabel *bonusL = GSLabel(@"补贴（元/天）", GSFont(14, UIFontWeightSemibold), GSTextStrong());
     UIView *bonusSp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIStackView *bonusRow = GSStack(@[bonusL, bonusSp, self.bonusField], UILayoutConstraintAxisHorizontal, 10);
     bonusRow.alignment = UIStackViewAlignmentCenter;
     [self.bonusField.widthAnchor constraintEqualToConstant:100].active = YES;
     GSCardView *classCard = [[GSCardView alloc] init];
-    UILabel *classTitle = GSLabel(@"班制与补贴", GSFont(13, UIFontWeightSemibold), GSColorHex(@"#344054"));
-    UILabel *classNote = GSLabel(@"白班自动匹配白/早班补助，夜班匹配中/晚/夜班补助；补贴按天叠加。", GSFont(10, UIFontWeightRegular), GSColorHex(@"#667085"));
+    UILabel *classTitle = GSLabel(@"班制与补贴", GSFont(14, UIFontWeightSemibold), GSTextStrong());
+    UILabel *classNote = GSLabel(@"白班自动匹配白/早班补助，夜班匹配中/晚/夜班补助；补贴按天叠加。", GSFont(11, UIFontWeightRegular), GSTextSecondary());
     classNote.numberOfLines = 0;
     UIStackView *cv = GSStack(@[classTitle, self.classSeg, bonusRow, classNote], UILayoutConstraintAxisVertical, 10);
     cv.translatesAutoresizingMaskIntoConstraints = NO; [classCard addSubview:cv];
     [NSLayoutConstraint activateConstraints:@[
-        [cv.topAnchor constraintEqualToAnchor:classCard.topAnchor constant:16],
-        [cv.leadingAnchor constraintEqualToAnchor:classCard.leadingAnchor constant:16],
-        [cv.trailingAnchor constraintEqualToAnchor:classCard.trailingAnchor constant:-16],
-        [cv.bottomAnchor constraintEqualToAnchor:classCard.bottomAnchor constant:-16]
+        [cv.topAnchor constraintEqualToAnchor:classCard.topAnchor constant:GSCardPadding],
+        [cv.leadingAnchor constraintEqualToAnchor:classCard.leadingAnchor constant:GSCardPadding],
+        [cv.trailingAnchor constraintEqualToAnchor:classCard.trailingAnchor constant:-GSCardPadding],
+        [cv.bottomAnchor constraintEqualToAnchor:classCard.bottomAnchor constant:-GSCardPadding]
     ]];
     [self.stack addArrangedSubview:classCard];
 
     GSCardView *optCard = [[GSCardView alloc] init];
-    UILabel *optTitle = GSLabel(@"选项", GSFont(13, UIFontWeightSemibold), GSColorHex(@"#344054"));
-    UILabel *blankL = GSLabel(@"只填充没有记录的日期", GSFont(13, UIFontWeightRegular), GSColorHex(@"#344054"));
+    UILabel *optTitle = GSLabel(@"选项", GSFont(14, UIFontWeightSemibold), GSTextStrong());
+    UILabel *blankL = GSLabel(@"只填充没有记录的日期", GSFont(14, UIFontWeightRegular), GSTextStrong());
     self.blankSwitch = [[UISwitch alloc] init]; self.blankSwitch.on = YES; self.blankSwitch.onTintColor = GSThemeColor();
     UIView *blankSp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIStackView *blankRow = GSStack(@[blankL, blankSp, self.blankSwitch], UILayoutConstraintAxisHorizontal, 8);
-    UILabel *weekendL = GSLabel(@"跳过周末", GSFont(13, UIFontWeightRegular), GSColorHex(@"#344054"));
+    UILabel *weekendL = GSLabel(@"跳过周末", GSFont(14, UIFontWeightRegular), GSTextStrong());
     self.weekendSwitch = [[UISwitch alloc] init]; self.weekendSwitch.on = NO; self.weekendSwitch.onTintColor = GSThemeColor();
     UIView *weekendSp = GSLabel(@"", GSFont(1, UIFontWeightRegular), UIColor.clearColor);
     UIStackView *weekendRow = GSStack(@[weekendL, weekendSp, self.weekendSwitch], UILayoutConstraintAxisHorizontal, 8);
     UIStackView *ov = GSStack(@[optTitle, blankRow, weekendRow], UILayoutConstraintAxisVertical, 10);
     ov.translatesAutoresizingMaskIntoConstraints = NO; [optCard addSubview:ov];
     [NSLayoutConstraint activateConstraints:@[
-        [ov.topAnchor constraintEqualToAnchor:optCard.topAnchor constant:16],
-        [ov.leadingAnchor constraintEqualToAnchor:optCard.leadingAnchor constant:16],
-        [ov.trailingAnchor constraintEqualToAnchor:optCard.trailingAnchor constant:-16],
-        [ov.bottomAnchor constraintEqualToAnchor:optCard.bottomAnchor constant:-16]
+        [ov.topAnchor constraintEqualToAnchor:optCard.topAnchor constant:GSCardPadding],
+        [ov.leadingAnchor constraintEqualToAnchor:optCard.leadingAnchor constant:GSCardPadding],
+        [ov.trailingAnchor constraintEqualToAnchor:optCard.trailingAnchor constant:-GSCardPadding],
+        [ov.bottomAnchor constraintEqualToAnchor:optCard.bottomAnchor constant:-GSCardPadding]
     ]];
     [self.stack addArrangedSubview:optCard];
 
     UIButton *applyBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     [applyBtn setTitle:@"应用批量工时" forState:UIControlStateNormal];
     [applyBtn setTitleColor:UIColor.whiteColor forState:UIControlStateNormal];
-    applyBtn.titleLabel.font = GSFont(15, UIFontWeightSemibold);
+    applyBtn.titleLabel.font = GSFont(16, UIFontWeightSemibold);
     applyBtn.backgroundColor = GSThemeColor();
     applyBtn.layer.cornerRadius = 14;
     [applyBtn.heightAnchor constraintEqualToConstant:50].active = YES;
@@ -288,7 +289,7 @@
 
     UIButton *leaveBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     [leaveBtn setTitle:@"批量设为休假" forState:UIControlStateNormal];
-    [leaveBtn setTitleColor:GSColorHex(@"#B54708") forState:UIControlStateNormal];
+    [leaveBtn setTitleColor:GSWarningColor() forState:UIControlStateNormal];
     leaveBtn.titleLabel.font = GSFont(14, UIFontWeightSemibold);
     leaveBtn.backgroundColor = [GSColorHex(@"#FFFAEB") colorWithAlphaComponent:1];
     leaveBtn.layer.cornerRadius = 14;
@@ -298,7 +299,7 @@
 
     UIButton *clearBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     [clearBtn setTitle:@"批量清空工时" forState:UIControlStateNormal];
-    [clearBtn setTitleColor:GSColorHex(@"#B42318") forState:UIControlStateNormal];
+    [clearBtn setTitleColor:GSDangerColor() forState:UIControlStateNormal];
     clearBtn.titleLabel.font = GSFont(14, UIFontWeightSemibold);
     clearBtn.backgroundColor = [GSColorHex(@"#FEF3F2") colorWithAlphaComponent:1];
     clearBtn.layer.cornerRadius = 14;
