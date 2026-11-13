@@ -255,7 +255,7 @@ struct Settings: Codable {
     var annualLeaveDays: Double = 5
     var theme: String = "blue"
     var headerRadius: Double = 24
-    var cardRadius: Double = 4
+    var cardRadius: Double = 20
     var cardShadow: Bool = true
     var animations: Bool = true
     var showLunar: Bool = true
@@ -298,7 +298,7 @@ struct Settings: Codable {
         annualLeaveDays = c.dblOpt(.annualLeaveDays) ?? 5
         theme = c.strg(.theme, "blue")
         headerRadius = min(40, max(0, c.dblOpt(.headerRadius) ?? 24))
-        cardRadius = min(36, max(0, c.dblOpt(.cardRadius) ?? 4))
+        cardRadius = min(36, max(0, c.dblOpt(.cardRadius) ?? 20))
         cardShadow = c.boolv(.cardShadow, true)
         animations = c.boolv(.animations, true)
         showLunar = c.boolv(.showLunar, true)

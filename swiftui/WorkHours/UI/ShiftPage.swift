@@ -79,15 +79,15 @@ struct ShiftPage: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.paper))
-        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Ledger.paper))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
     }
 
     private func menuButton(_ icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
-                .frame(width: 34, height: 34)
+                .frame(width: 44, height: 44)
                 .contentShape(Circle().inset(by: -5))
                 .background(Circle().fill(Color.primary.opacity(0.08)))
                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
@@ -292,7 +292,7 @@ struct ShiftManager: View {
                         } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 14, weight: .semibold))
-                                .frame(width: 34, height: 34)
+                                .frame(width: 44, height: 44)
                                 .contentShape(Circle().inset(by: -5))
                                 .background(Circle().fill(Color.primary.opacity(0.08)))
                                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))

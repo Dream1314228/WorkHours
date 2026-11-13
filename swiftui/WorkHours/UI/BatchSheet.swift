@@ -11,9 +11,7 @@ struct BatchSheet: View {
 
     @State private var selected: Set<String> = []
     @State private var classId = ""
-    @State private var recordHours = false
-    @State private var normal: Double = 8
-    @State private var overtime: Double = 0
+
     @State private var skipWeekend = true
     @State private var projectId = "default"
 
@@ -92,7 +90,7 @@ struct BatchSheet: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 44, height: 44)
                     .contentShape(Circle().inset(by: -5))
                     .background(Circle().fill(Color.primary.opacity(0.08)))
                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
@@ -194,27 +192,9 @@ struct BatchSheet: View {
 
             Divider().opacity(0.4)
 
-            Toggle(isOn: $recordHours) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("同时记工时")
-                        .font(.system(size: 15))
-                    Text("不勾就是只排班，日历上只显示班次，不记账")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.gsSecondary)
-                }
-            }
-            .tint(palette.primary)
-
-            VStack(alignment: .leading, spacing: 10) {
-                NumberRow(title: "正常工时", unit: "H", value: $normal, palette: palette, range: 0...24)
-                NumberRow(title: "加班工时", unit: "H", value: $overtime, palette: palette, range: 0...24)
-
-                Text("正常工时自动落到正班 / 周末 / 节假，加班统一记加班。")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.gsSecondary)
-            }
-            .opacity(recordHours ? 1 : 0.4)
-            .disabled(!recordHours)
+            Text("只写班次，不生成工时记录。工时请在记录页单天填。")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.gsSecondary)
 
             Divider().opacity(0.4)
 
@@ -271,20 +251,9 @@ struct BatchSheet: View {
             ToastCenter.shared.show("先选班次")
             return
         }
-        if recordHours {
-            if normal + overtime <= 0 {
-                ToastCenter.shared.show("工时不能都是 0")
-                return
-            }
-            store.batchApply(dates: Array(selected).sorted(), classId: classId,
-                             normal: normal, overtime: overtime,
-                             projectId: projectId, skipWeekend: skipWeekend)
-            ToastCenter.shared.show("已记录 \(selected.count) 天的工时")
-        } else {
-            store.setPlanBatch(dates: Array(selected).sorted(), classId: classId,
-                               skipWeekend: skipWeekend)
-            ToastCenter.shared.show("已排班 \(selected.count) 天，没记工时")
-        }
+        store.setPlanBatch(dates: Array(selected).sorted(), classId: classId,
+                           skipWeekend: skipWeekend)
+        ToastCenter.shared.show("已排班 \(selected.count) 天")
         store.saveNow()
         dismiss()
     }

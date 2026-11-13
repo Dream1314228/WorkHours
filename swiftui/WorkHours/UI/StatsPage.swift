@@ -56,7 +56,7 @@ struct StatsPage: View {
             ShareLink(item: shareText) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 44, height: 44)
                     .contentShape(Circle().inset(by: -5))
                     .background(Circle().fill(Color.primary.opacity(0.08)))
                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
@@ -81,7 +81,7 @@ struct StatsPage: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
-                .frame(width: 34, height: 34)
+                .frame(width: 44, height: 44)
                 .contentShape(Circle().inset(by: -5))
                 .background(Circle().fill(Color.primary.opacity(0.08)))
                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
@@ -203,7 +203,7 @@ struct StatsPage: View {
                         .padding(.horizontal, 9)
                         .frame(height: 26)
                         .overlay {
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
                                 .strokeBorder(Ledger.rule, lineWidth: 0.8)
                         }
                         .padding(.vertical, 7)
@@ -275,10 +275,10 @@ struct StatsPage: View {
         .padding(16)
         .background(Ledger.paper)
         .overlay {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(Ledger.rule, lineWidth: 0.8)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     // MARK: 年
@@ -336,7 +336,7 @@ struct StatsPage: View {
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundStyle(Color.gsSecondary)
                         }
-                        .frame(height: 34)
+                        .frame(height: 44)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(PressableStyle(scale: 0.99))
@@ -409,10 +409,10 @@ struct MonthBarChart: View {
                             let grow: CGFloat = appeared ? 1 : 0
                             VStack(spacing: 1) {
                                 Spacer(minLength: 0)
-                                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .fill(Color.gsOrange)
                                     .frame(height: max(0, h * CGFloat((m.jb + m.zm + m.jj) / maxHours) * grow))
-                                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .fill(palette.primary)
                                     .frame(height: max(0, h * CGFloat(m.zb / maxHours) * grow))
                             }

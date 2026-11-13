@@ -85,7 +85,7 @@ struct DayEditor: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 44, height: 44)
                     .contentShape(Circle().inset(by: -5))
                     .background(Circle().fill(Color.primary.opacity(0.08)))
                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
@@ -166,7 +166,7 @@ struct DayEditor: View {
                             }
                             .foregroundStyle(draft.classId == c.id ? Theme.readableOn(c.color) : Color.primary)
                             .padding(.horizontal, 14)
-                            .frame(height: 36)
+                            .frame(height: 44)
                             .background {
                                 Capsule().fill(draft.classId == c.id
                                                ? Color(hex: c.color)
@@ -193,7 +193,7 @@ struct DayEditor: View {
                 .pickerStyle(.menu)
                 .tint(palette.primary)
             }
-            .frame(height: 38)
+            .frame(height: 44)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius)
@@ -341,7 +341,7 @@ struct DayEditor: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.system(size: 13, weight: .bold))
-                        .frame(width: 28, height: 28)
+                        .frame(width: 44, height: 44)
                         .background(Circle().fill(Color.primary.opacity(0.08)))
                         .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
                 }
@@ -375,7 +375,7 @@ struct DayEditor: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .frame(height: 38)
+                    .frame(height: 44)
                 }
             }
         }

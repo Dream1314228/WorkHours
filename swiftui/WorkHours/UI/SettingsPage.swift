@@ -66,7 +66,7 @@ struct SettingsPage: View {
             WagePage(palette: palette)
                 .environmentObject(store)
         }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.data]) { result in
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.item]) { result in
             handleImport(result)
         }
         .alert("加一笔\(bonusKind == "bonus" ? "补贴" : "扣款")", isPresented: $showBonusAdd) {
@@ -253,7 +253,7 @@ struct SettingsPage: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 36)
+                    .frame(height: 44)
                     .glassCapsule()
                     .padding(.vertical, 4)
                     .contentShape(Rectangle())
@@ -269,7 +269,7 @@ struct SettingsPage: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.primary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 36)
+                        .frame(height: 44)
                         .glassCapsule()
                         .padding(.vertical, 4)
                         .contentShape(Rectangle())
@@ -286,7 +286,7 @@ struct SettingsPage: View {
                             .font(.system(size: 12, weight: .medium))
                             .foregroundStyle(Color.primary)
                             .frame(width: 78)
-                            .frame(height: 36)
+                            .frame(height: 44)
                             .glassCapsule()
                             .padding(.vertical, 4)
                             .contentShape(Rectangle())
@@ -352,7 +352,7 @@ struct SettingsPage: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Color.primary)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 38)
+                    .frame(height: 44)
             }
             .buttonStyle(PressableStyle())
 
@@ -372,7 +372,7 @@ struct SettingsPage: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color.gsSecondary)
                 }
-                .frame(height: 36)
+                .frame(height: 44)
             }
             .buttonStyle(PressableStyle(scale: 0.99))
         }
@@ -409,7 +409,7 @@ struct SettingsPage: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(Color.primary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 34)
+                        .frame(height: 44)
                         .glassCapsule(tint: palette.primary.opacity(0.06))
                 }
                 .buttonStyle(PressableStyle())
@@ -421,7 +421,7 @@ struct SettingsPage: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 34)
+                        .frame(height: 44)
                         .glassCapsule()
                 }
                 .buttonStyle(PressableStyle())
@@ -436,7 +436,7 @@ struct SettingsPage: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 34)
+                        .frame(height: 44)
                         .glassCapsule()
                 }
                 .buttonStyle(PressableStyle())
@@ -660,7 +660,7 @@ struct SettingsPage: View {
                         VStack(spacing: 4) {
                             Circle()
                                 .fill(Theme.of(t.key).primary)
-                                .frame(width: 26, height: 26)
+                                .frame(width: 44, height: 44)
                                 .overlay {
                                     if store.settings.theme == t.key {
                                         Image(systemName: "checkmark")
@@ -738,7 +738,7 @@ struct SettingsPage: View {
                         .font(.system(size: 11))
                         .foregroundStyle(Color.gsSecondary)
                 }
-                .frame(height: 36)
+                .frame(height: 44)
             }
             .buttonStyle(PressableStyle(scale: 0.99))
 
@@ -754,7 +754,7 @@ struct SettingsPage: View {
                             .foregroundStyle(Color.gsSecondary)
                             .lineLimit(1)
                     }
-                    .frame(height: 34)
+                    .frame(height: 44)
                 }
             }
 
@@ -772,7 +772,7 @@ struct SettingsPage: View {
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color.gsSecondary)
                 }
-                .frame(height: 36)
+                .frame(height: 44)
             }
             .buttonStyle(PressableStyle(scale: 0.99))
 
@@ -787,7 +787,7 @@ struct SettingsPage: View {
                         .foregroundStyle(Color.gsRed)
                     Spacer()
                 }
-                .frame(height: 36)
+                .frame(height: 44)
             }
             .buttonStyle(PressableStyle(scale: 0.99))
         }

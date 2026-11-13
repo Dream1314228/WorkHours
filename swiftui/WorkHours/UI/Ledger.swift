@@ -102,10 +102,10 @@ struct LedgerCard<Content: View>: View {
             .padding(padding)
             .background(Ledger.paper)
             .overlay {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(Ledger.rule, lineWidth: 0.8)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -152,7 +152,7 @@ struct LedgerStack: View {
     var items: [LedgerStackItem]
     @State private var expanded = false
 
-    private let cardHeight: CGFloat = 176
+    private let cardHeight: CGFloat = 148
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -185,7 +185,7 @@ struct LedgerStack: View {
             LedgerRule(strong: true)
 
             Text(item.big)
-                .font(.system(size: 38, weight: .medium, design: .monospaced))
+                .font(.system(size: 30, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(item.tint)
                 .lineLimit(1)

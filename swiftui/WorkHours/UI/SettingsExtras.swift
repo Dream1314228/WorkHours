@@ -141,7 +141,7 @@ struct ProjectEditor: View {
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 44, height: 44)
                     .contentShape(Circle().inset(by: -5))
                     .background(Circle().fill(Color.primary.opacity(0.08)))
                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
@@ -212,7 +212,7 @@ struct PeriodEditor: View {
                         } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 14, weight: .semibold))
-                                .frame(width: 34, height: 34)
+                                .frame(width: 44, height: 44)
                                 .contentShape(Circle().inset(by: -5))
                                 .background(Circle().fill(Color.primary.opacity(0.08)))
                                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
@@ -335,7 +335,7 @@ struct WagePage: View {
                         } label: {
                             Image(systemName: "xmark")
                                 .font(.system(size: 14, weight: .semibold))
-                                .frame(width: 34, height: 34)
+                                .frame(width: 44, height: 44)
                                 .contentShape(Circle().inset(by: -5))
                                 .background(Circle().fill(Color.primary.opacity(0.08)))
                                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))

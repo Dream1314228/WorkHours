@@ -65,46 +65,35 @@ struct CalendarPage: View {
     // MARK: 顶部
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack {
-                LedgerCaption(text: "工时账本")
-                Spacer()
-                Text("NO. \(String(format: "%04d-%02d", year, month))")
-                    .font(.system(size: 11, design: .monospaced))
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(year) 年 \(month) 月")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundStyle(Ledger.ink)
+                Text(monthStats.label)
+                    .font(.system(size: 12))
                     .foregroundStyle(Ledger.inkSoft)
+                    .monospacedDigit()
             }
-            LedgerRule(strong: true)
-
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("\(year) 年 \(month) 月")
-                        .font(.system(size: 30, weight: .medium, design: .serif))
-                        .foregroundStyle(Ledger.ink)
-                    Text(monthStats.label)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Ledger.inkSoft)
-                        .monospacedDigit()
+            Spacer(minLength: 6)
+            HStack(spacing: 6) {
+                monthButton("chevron.left") { moveMonth(-1) }
+                monthButton("chevron.right") { moveMonth(1) }
+                Button {
+                    jumpToday()
+                } label: {
+                    Text("今天")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Ledger.paper)
+                        .padding(.horizontal, 14)
+                        .frame(height: 44)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Ledger.ink))
                 }
-                Spacer()
-                HStack(spacing: 6) {
-                    monthButton("chevron.left") { moveMonth(-1) }
-                    monthButton("chevron.right") { moveMonth(1) }
-                    Button {
-                        jumpToday()
-                    } label: {
-                        Text("今天")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Ledger.paper)
-                            .padding(.horizontal, 12)
-                            .frame(height: 32)
-                            .background(RoundedRectangle(cornerRadius: 3).fill(Ledger.ink))
-                    }
-                    .buttonStyle(PressableStyle())
-                }
+                .buttonStyle(PressableStyle())
             }
         }
-        .padding(.horizontal, 4)
-        .padding(.top, 4)
+        .padding(.horizontal, 2)
+        .padding(.top, 2)
     }
 
     private var stackCards: some View {
@@ -132,8 +121,8 @@ struct CalendarPage: View {
         Button(action: action) {
             Image(systemName: icon)
                 .font(.system(size: 14, weight: .semibold))
-                .frame(width: 34, height: 34)
-                .contentShape(Circle().inset(by: -5))
+                .frame(width: 44, height: 44)
+                .contentShape(RoundedRectangle(cornerRadius: 12))
                 .background(Circle().fill(Color.primary.opacity(0.08)))
                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
@@ -165,36 +154,51 @@ struct CalendarPage: View {
 
     // MARK: 月历
 
+    private struct DaySlot: Identifiable {
+        let id: Int
+        let day: Int?
+    }
+
+    /// 补齐整行，单一一层 ForEach，避免空格与日期抢同一个 id。
+    private var slots: [DaySlot] {
+        let days = Cal.daysInMonth(year, month)
+        let cells = ((firstOffset + days + 6) / 7) * 7
+        return (0..<cells).map { i in
+            let d = i - firstOffset + 1
+            return DaySlot(id: i, day: (d >= 1 && d <= days) ? d : nil)
+        }
+    }
+
     private var calendarCard: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             HStack(spacing: 0) {
                 ForEach(weekdayHeaders, id: \.self) { w in
                     Text(w)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color.gsSecondary)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Ledger.inkSoft)
                         .frame(maxWidth: .infinity)
-                }
-            }
-            .padding(.bottom, 2)
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 3), count: 7), spacing: 5) {
-                ForEach(0..<firstOffset, id: \.self) { _ in
-                    Color.clear.frame(height: 62)
-                }
-                ForEach(1...Cal.daysInMonth(year, month), id: \.self) { d in
-                    dayCell(d)
+                        .frame(height: 24)
                 }
             }
 
-            if store.settings.payday > 0 && store.settings.payday <= Cal.daysInMonth(year, month) {
-                Capsule()
-                    .fill(Color.gsOrange)
-                    .frame(height: 3)
-                    .padding(.horizontal, 4)
-                    .padding(.top, 2)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7),
+                      spacing: 4) {
+                ForEach(slots) { slot in
+                    if let d = slot.day {
+                        dayCell(d)
+                    } else {
+                        Color.clear.frame(height: 58)
+                    }
+                }
             }
         }
-        .glassCard(radius: store.settings.cardRadius, padding: 10)
+        .padding(12)
+        .background(Ledger.paper)
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Ledger.rule, lineWidth: 0.8)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
     }
 
     private func dayCell(_ d: Int) -> some View {
@@ -202,68 +206,69 @@ struct CalendarPage: View {
         let rec = store.record(key)
         let planId = store.plan(key)
         let shift = planId.isEmpty ? nil : store.shiftClass(planId)
-        let isToday = key == today
+        let isToday = key == Cal.todayKey()
         let isSelected = key == selected
-        let isPayday = store.settings.payday > 0 && d == store.settings.payday
-        let tag = rightTag(key)
+        let holiday = Cal.holidayName(key)
+        let fg: Color = isSelected ? palette.onPrimary
+            : (Cal.isWeekend(key) ? Ledger.inkSoft : Ledger.ink)
+        let subColor: Color = isSelected ? palette.onPrimary.opacity(0.85) : Ledger.inkSoft
 
         return Button {
             selected = key
         } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 2) {
-                    Text("\(d)")
-                        .font(.system(size: 15, weight: isToday ? .bold : .medium))
+            VStack(spacing: 1) {
+                Text("\(d)")
+                    .font(.system(size: 15, weight: isToday || isSelected ? .bold : .medium))
+                    .monospacedDigit()
+                    .foregroundStyle(fg)
+
+                if let rec {
+                    Text(store.daySummary(rec))
+                        .font(.system(size: 9, weight: .medium))
                         .monospacedDigit()
-                        .foregroundStyle(isPayday ? Color.gsOrange : Color.primary)
-                    Spacer(minLength: 0)
-                    if let tag = tag {
-                        Text(tag.name)
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(tag.color)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                    }
+                        .foregroundStyle(subColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                } else if let holiday {
+                    Text(holiday)
+                        .font(.system(size: 8))
+                        .foregroundStyle(isSelected ? palette.onPrimary.opacity(0.85) : Ledger.red)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                } else if let shift {
+                    Text(shift.name)
+                        .font(.system(size: 9))
+                        .foregroundStyle(subColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                 }
-                Text(store.settings.showLunar ? Cal.lunarCellText(key) : "")
-                    .font(.system(size: 9))
-                    .foregroundStyle(Color.gsSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+
                 Spacer(minLength: 0)
-                HStack(spacing: 3) {
-                    if let rec = rec {
-                        if store.settings.classDisplay != "hide",
-                           let shift = store.shiftClass(rec.classId) {
-                            shiftMark(shift)
-                        }
-                        Text(store.daySummary(rec))
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Color.primary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                    } else if let shift = shift {
-                        shiftMark(shift)
-                    }
+
+                if let shift {
+                    Capsule()
+                        .fill(isSelected ? palette.onPrimary.opacity(0.85) : Color(hex: shift.color))
+                        .frame(height: 3)
+                        .padding(.horizontal, 8)
                 }
             }
-            .padding(.horizontal, 5)
-            .padding(.vertical, 5)
-            .frame(height: 62)
+            .padding(.vertical, 6)
+            .padding(.horizontal, 2)
+            .frame(maxWidth: .infinity)
+            .frame(height: 58)
             .background {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(isSelected ? Ledger.ink.opacity(0.06)
-                          : (isToday ? Ledger.ink.opacity(0.03) : Color.clear))
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isSelected ? palette.primary
+                          : (isToday ? palette.primary.opacity(0.10) : Color.clear))
             }
             .overlay {
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .strokeBorder(isSelected ? Ledger.ruleStrong
-                                  : (isToday ? Ledger.ruleStrong.opacity(0.5) : Color.clear),
-                                  lineWidth: isSelected ? 1.2 : 0.8)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(isToday && !isSelected ? palette.primary.opacity(0.55) : Color.clear,
+                                  lineWidth: 1.4)
             }
-            .contentShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(PressableStyle(scale: 0.95))
+        .buttonStyle(PressableStyle(scale: 0.94))
     }
 
     @ViewBuilder
@@ -336,9 +341,9 @@ struct CalendarPage: View {
                         Text("编辑")
                             .font(.system(size: 13, weight: .semibold))
                             .padding(.horizontal, 14)
-                            .frame(height: 32)
-                            .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.ink.opacity(0.05)))
-                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+                            .frame(height: 44)
+                            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Ledger.ink.opacity(0.05)))
+                            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
                     }
                     .buttonStyle(PressableStyle())
                 }
@@ -436,9 +441,9 @@ struct CalendarPage: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color.gsRed)
                         .frame(width: 52, height: 48)
-                        .background(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(Ledger.ink.opacity(0.05)))
-                        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(Ledger.rule, lineWidth: 0.8))
                 }
                 .buttonStyle(PressableStyle())

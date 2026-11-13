@@ -144,8 +144,8 @@ extension View {
 
     /// 玻璃胶囊（按钮、标签用）
     func glassCapsule(tint: Color = .clear) -> some View {
-        background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.ink.opacity(0.05)))
-            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+        background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Ledger.ink.opacity(0.05)))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
     }
 }
 
@@ -174,7 +174,7 @@ struct GlassActionButtonStyle: ButtonStyle {
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
                     .background(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(palette.deep)
                     )
             } else {
@@ -184,11 +184,11 @@ struct GlassActionButtonStyle: ButtonStyle {
                     .frame(maxWidth: .infinity)
                     .frame(height: height)
                     .background(
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(Ledger.ink.opacity(0.05))
                     )
                     .overlay {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .strokeBorder(Ledger.rule, lineWidth: 0.8)
                     }
             }
@@ -219,20 +219,20 @@ struct ChipView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(selectedText)
                     .padding(.horizontal, 14)
-                    .frame(height: 34)
-                    .background(RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .frame(height: 44)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(color ?? palette.primary))
             } else {
                 Text(title)
                     .font(.system(size: 13))
                     .foregroundStyle(Color.primary)
                     .padding(.horizontal, 14)
-                    .frame(height: 34)
-                    .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.ink.opacity(0.05)))
-                    .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+                    .frame(height: 44)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Ledger.ink.opacity(0.05)))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
             }
         }
-        .contentShape(Capsule())
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
 
@@ -258,8 +258,8 @@ struct StatTile: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 12)
         .padding(.horizontal, 12)
-        .background(RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Ledger.paper))
-        .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Ledger.paper))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
     }
 }
 
