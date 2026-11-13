@@ -66,7 +66,7 @@ struct StatsPage: View {
 
     private func step(_ delta: Int) {
         let next = Cal.monthAdd(year, month, delta)
-        withAnimation(.snappy(duration: 0.24)) {
+        withAnimation(store.pageMotion ? .snappy(duration: 0.24) : nil) {
             year = next.year
             month = next.month
         }

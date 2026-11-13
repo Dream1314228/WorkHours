@@ -267,6 +267,10 @@ private struct CalendarDayCell: View {
         .buttonStyle(PressableStyle(scale: 0.93))
         .onAppear {
             guard !shown else { return }
+            guard store.calendarMotion else {
+                shown = true
+                return
+            }
             let delay = Double(index % 7) * 0.012 + Double(index / 7) * 0.022
             withAnimation(.spring(response: 0.42, dampingFraction: 0.7).delay(delay)) {
                 shown = true

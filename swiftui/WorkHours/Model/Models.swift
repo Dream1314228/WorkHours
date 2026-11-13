@@ -258,6 +258,9 @@ struct Settings: Codable {
     var cardRadius: Double = 20
     var cardShadow: Bool = true
     var animations: Bool = true
+    var chartAnimation: Bool = true
+    var calendarAnimation: Bool = true
+    var pageAnimation: Bool = true
     var showLunar: Bool = true
     var defaultWork: WorkHours = WorkHours(zb: 8, jb: 2, zm: 10, jj: 10)
     var dayAllowance: Double = 10
@@ -276,6 +279,7 @@ struct Settings: Codable {
     enum CodingKeys: String, CodingKey {
         case period, customPeriods, weekStart, payday, nightMode, autoBonus, recordMode, classDisplay
         case annualLeaveDays, theme, headerRadius, cardRadius, cardShadow, animations, showLunar
+        case chartAnimation, calendarAnimation, pageAnimation
         case defaultWork, dayAllowance, nightAllowance, reminderEnabled, reminderHour, reminderMinute
         case classDefaults, projectId, currentClass, autoCarryMonth
     }
@@ -301,6 +305,9 @@ struct Settings: Codable {
         cardRadius = min(36, max(0, c.dblOpt(.cardRadius) ?? 20))
         cardShadow = c.boolv(.cardShadow, true)
         animations = c.boolv(.animations, true)
+        chartAnimation = c.boolv(.chartAnimation, true)
+        calendarAnimation = c.boolv(.calendarAnimation, true)
+        pageAnimation = c.boolv(.pageAnimation, true)
         showLunar = c.boolv(.showLunar, true)
         defaultWork = (try? c.decodeIfPresent(WorkHours.self, forKey: .defaultWork))
             ?? WorkHours(zb: 8, jb: 2, zm: 10, jj: 10)

@@ -38,6 +38,10 @@ struct MonthSummaryContent: View {
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 8)
         .onAppear {
+            guard store.pageMotion else {
+                appeared = true
+                return
+            }
             withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { appeared = true }
         }
     }
@@ -389,116 +393,133 @@ struct MonthSummaryContent: View {
 
 // MARK: - 每日工时柱状图
 
-/// 顶圆角、底齐平的柱，配三条淡网格；最高那天顶上标数值，今天下标用主题色。
+/// 柱高按当天总工时，正班在底、加班/周末/节假在上；最高那天标数值，今天用主题色。
 struct DayBarChart: View {
     let rows: [(String, DayRecord)]
     var palette: Palette
 
     @EnvironmentObject private var store: Store
-    @State private var grown = false
+    @State private var progress: CGFloat = 0
 
-    private let plotH: CGFloat = 96
-    private let baseH: CGFloat = 16
+    private let plotH: CGFloat = 88
 
     var body: some View {
         let n = max(rows.count, 1)
         let peak = max(1, rows.map { $0.1.work.total }.max() ?? 1)
         let peakIdx = rows.firstIndex { abs($0.1.work.total - peak) < 0.001 }
         let today = Cal.todayKey()
-        let labelEvery = n > 26 ? 4 : (n > 15 ? 2 : 1)
-        let barH = plotH - baseH
+        let labelEvery = n > 24 ? 3 : (n > 14 ? 2 : 1)
+        let usable = plotH - 12
 
-        return GeometryReader { geo in
-            let colW = geo.size.width / CGFloat(n)
-            let barW = min(n <= 8 ? 26 : 15, max(3, colW - 4))
+        return VStack(spacing: 5) {
+            GeometryReader { geo in
+                let colW = geo.size.width / CGFloat(n)
+                let barW = max(3, min(18, colW * 0.56))
+                let radius = min(3, barW / 2)
 
-            ZStack(alignment: .bottom) {
-            // 三条参考线
-            VStack(spacing: 0) {
-                ruleLine(strong: true)
-                Spacer(minLength: 0)
-                ruleLine(strong: false)
-                Spacer(minLength: 0)
-                ruleLine(strong: false)
-            }
-            .frame(height: barH)
-
-            HStack(alignment: .bottom, spacing: 0) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
-                    let rec = row.1
-                    let total = max(0, rec.work.total)
-                    let h = (barH - 12) * CGFloat(total / peak)
-                    let ot = rec.work.jb + rec.work.zm + rec.work.jj
-                    let otH = total > 0 ? h * CGFloat(ot / total) : 0
-                    let zbH = max(0, h - otH)
-                    let isToday = row.0 == today
-
-                    VStack(spacing: 2) {
-                        ZStack(alignment: .bottom) {
-                            if idx == peakIdx, total > 0 {
-                                Text(Cal.num(total))
-                                    .font(.system(size: 8, weight: .semibold))
-                                    .monospacedDigit()
-                                    .foregroundStyle(palette.primary)
-                                    .fixedSize()
-                                    .offset(y: -h - 10)
-                                    .opacity(grown ? 1 : 0)
-                            }
-                            VStack(spacing: 1) {
-                                if otH > 0.6 {
-                                    UnevenRoundedRectangle(topLeadingRadius: 3,
-                                                           bottomLeadingRadius: 0,
-                                                           bottomTrailingRadius: 0,
-                                                           topTrailingRadius: 3,
-                                                           style: .continuous)
-                                        .fill(Color.gsOrange)
-                                        .frame(width: barW, height: otH)
-                                }
-                                UnevenRoundedRectangle(topLeadingRadius: otH > 0.6 ? 0 : 3,
-                                                       bottomLeadingRadius: 0,
-                                                       bottomTrailingRadius: 0,
-                                                       topTrailingRadius: otH > 0.6 ? 0 : 3,
-                                                       style: .continuous)
-                                    .fill(palette.primary.opacity(isToday ? 1 : 0.9))
-                                    .frame(width: barW, height: zbH)
-                            }
-                            .scaleEffect(y: grown ? 1 : 0.001, anchor: .bottom)
-                            .animation(.spring(response: 0.52, dampingFraction: 0.82)
-                                        .delay(Double(min(idx, 30)) * 0.012), value: grown)
-                        }
-                        .frame(height: barH, alignment: .bottom)
-
-                        Rectangle()
-                            .fill(isToday ? palette.primary : Color.primary.opacity(0.14))
-                            .frame(width: barW, height: 1.4)
-
-                        Text(idx % labelEvery == 0 ? "\(Cal.day(row.0))" : " ")
-                            .font(.system(size: 8, weight: isToday ? .bold : .regular))
-                            .monospacedDigit()
-                            .foregroundStyle(isToday ? palette.primary : Ledger.inkSoft)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.6)
+                ZStack(alignment: .bottom) {
+                    VStack(spacing: 0) {
+                        Rectangle().fill(Color.primary.opacity(0.07)).frame(height: 0.7)
+                        Spacer(minLength: 0)
+                        Rectangle().fill(Color.primary.opacity(0.05)).frame(height: 0.6)
+                        Spacer(minLength: 0)
+                        Rectangle().fill(Color.primary.opacity(0.05)).frame(height: 0.6)
                     }
-                    .frame(maxWidth: .infinity)
+                    .frame(height: usable)
+
+                    HStack(alignment: .bottom, spacing: 0) {
+                        ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
+                            let rec = row.1
+                            let total = max(0, rec.work.total)
+                            let h = usable * CGFloat(total / peak) * progress
+                            let ot = rec.work.jb + rec.work.zm + rec.work.jj
+                            let otH = total > 0 ? h * CGFloat(ot / total) : 0
+                            let zbH = max(0, h - otH)
+                            let isToday = row.0 == today
+                            let showPeak = idx == peakIdx && total > 0 && n <= 24
+
+                            VStack(spacing: 1) {
+                                if showPeak {
+                                    Text(Cal.num(total))
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .monospacedDigit()
+                                        .foregroundStyle(palette.primary)
+                                        .frame(height: 10)
+                                        .fixedSize()
+                                        .opacity(progress > 0.15 ? 1 : 0)
+                                }
+
+                                VStack(spacing: 1) {
+                                    if otH > 0.7 {
+                                        UnevenRoundedRectangle(topLeadingRadius: radius,
+                                                               bottomLeadingRadius: 0,
+                                                               bottomTrailingRadius: 0,
+                                                               topTrailingRadius: radius,
+                                                               style: .continuous)
+                                            .fill(Color.gsOrange.opacity(0.92))
+                                            .frame(width: barW, height: otH)
+                                    }
+                                    if zbH > 0.7 {
+                                        UnevenRoundedRectangle(topLeadingRadius: otH > 0.7 ? 0 : radius,
+                                                               bottomLeadingRadius: 0,
+                                                               bottomTrailingRadius: 0,
+                                                               topTrailingRadius: otH > 0.7 ? 0 : radius,
+                                                               style: .continuous)
+                                            .fill(palette.primary.opacity(isToday ? 1 : 0.88))
+                                            .frame(width: barW, height: zbH)
+                                    }
+                                    if total <= 0 {
+                                        Capsule()
+                                            .fill(Color.primary.opacity(0.10))
+                                            .frame(width: barW, height: 1.5)
+                                    }
+                                }
+
+                                Spacer(minLength: 0)
+                            }
+                            .frame(width: colW, height: usable, alignment: .bottom)
+                            .animation(store.chartMotion
+                                       ? .spring(response: 0.55, dampingFraction: 0.85)
+                                            .delay(Double(min(idx, 30)) * 0.012)
+                                       : nil,
+                                       value: progress)
+                        }
+                    }
+                    .frame(height: usable, alignment: .bottom)
+
+                    Rectangle()
+                        .fill(Color.primary.opacity(0.16))
+                        .frame(height: 0.8)
                 }
             }
-        }
-        .frame(height: plotH + 4)
-            .onAppear { play() }
-            .onChange(of: store.chartToken) { _, _ in play() }
-        }
-    }
+            .frame(height: plotH)
 
-    private func ruleLine(strong: Bool) -> some View {
-        Rectangle()
-            .fill(Color.primary.opacity(strong ? 0.12 : 0.05))
-            .frame(height: strong ? 0.8 : 0.6)
+            HStack(spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { idx, row in
+                    Text(idx % labelEvery == 0 ? "\(Cal.day(row.0))" : " ")
+                        .font(.system(size: 9,
+                                      weight: row.0 == today ? .bold : .regular))
+                        .monospacedDigit()
+                        .foregroundStyle(row.0 == today ? palette.primary : Ledger.inkSoft)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 12)
+        }
+        .onAppear { play() }
+        .onChange(of: store.chartToken) { _, _ in play() }
     }
 
     private func play() {
-        grown = false
+        guard store.chartMotion else {
+            progress = 1
+            return
+        }
+        progress = 0
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-            grown = true
+            progress = 1
         }
     }
 }
@@ -571,13 +592,17 @@ struct HoursDonut: View {
             }
         }
         .frame(width: 104, height: 104)
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.65)) { appeared = true }
+        .onAppear { replay() }
+        .onChange(of: store.chartToken) { _, _ in replay() }
+    }
+
+    private func replay() {
+        guard store.chartMotion else {
+            appeared = true
+            return
         }
-        .onChange(of: store.chartToken) { _, _ in
-            appeared = false
-            withAnimation(.easeOut(duration: 0.65)) { appeared = true }
-        }
+        appeared = false
+        withAnimation(.easeOut(duration: 0.65)) { appeared = true }
     }
 
     private func arc(from: Double, to: Double, color: Color) -> some View {
@@ -649,13 +674,8 @@ struct RadarChart: View {
             }
         }
         .frame(height: 196)
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.65)) { appeared = true }
-        }
-        .onChange(of: store.chartToken) { _, _ in
-            appeared = false
-            withAnimation(.easeOut(duration: 0.65)) { appeared = true }
-        }
+        .onAppear { replay() }
+        .onChange(of: store.chartToken) { _, _ in replay() }
     }
 
     private func point(_ i: Int, _ v: Double, _ cx: CGFloat, _ cy: CGFloat,

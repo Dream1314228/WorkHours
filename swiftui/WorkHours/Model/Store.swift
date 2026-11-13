@@ -90,6 +90,14 @@ final class Store: ObservableObject {
         }
     }
 
+    // MARK: 动效开关
+
+    /// 总开关。关掉后所有动画直接落到终值。
+    var motionOn: Bool { data.settings.animations }
+    var chartMotion: Bool { data.settings.animations && data.settings.chartAnimation }
+    var calendarMotion: Bool { data.settings.animations && data.settings.calendarAnimation }
+    var pageMotion: Bool { data.settings.animations && data.settings.pageAnimation }
+
     // MARK: 设置别名
 
     var settings: Settings {
@@ -671,7 +679,7 @@ final class Store: ObservableObject {
             .map { ($0.key, $0.value) }
     }
 
-    /// 导出 HTML 报表：周期汇总 + 逐日明细 + 补扣/补助明细，可直接在浏览器看或打印成 PDF。
+    /// 导出 HTML 报表：周期汇总 + 工时构成 + 逐日明细 + 补扣明细，手机能看、打印成 PDF 也正。
     func htmlReport(year: Int, month: Int) -> String {
         let st = monthStats(year: year, month: month)
         let rows = periodRecords(year: year, month: month)
@@ -683,8 +691,10 @@ final class Store: ObservableObject {
         for (key, rec) in rows {
             let shift = shiftClass(rec.classId)?.name ?? "—"
             let note = rec.note.isEmpty ? "" : escapeHTML(rec.note)
-            let pay = Cal.money(dayPay(rec))
-            let extra = rec.bt.isEmpty ? "" : rec.bt.map { "\(escapeHTML($0.name)): \($0.money >= 0 ? "+" : "") \(Cal.money($0.money))" }.joined(separator: "；")
+            let extra = rec.bt.isEmpty ? "" : rec.bt.map {
+                escapeHTML($0.name) + ": " + ($0.money >= 0 ? "+" : "") + Cal.money($0.money)
+            }.joined(separator: "；")
+            let tail = [note, extra].filter { !$0.isEmpty }.joined(separator: " · ")
             var cells: [String] = []
             cells.append("<td class=\"c\">" + String(format: "%02d", Cal.day(key)) + "</td>")
             cells.append("<td>" + Cal.weekdayName(key) + "</td>")
@@ -693,82 +703,181 @@ final class Store: ObservableObject {
             cells.append("<td class=\"n\">" + Cal.num(rec.work.jb) + "</td>")
             cells.append("<td class=\"n\">" + Cal.num(rec.work.zm) + "</td>")
             cells.append("<td class=\"n\">" + Cal.num(rec.work.jj) + "</td>")
-            cells.append("<td class=\"n\">" + Cal.num(rec.work.total) + "</td>")
-            cells.append("<td class=\"n b\">" + pay + "</td>")
-            cells.append("<td class=\"note\">" + note + (extra.isEmpty ? "" : " · " + extra) + "</td>")
+            cells.append("<td class=\"n b\">" + Cal.num(rec.work.total) + "</td>")
+            cells.append("<td class=\"n b\">" + Cal.money(dayPay(rec)) + "</td>")
+            cells.append("<td class=\"note\">" + (tail.isEmpty ? "—" : tail) + "</td>")
             dayRows += "<tr>" + cells.joined() + "</tr>"
         }
         if dayRows.isEmpty {
             dayRows = "<tr><td colspan=\"10\" class=\"empty\">这个周期还没有记录</td></tr>"
         }
 
-        func extraRows(_ list: [BonusItem], _ cls: String) -> String {
-            if list.isEmpty { return "<tr><td colspan=\"2\" class=\"empty\">无</td></tr>" }
-            return list.map { "<tr><td>\(escapeHTML($0.name))</td><td class=\"n \(cls)\">\(Cal.money($0.money))</td></tr>" }.joined()
+        func extraTable(_ list: [BonusItem], _ cls: String) -> String {
+            let body: String
+            if list.isEmpty {
+                body = "<tr><td colspan=\"2\" class=\"empty\">无</td></tr>"
+            } else {
+                body = list.map {
+                    "<tr><td>" + escapeHTML($0.name.isEmpty ? "未命名" : $0.name)
+                        + "</td><td class=\"n " + cls + "\">" + Cal.money($0.money) + "</td></tr>"
+                }.joined()
+            }
+            return "<div class=\"table-wrap\"><table class=\"mini\"><thead><tr><th>项目</th>"
+                + "<th class=\"n\">金额</th></tr></thead><tbody>" + body + "</tbody></table></div>"
+        }
+
+        let totalH = max(st.hours, 0.001)
+        func pct(_ v: Double) -> Int { Int((v / totalH * 100).rounded()) }
+        func bar(_ name: String, _ v: Double, _ color: String) -> String {
+            return "<div class=\"bar\"><span class=\"lbl\">" + name + "</span>"
+                + "<span class=\"track\"><span class=\"fill\" style=\"width:"
+                + String(max(1, pct(v))) + "%;background:" + color + "\"></span></span>"
+                + "<span class=\"num\">" + Cal.num(v) + " H</span></div>"
         }
 
         return """
         <!doctype html>
-        <html lang="zh-CN"><head><meta charset="utf-8">
+        <html lang="zh-CN"><head>
+        <meta charset="utf-8">
         <meta name="viewport" content="width=device-width,initial-scale=1">
         <title>工时记录 \(year) 年 \(month) 月</title>
         <style>
-        :root { color-scheme: light dark; }
-        body { margin: 0; padding: 24px 18px 48px; background: #f8f6f1; color: #14161a;
-               font: 14px/1.6 -apple-system, "PingFang SC", "Noto Sans SC", sans-serif; }
-        .wrap { max-width: 880px; margin: 0 auto; }
-        h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: .5px; }
-        .sub { color: #5d6b82; font-size: 12px; margin-bottom: 20px; }
-        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
-        .card { background: #fff; border: 1px solid #e2ded4; border-radius: 14px; padding: 12px 14px; }
-        .card .k { font-size: 11px; color: #5d6b82; }
-        .card .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; }
-        h2 { font-size: 14px; margin: 22px 0 8px; color: #3d4757; letter-spacing: .6px; }
-        table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2ded4; border-radius: 12px; overflow: hidden; }
-        th, td { padding: 7px 9px; border-bottom: 1px solid #ece8de; text-align: left; font-size: 12px; vertical-align: top; }
-        th { background: #f1eee6; color: #3d4757; font-weight: 600; white-space: nowrap; }
-        tr:last-child td { border-bottom: none; }
-        .n { text-align: right; font-variant-numeric: tabular-nums; }
-        .c { text-align: center; }
-        .b { font-weight: 700; }
-        .pos { color: #1d7a45; }
-        .neg { color: #b42318; }
-        .note { color: #5d6b82; max-width: 220px; }
-        .empty { color: #8a94a6; text-align: center; padding: 16px; }
-        .total { display: flex; justify-content: space-between; margin-top: 12px; font-size: 13px; }
-        .total b { font-size: 20px; }
-        footer { margin-top: 28px; color: #8a94a6; font-size: 11px; }
-        @media print { body { background: #fff; padding: 0; } .card, table { break-inside: avoid; } }
+        :root {
+          --bg:#f4f1ea; --paper:#ffffff; --ink:#15181d; --ink2:#4a5568; --ink3:#6b7686;
+          --line:#e5e0d5; --accent:#1f3a6e; --orange:#b45309; --green:#15803d; --red:#b42318;
+          --zebra:#f8f6f1; --radius:16px;
+        }
         @media (prefers-color-scheme: dark) {
-          body { background: #14161a; color: #f2f4f8; }
-          .card, table { background: #1c2027; border-color: #2a2f39; }
-          th { background: #232831; color: #c9d0da; }
-          th, td { border-color: #2a2f39; }
-          .sub, .note, footer, .card .k { color: #9aa4b4; }
-          .empty { color: #7d8797; }
+          :root { --bg:#0f1319; --paper:#171c24; --ink:#eef2f7; --ink2:#aeb9c9; --ink3:#8b97a8;
+                  --line:#2a323e; --accent:#8fb3ff; --orange:#f0a35e; --green:#6bd694;
+                  --red:#ff8f84; --zebra:#1d232c; }
+        }
+        * { box-sizing:border-box; }
+        body { margin:0; padding:clamp(16px,4vw,40px) clamp(12px,3.4vw,32px) 56px;
+               background:var(--bg); color:var(--ink);
+               font:15px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC",system-ui,sans-serif;
+               -webkit-text-size-adjust:100%; }
+        .wrap { max-width:820px; margin:0 auto; }
+        header { display:flex; flex-wrap:wrap; gap:12px 16px; align-items:flex-end;
+                 justify-content:space-between; margin-bottom:22px; }
+        h1 { margin:0; font-size:clamp(20px,5.2vw,26px); letter-spacing:.02em; }
+        .sub { margin:5px 0 0; color:var(--ink3); font-size:12px; font-variant-numeric:tabular-nums; }
+        .pay { text-align:right; }
+        .pay .k { font-size:11px; color:var(--ink3); letter-spacing:.1em; }
+        .pay .v { font-size:clamp(24px,7vw,32px); font-weight:700;
+                  font-variant-numeric:tabular-nums; line-height:1.15; }
+        .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+                 gap:10px; }
+        .card { background:var(--paper); border:1px solid var(--line);
+                border-radius:var(--radius); padding:12px 14px; }
+        .card .k { font-size:11px; color:var(--ink3); }
+        .card .v { margin-top:3px; font-size:20px; font-weight:650;
+                   font-variant-numeric:tabular-nums; }
+        .pos { color:var(--green); }
+        .neg { color:var(--red); }
+        h2 { display:flex; align-items:center; gap:10px; margin:26px 0 10px;
+             font-size:12px; font-weight:650; letter-spacing:.12em; color:var(--ink2); }
+        h2::after { content:""; flex:1; height:1px; background:var(--line); }
+        .bars { background:var(--paper); border:1px solid var(--line);
+                border-radius:var(--radius); padding:15px 16px;
+                display:grid; gap:11px; }
+        .bar { display:grid; grid-template-columns:44px 1fr 72px; align-items:center;
+               gap:10px; font-size:12px; }
+        .bar .lbl { color:var(--ink2); }
+        .bar .track { height:8px; border-radius:99px; background:var(--line);
+                      overflow:hidden; display:block; }
+        .bar .fill { display:block; height:100%; border-radius:99px; }
+        .bar .num { text-align:right; font-variant-numeric:tabular-nums; color:var(--ink2); }
+        .table-wrap { background:var(--paper); border:1px solid var(--line);
+                      border-radius:var(--radius); overflow-x:auto;
+                      -webkit-overflow-scrolling:touch; }
+        table { width:100%; min-width:660px; border-collapse:collapse; }
+        table.mini { min-width:0; }
+        th, td { padding:8px 10px; border-bottom:1px solid var(--line);
+                 text-align:left; font-size:12.5px; vertical-align:top;
+                 font-variant-numeric:tabular-nums; }
+        th { background:var(--paper); color:var(--ink3); font-weight:600; font-size:11px;
+             letter-spacing:.04em; white-space:nowrap; }
+        tbody tr:nth-child(even) td { background:var(--zebra); }
+        tbody tr:last-child td { border-bottom:none; }
+        .n { text-align:right; }
+        .c { text-align:center; }
+        .b { font-weight:700; }
+        .note { color:var(--ink2); min-width:130px; }
+        .empty { text-align:center; color:var(--ink3); padding:22px; }
+        .sum { display:flex; justify-content:space-between; align-items:baseline;
+               gap:12px; margin-top:12px; font-size:12.5px; color:var(--ink2); }
+        .sum b { font-size:19px; color:var(--ink); font-variant-numeric:tabular-nums; }
+        .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(238px,1fr)); gap:12px; }
+        footer { margin-top:30px; padding-top:14px; border-top:1px solid var(--line);
+                 color:var(--ink3); font-size:11px; line-height:1.7; }
+        @media print {
+          :root { --bg:#fff; --paper:#fff; --line:#d8d4ca; --ink:#000; --ink2:#333;
+                  --ink3:#555; --zebra:#f4f2ec; --accent:#1f3a6e; --orange:#8a4a09;
+                  --green:#145c30; --red:#8f1d14; }
+          body { padding:0; font-size:12px; }
+          .card, .table-wrap, .bars { break-inside:avoid; }
+          tbody tr { break-inside:avoid; }
+          thead { display:table-header-group; }
+          table { min-width:0; }
+          .table-wrap { overflow:visible; }
+          @page { margin:14mm 12mm; }
         }
         </style></head><body><div class="wrap">
-        <h1>工时记录 · \(year) 年 \(month) 月</h1>
-        <div class="sub">考勤期 \(st.start) 至 \(st.end) · 导出 \(Cal.todayKey())</div>
+
+        <header>
+          <div>
+            <h1>工时记录 · \(year) 年 \(month) 月</h1>
+            <p class="sub">考勤期 \(st.start) 至 \(st.end) · \(Cal.num(st.days)) 天 · \(Cal.num(st.hours)) 小时 · 导出 \(Cal.todayKey())</p>
+          </div>
+          <div class="pay">
+            <div class="k">实发工资</div>
+            <div class="v">\(Cal.money(st.pay))<small style="font-size:12px;font-weight:400;color:var(--ink3)"> 元</small></div>
+          </div>
+        </header>
+
         <div class="cards">
-          <div class="card"><div class="k">总工时</div><div class="v">\(Cal.num(st.hours)) H</div></div>
-          <div class="card"><div class="k">出勤</div><div class="v">\(Cal.num(st.days)) 天</div></div>
+          <div class="card"><div class="k">总工时</div><div class="v">\(Cal.num(st.hours)) <small style="font-size:11px;font-weight:400;color:var(--ink3)">H</small></div></div>
+          <div class="card"><div class="k">出勤</div><div class="v">\(Cal.num(st.days)) <small style="font-size:11px;font-weight:400;color:var(--ink3)">天</small></div></div>
+          <div class="card"><div class="k">日均工时</div><div class="v">\(Cal.num(st.days > 0 ? st.hours / st.days : 0)) <small style="font-size:11px;font-weight:400;color:var(--ink3)">H</small></div></div>
           <div class="card"><div class="k">补贴</div><div class="v pos">+\(Cal.money(st.bonus))</div></div>
           <div class="card"><div class="k">扣款</div><div class="v neg">-\(Cal.money(st.deduct))</div></div>
-          <div class="card"><div class="k">实发工资</div><div class="v">\(Cal.money(st.pay))</div></div>
+          <div class="card"><div class="k">平均时薪</div><div class="v">\(Cal.money(st.avg))</div></div>
         </div>
+
         <h2>工时构成</h2>
-        <table><tr><th>正班</th><th>加班</th><th>周末</th><th>节假</th><th>平均时薪</th></tr>
-        <tr><td class="n">\(Cal.num(st.zb)) H</td><td class="n">\(Cal.num(st.jb)) H</td><td class="n">\(Cal.num(st.zm)) H</td><td class="n">\(Cal.num(st.jj)) H</td><td class="n">\(Cal.money(st.avg))</td></tr></table>
+        <div class="bars">
+          \(bar("正班", st.zb, "var(--accent)"))
+          \(bar("加班", st.jb, "var(--orange)"))
+          \(bar("周末", st.zm, "var(--orange)"))
+          \(bar("节假", st.jj, "var(--red)"))
+        </div>
+
         <h2>逐日明细</h2>
-        <table><tr><th>日</th><th>星期</th><th>班次</th><th>正班</th><th>加班</th><th>周末</th><th>节假</th><th>合计</th><th>金额</th><th>备注</th></tr>
-        \(dayRows)</table>
-        <div class="total"><span>合计 \(Cal.num(st.days)) 天 · \(Cal.num(st.hours)) H</span><b>\(Cal.money(st.pay)) 元</b></div>
-        <h2>补贴明细</h2>
-        <table><tr><th>项目</th><th class="n">金额</th></tr>\(extraRows(bonuses, "pos"))</table>
-        <h2>扣款明细</h2>
-        <table><tr><th>项目</th><th class="n">金额</th></tr>\(extraRows(deductions, "neg"))</table>
-        <footer>由工时记录 App 导出 · 数据仅存于本机</footer>
+        <div class="table-wrap">
+        <table><thead><tr><th class="c">日</th><th>星期</th><th>班次</th>
+        <th class="n">正班</th><th class="n">加班</th><th class="n">周末</th><th class="n">节假</th>
+        <th class="n">工时</th><th class="n">金额</th><th>备注</th></tr></thead>
+        <tbody>\(dayRows)</tbody></table>
+        </div>
+        <div class="sum"><span>合计 \(Cal.num(st.days)) 天 · \(Cal.num(st.hours)) H</span><b>\(Cal.money(st.pay)) 元</b></div>
+
+        <h2>补贴与扣款</h2>
+        <div class="cols">
+          <div>
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:6px">补贴 +\(Cal.money(st.bonus))</div>
+            \(extraTable(bonuses, "pos"))
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--ink3);margin-bottom:6px">扣款 -\(Cal.money(st.deduct))</div>
+            \(extraTable(deductions, "neg"))
+          </div>
+        </div>
+
+        <footer>
+          由工时记录 App 导出 · 数据仅存于本机<br>
+          表头数字单位：工时列均为小时，金额列为元。
+        </footer>
         </div></body></html>
         """
     }

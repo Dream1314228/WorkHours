@@ -68,7 +68,7 @@ struct SummaryPage: View {
 
     private func segment(_ title: String, _ value: Int, _ icon: String) -> some View {
         Button {
-            withAnimation(.snappy(duration: 0.2)) { mode = value }
+            withAnimation(store.pageMotion ? .snappy(duration: 0.2) : nil) { mode = value }
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon)
@@ -101,7 +101,7 @@ struct SummaryPage: View {
     }
 
     private func step(_ delta: Int) {
-        withAnimation(.snappy(duration: 0.24)) {
+        withAnimation(store.pageMotion ? .snappy(duration: 0.24) : nil) {
             if mode == 0 {
                 year += delta
             } else {
@@ -149,7 +149,7 @@ struct SummaryPage: View {
             VStack(alignment: .leading, spacing: 10) {
                 IconTitle(icon: "chart.bar.xaxis", title: "每月工时", subtitle: "单位：小时 · 点柱子看整月")
                 MonthBarChart(months: ys.months, palette: palette) { m in
-                    withAnimation(.snappy(duration: 0.2)) {
+                    withAnimation(store.pageMotion ? .snappy(duration: 0.2) : nil) {
                         month = m
                         mode = 1
                     }
@@ -209,7 +209,7 @@ struct SummaryPage: View {
                 ForEach(1...12, id: \.self) { m in
                     let st = ys.months[m - 1]
                     Button {
-                        withAnimation(.snappy(duration: 0.2)) {
+                        withAnimation(store.pageMotion ? .snappy(duration: 0.2) : nil) {
                             month = m
                             mode = 1
                         }
@@ -385,8 +385,11 @@ struct MonthBarChart: View {
                                         .frame(height: zbH)
                                 }
                                 .scaleEffect(y: grown ? 1 : 0.001, anchor: .bottom)
-                                .animation(.spring(response: 0.5, dampingFraction: 0.82)
-                                            .delay(Double(i) * 0.016), value: grown)
+                                .animation(store.chartMotion
+                                           ? .spring(response: 0.5, dampingFraction: 0.82)
+                                                .delay(Double(i) * 0.016)
+                                           : nil,
+                                           value: grown)
                             }
                             .frame(height: plotH - 14, alignment: .bottom)
 
@@ -418,6 +421,10 @@ struct MonthBarChart: View {
     }
 
     private func play() {
+        guard store.chartMotion else {
+            grown = true
+            return
+        }
         grown = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
             grown = true
@@ -478,13 +485,17 @@ struct YearHeatmap: View {
             .opacity(appeared ? 1 : 0)
         }
         .frame(height: 56)
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.35)) { appeared = true }
+        .onAppear { replay() }
+        .onChange(of: store.chartToken) { _, _ in replay() }
+    }
+
+    private func replay() {
+        guard store.chartMotion else {
+            appeared = true
+            return
         }
-        .onChange(of: store.chartToken) { _, _ in
-            appeared = false
-            withAnimation(.easeOut(duration: 0.35)) { appeared = true }
-        }
+        appeared = false
+        withAnimation(.easeOut(duration: 0.35)) { appeared = true }
     }
 
     private func shade(_ hours: Double) -> Color {

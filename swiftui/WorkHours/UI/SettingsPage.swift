@@ -713,15 +713,55 @@ struct SettingsPage: View {
             Toggle("卡片阴影", isOn: $store.data.settings.cardShadow)
                 .font(.system(size: 14))
                 .tint(palette.primary)
-            Toggle("界面动画", isOn: $store.data.settings.animations)
-                .font(.system(size: 14))
-                .tint(palette.primary)
+
+            Divider().opacity(0.4)
+
+            Toggle(isOn: $store.data.settings.animations) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("动态效果")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("总开关，关掉全站不动")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.gsSecondary)
+                }
+            }
+            .tint(palette.primary)
+
+            VStack(spacing: 9) {
+                motionToggle("图表动画", "柱子生长、雷达张开、热力图浮现",
+                             $store.data.settings.chartAnimation)
+                motionToggle("日历进场", "换月后格子按行依次出现",
+                             $store.data.settings.calendarAnimation)
+                motionToggle("页面过渡", "统计 / 总结切页时的淡入推移",
+                             $store.data.settings.pageAnimation)
+            }
+            .padding(.leading, 2)
+            .opacity(store.settings.animations ? 1 : 0.4)
+            .disabled(!store.settings.animations)
+            .animation(.easeOut(duration: 0.2), value: store.settings.animations)
+
+            Divider().opacity(0.4)
+
             Toggle("日历显示农历", isOn: $store.data.settings.showLunar)
                 .font(.system(size: 14))
                 .tint(palette.primary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius)
+    }
+
+    private func motionToggle(_ title: String, _ note: String,
+                              _ binding: Binding<Bool>) -> some View {
+        Toggle(isOn: binding) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 13))
+                Text(note)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.gsSecondary)
+            }
+        }
+        .tint(palette.primary)
     }
 
     // MARK: 数据
