@@ -44,6 +44,12 @@ extension Color {
             ? UIColor(red: 1.00, green: 0.48, blue: 0.45, alpha: 1)
             : UIColor(red: 0.70, green: 0.14, blue: 0.09, alpha: 1)
     })
+    /// 次要文字：浅色 #5D6B82，深色提亮，保证对比度
+    static let gsSecondary = Color(uiColor: UIColor { t in
+        t.userInterfaceStyle == .dark
+            ? UIColor(red: 0.68, green: 0.72, blue: 0.80, alpha: 1)
+            : UIColor(red: 0.365, green: 0.420, blue: 0.510, alpha: 1)
+    })
 }
 
 // MARK: - 主题
