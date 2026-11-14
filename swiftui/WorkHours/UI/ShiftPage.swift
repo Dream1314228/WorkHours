@@ -95,12 +95,13 @@ struct ShiftPage: View {
         .buttonStyle(PressableStyle())
     }
 
-    private func move(_ delta: Int) {
+    private func move(_ delta: Int, animated: Bool = true) {
         let next = Cal.monthAdd(year, month, delta)
-        withAnimation(.snappy(duration: 0.26)) {
+        let apply = {
             year = next.year
             month = next.month
         }
+        if animated { withAnimation(.snappy(duration: 0.26)) { apply() } } else { apply() }
     }
 
     // MARK: 月历
@@ -112,8 +113,7 @@ struct ShiftPage: View {
                           pendingDate = key
                           showPicker = true
                       },
-                      onStep: { delta in move(delta) })
-        .id("\(year)-\(month)")
+                      onStep: { delta in move(delta, animated: false) })
     }
 
     // MARK: 图例 + 本月

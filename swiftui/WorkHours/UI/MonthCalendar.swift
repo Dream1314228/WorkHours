@@ -42,6 +42,7 @@ struct MonthCalendar: View {
         }
         .scrollTargetBehavior(.paging)
         .scrollPosition(id: $page, anchor: .center)
+        .defaultScrollAnchor(.center)
         .scrollIndicators(.hidden)
         .frame(height: Self.gridHeight)
         .background(Ledger.paper)

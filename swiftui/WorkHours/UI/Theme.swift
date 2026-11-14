@@ -307,6 +307,8 @@ struct NumberRow: View {
     @Binding var value: Double
     var palette: Palette
     var range: ClosedRange<Double> = 0...999
+    /// 数值着色（默认时长按项上色，其余行留空沿用系统色）
+    var valueColor: Color? = nil
 
     @State private var text: String = ""
     @FocusState private var focused: Bool
@@ -321,6 +323,7 @@ struct NumberRow: View {
                 .multilineTextAlignment(.trailing)
                 .font(.system(size: 16, weight: .semibold))
                 .monospacedDigit()
+                .foregroundStyle(valueColor ?? Color.primary)
                 .frame(width: 88)
                 .focused($focused)
                 .onAppear { text = Cal.num(value) }

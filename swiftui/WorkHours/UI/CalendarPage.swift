@@ -206,13 +206,15 @@ struct CalendarPage: View {
         .buttonStyle(PressableStyle())
     }
 
-    private func moveMonth(_ delta: Int) {
+    private func moveMonth(_ delta: Int, animated: Bool = true) {
         let next = Cal.monthAdd(year, month, delta)
-        withAnimation(.snappy(duration: 0.26)) {
+        let apply = {
             year = next.year
             month = next.month
             selected = String(format: "%04d-%02d-01", next.year, next.month)
         }
+        // 横滑翻页本身就有位移感，数据再补一段动画会跟 ScrollView 的复位打架，闪一下
+        if animated { withAnimation(.snappy(duration: 0.26)) { apply() } } else { apply() }
     }
 
     private func jumpToday() {
@@ -230,11 +232,7 @@ struct CalendarPage: View {
                       onPick: { key in
                           withAnimation(.snappy(duration: 0.16)) { selected = key }
                       },
-                      onStep: { delta in moveMonth(delta) })
-        .id("\(year)-\(month)")
-        .transition(.asymmetric(
-            insertion: .opacity.combined(with: .scale(scale: 0.97, anchor: .top)),
-            removal: .opacity))
+                      onStep: { delta in moveMonth(delta, animated: false) })
     }
 
     @ViewBuilder

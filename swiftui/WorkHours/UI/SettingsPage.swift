@@ -5,6 +5,7 @@ struct SettingsPage: View {
     var palette: Palette
     @EnvironmentObject var store: Store
 
+    @State private var defaultClassId = ""
     @State private var editingProject: Project?
     @State private var isNewProject = false
     @State private var showPeriodEditor = false
@@ -37,6 +38,7 @@ struct SettingsPage: View {
                 LazyVStack(spacing: 14) {
                     header
                     recordSettingsSection
+                    defaultHoursSection
                     allowanceSection
                     wageSection
                     bonusSection
@@ -188,6 +190,110 @@ struct SettingsPage: View {
             Text("两版都按时长记账，时间记录只保留这个设置项。")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.gsSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(radius: store.settings.cardRadius)
+    }
+
+    // MARK: 配置默认时长
+
+    private var activeDefaultClass: String {
+        if !defaultClassId.isEmpty, store.classes.contains(where: { $0.id == defaultClassId }) {
+            return defaultClassId
+        }
+        return store.classes.first?.id ?? ""
+    }
+
+    /// 该班次没单独配过就回落到全局默认，别让新班次一进来全是 0
+    private func classDefault(_ cid: String, _ kp: WritableKeyPath<ClassDefault, Double>) -> Double {
+        if let d = store.data.settings.classDefaults[cid] { return d[keyPath: kp] }
+        let w = store.settings.defaultWork
+        if kp == \ClassDefault.zb { return w.zb }
+        if kp == \ClassDefault.jb { return w.jb }
+        if kp == \ClassDefault.zm { return w.zm }
+        if kp == \ClassDefault.jj { return w.jj }
+        return 0
+    }
+
+    private func classDefaultBinding(_ cid: String, _ kp: WritableKeyPath<ClassDefault, Double>) -> Binding<Double> {
+        Binding(
+            get: { classDefault(cid, kp) },
+            set: { v in
+                var d = store.data.settings.classDefaults[cid]
+                if d == nil {
+                    let w = store.settings.defaultWork
+                    d = ClassDefault(zb: w.zb, jb: w.jb, zm: w.zm, jj: w.jj, rjgz: 0)
+                }
+                d?[keyPath: kp] = v
+                store.data.settings.classDefaults[cid] = d
+            }
+        )
+    }
+
+    private var defaultHoursSection: some View {
+        let cid = activeDefaultClass
+        return VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 10) {
+                Rectangle().fill(Ledger.rule).frame(height: 0.6)
+                Text("配置默认时长")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Ledger.ink)
+                    .fixedSize()
+                Rectangle().fill(Ledger.rule).frame(height: 0.6)
+            }
+
+            Text("先选班次，再填这个班的默认值。打卡切到哪个班，就带出哪一份。")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.gsSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 0) {
+                ForEach(store.classes) { c in
+                    let on = c.id == cid
+                    Button {
+                        defaultClassId = c.id
+                    } label: {
+                        VStack(spacing: 5) {
+                            Text(c.name)
+                                .font(.system(size: 16, weight: on ? .semibold : .regular))
+                                .foregroundStyle(on ? palette.primary : Color.gsSecondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                            Capsule()
+                                .fill(on ? palette.primary : Color.clear)
+                                .frame(width: 42, height: 2.5)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 4)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(PressableStyle())
+                }
+            }
+
+            Divider().opacity(0.35)
+
+            VStack(spacing: 0) {
+                NumberRow(title: "正班", unit: "H", value: classDefaultBinding(cid, \.zb),
+                          palette: palette, range: 0...24, valueColor: palette.primary)
+                Divider().opacity(0.3)
+                NumberRow(title: "加班", unit: "H", value: classDefaultBinding(cid, \.jb),
+                          palette: palette, range: 0...24, valueColor: Color.gsOrange)
+                Divider().opacity(0.3)
+                NumberRow(title: "周末", unit: "H", value: classDefaultBinding(cid, \.zm),
+                          palette: palette, range: 0...24, valueColor: Color.gsOrange)
+                Divider().opacity(0.3)
+                NumberRow(title: "节假", unit: "H", value: classDefaultBinding(cid, \.jj),
+                          palette: palette, range: 0...24, valueColor: Color.gsRed)
+                Divider().opacity(0.3)
+                NumberRow(title: "日结", unit: "元", value: classDefaultBinding(cid, \.rjgz),
+                          palette: palette, range: 0...99999, valueColor: Color.gsOrange)
+            }
+
+            Text("记账时按当天选的班次带出这份值；加班默认时长就在这里改。")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.gsSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius)
