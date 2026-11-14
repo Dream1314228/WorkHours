@@ -9,7 +9,7 @@
 | 版本 | 语言 | 最低系统 | UI 设计 | 成品包 | 源码 |
 |---|---|---|---|---|---|
 | UIKit 版 | Objective-C + UIKit | iOS 15 | 经典原生风：TabBar、卡片列表、手写毛玻璃 | `releases/WorkHours-uikit-3.1.1-unsigned.ipa` | `uikit/` |
-| SwiftUI 版 | Swift + SwiftUI | iOS 26 | 重做：液态玻璃、动态效果、图表页全新版式 | `releases/WorkHours-swiftui-1.1.0-unsigned.ipa` | `swiftui/` |
+| SwiftUI 版 | Swift + SwiftUI | iOS 26 | 重做：液态玻璃、动态效果、图表页全新版式 | `releases/WorkHours-swiftui-1.1.1-unsigned.ipa` | `swiftui/` |
 
 两个包都是**未签名 IPA**，装到手机上要自己用 AltStore / Sideloadly / 证书重签。
 
@@ -77,6 +77,7 @@ cd swiftui && xcodegen generate && xcodebuild -project WorkHours.xcodeproj \
 
 ## 更新记录
 
+- **SwiftUI 1.1.1**（2026-11-14）：「薪」去掉金底只留金字；日历不再挂横向拖动手势，纵向滚动不再被抢（切月用箭头）；统计页默认落在今天所属考勤期
 - **SwiftUI 1.1.0**（2026-11-14）：日历恢复纵向滚动、底部操作条透明、日历右上角角标内收、发薪日金色重做、环形图与图例配比、页面切换加过渡、HTML 报表窄屏改卡片且打印锁 A4
 - **SwiftUI 1.0.0**（2026-11-13）：按全新设计做的一版，界面与 UIKit 版不共用同一套布局；动态效果开关、柱状图与 HTML 报表重做、雷达图与年度热力图、日历跟手翻月
 - **UIKit 3.1.1**（2026-11-11）：备份兼容老版、统计按考勤期聚合、账单卡可折叠
