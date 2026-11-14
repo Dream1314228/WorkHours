@@ -16,6 +16,19 @@ struct StatsPage: View {
     private var year: Int { pickedYear ?? store.currentPeriodKey().year }
     private var month: Int { pickedMonth ?? store.currentPeriodKey().month }
 
+    /// 翻回当前期：把「手动选的月份」清掉，视图就自动落回今天所属那一期
+    private var isCurrentPeriod: Bool {
+        let k = store.currentPeriodKey()
+        return year == k.year && month == k.month
+    }
+
+    private func backToCurrent() {
+        withAnimation(store.pageMotion ? .snappy(duration: 0.24) : nil) {
+            pickedYear = nil
+            pickedMonth = nil
+        }
+    }
+
     private var st: MonthStats { store.monthStats(year: year, month: month) }
 
     var body: some View {
@@ -44,10 +57,32 @@ struct StatsPage: View {
                     .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(Ledger.ink)
                     .contentTransition(.numericText())
-                Text("考勤期 \(st.start) 至 \(st.end)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.gsSecondary)
-                    .monospacedDigit()
+                HStack(spacing: 6) {
+                    Text("考勤期 \(st.start) 至 \(st.end)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.gsSecondary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    if !isCurrentPeriod {
+                        Button {
+                            backToCurrent()
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "arrow.uturn.backward")
+                                    .font(.system(size: 8, weight: .bold))
+                                Text("本期")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundStyle(palette.primary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(Capsule().fill(palette.primary.opacity(0.12)))
+                            .contentShape(Capsule())
+                        }
+                        .buttonStyle(PressableStyle())
+                    }
+                }
             }
             Spacer(minLength: 4)
             circleButton("chevron.left") { step(-1) }

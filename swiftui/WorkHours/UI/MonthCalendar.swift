@@ -2,8 +2,10 @@ import SwiftUI
 
 /// 记录页与排班页共用的月历，视觉对齐 UIKit 版 GSCalendarView：
 /// 固定 42 格、纸面底、顶上一条班次图标、日期固定 17pt、农历、工时、底部小横线。
-/// 切月靠表头的左右箭头，不在日历上挂横向拖动手势 —— 那个会把纵向滚动抢掉。
-/// 格子按行错开做进场动画。
+///
+/// 横滑切月用「横向分页 ScrollView」实现：三页（上月 / 本月 / 下月）各占容器满宽，
+/// 靠 scrollTargetBehavior(.paging) 吸附。横向和纵向是两个正交方向的 ScrollView，
+/// 系统各认各的，纵向滚动不会被抢 —— 之前用 DragGesture 时正是它把纵向拖动吃掉了。
 struct MonthCalendar: View {
     let year: Int
     let month: Int
@@ -16,6 +18,10 @@ struct MonthCalendar: View {
     var onStep: ((Int) -> Void)? = nil
 
     @EnvironmentObject private var store: Store
+    @State private var page: Int? = 1
+
+    /// 表头 18 + 间距 3 + 6 行 × 58 + 5 个行距 2 + 底部 6
+    private static let gridHeight: CGFloat = 386
 
     private var headers: [String] {
         store.settings.weekStart == 1
@@ -23,13 +29,43 @@ struct MonthCalendar: View {
             : ["日", "一", "二", "三", "四", "五", "六"]
     }
 
-    private var lead: Int {
-        let first = String(format: "%04d-%02d-01", year, month)
-        return (Cal.weekday(first) - 1 - store.settings.weekStart + 7) % 7
+    var body: some View {
+        ScrollView(.horizontal) {
+            LazyHStack(spacing: 0) {
+                ForEach(-1...1, id: \.self) { off in
+                    pageGrid(off)
+                        .containerRelativeFrame(.horizontal)
+                        .id(off)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $page, anchor: .center)
+        .scrollIndicators(.hidden)
+        .frame(height: Self.gridHeight)
+        .background(Ledger.paper)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Ledger.rule, lineWidth: 0.6)
+        }
+        .onChange(of: page) { _, now in
+            guard let now, now != 1 else { return }
+            onStep?(now == 0 ? -1 : 1)
+            // 月份已经换了，把播放头无声地推回中间那页
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { page = 1 }
+        }
+        .onChange(of: month) { _, _ in page = 1 }
     }
 
-    var body: some View {
-        VStack(spacing: 3) {
+    // MARK: 单页
+
+    private func pageGrid(_ off: Int) -> some View {
+        let m = Cal.monthAdd(year, month, off)
+        return VStack(spacing: 3) {
             HStack(spacing: 0) {
                 ForEach(headers, id: \.self) { w in
                     Text(w)
@@ -43,29 +79,25 @@ struct MonthCalendar: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7),
                       spacing: 2) {
                 ForEach(0..<42, id: \.self) { i in
-                    slot(i)
+                    slot(i, y: m.year, mo: m.month)
                 }
             }
         }
         .padding(.horizontal, 8)
         .padding(.bottom, 6)
-        .background(Ledger.paper)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Ledger.rule, lineWidth: 0.6)
-        }
     }
 
     @ViewBuilder
-    private func slot(_ i: Int) -> some View {
-        let days = Cal.daysInMonth(year, month)
+    private func slot(_ i: Int, y: Int, mo: Int) -> some View {
+        let first = String(format: "%04d-%02d-01", y, mo)
+        let lead = (Cal.weekday(first) - 1 - store.settings.weekStart + 7) % 7
+        let days = Cal.daysInMonth(y, mo)
         let dayNum = i - lead + 1
 
         if dayNum < 1 || dayNum > days {
             Color.clear.frame(height: 58)
         } else {
-            let key = String(format: "%04d-%02d-%02d", year, month, dayNum)
+            let key = String(format: "%04d-%02d-%02d", y, mo, dayNum)
             CalendarDayCell(
                 key: key,
                 dayNum: dayNum,
@@ -108,6 +140,7 @@ private struct CalendarDayCell: View {
     }
 
     private var kind: String { Cal.dayKind(key) }
+    private var holiday: String? { Cal.holidayName(key) }
 
     private var mark: String {
         if isPayday { return "薪" }
@@ -117,8 +150,11 @@ private struct CalendarDayCell: View {
         return ""
     }
 
+    /// 选中态下的字色：发薪日不许被刷成白色，仍然是金
+    private var onSelectedInk: Color { isPayday ? goldInk : palette.onPrimary }
+
     private var markColor: Color {
-        if selected { return palette.onPrimary }
+        if selected { return onSelectedInk }
         if isPayday { return gold }
         if kind == "jj" { return Color.gsRed }
         if Cal.isMakeupWorkday(key) { return Color.gsGreen }
@@ -144,19 +180,32 @@ private struct CalendarDayCell: View {
     }
 
     private var dayColor: Color {
-        if selected { return palette.onPrimary }
+        if selected { return onSelectedInk }
         if isPayday { return gold }
         return Ledger.ink
     }
 
     private var barColor: Color {
-        if selected { return palette.onPrimary }
+        if selected { return onSelectedInk }
         if isPayday { return gold }
         return palette.primary
     }
 
     private var showsBar: Bool {
         key == Cal.todayKey() || rec != nil || isPayday
+    }
+
+    /// 日期下面那一行：有节假日就顶掉农历，直接写节日名
+    private var subText: String {
+        if let h = holiday { return h }
+        return Cal.lunarCellText(key)
+    }
+
+    private var subColor: Color {
+        if selected { return isPayday ? onSelectedInk : palette.onPrimary.opacity(0.9) }
+        if isPayday { return goldInk }
+        if holiday != nil { return Color.gsRed }
+        return Ledger.inkSoft
     }
 
     private var nightTint: Color {
@@ -185,19 +234,19 @@ private struct CalendarDayCell: View {
                             radius: 2.5)
                     .frame(height: 21)
 
-                Text(Cal.lunarCellText(key))
+                Text(subText)
                     .font(.system(size: 9, weight: isPayday ? .semibold : .regular))
-                    .foregroundStyle(selected ? palette.onPrimary.opacity(0.9)
-                                     : (isPayday ? goldInk : Ledger.inkSoft))
+                    .foregroundStyle(subColor)
                     .frame(height: 11)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.65)
 
                 Group {
                     if showsHours, let r = rec {
                         Text(store.daySummary(r))
                             .font(.system(size: 9, weight: .bold))
                             .monospacedDigit()
-                            .foregroundStyle(selected ? palette.onPrimary : (isPayday ? gold : palette.primary))
+                            .foregroundStyle(selected ? onSelectedInk : (isPayday ? gold : palette.primary))
                             .shadow(color: isPayday && !selected ? gold.opacity(0.22) : .clear,
                                     radius: 2)
                             .lineLimit(1)
@@ -219,15 +268,23 @@ private struct CalendarDayCell: View {
             .frame(height: 58)
             .background {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
-                    .fill(selected ? palette.primary : Color.clear)
-                    .shadow(color: selected ? palette.primary.opacity(0.30) : .clear,
+                    // 发薪日选中时改成主题色浅底：实心色块上金字看不清，浅底才留得住金色
+                    .fill(selected ? (isPayday ? palette.primary.opacity(0.16) : palette.primary)
+                                   : Color.clear)
+                    .overlay {
+                        if selected && isPayday {
+                            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                .strokeBorder(palette.primary.opacity(0.55), lineWidth: 1.2)
+                        }
+                    }
+                    .shadow(color: selected ? palette.primary.opacity(isPayday ? 0.12 : 0.30) : .clear,
                             radius: 8, x: 0, y: 4)
             }
             .overlay(alignment: .topTrailing) {
                 if !mark.isEmpty {
                     Text(mark)
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(isPayday && !selected ? goldInk : markColor)
+                        .foregroundStyle(markColor)
                         // 往里收，别压在选中态的圆角上
                         .padding(.top, 3)
                         .padding(.trailing, 5)
@@ -256,7 +313,7 @@ private struct CalendarDayCell: View {
             let name = shift.name
             let dayShift = name.contains("白") || name.contains("早")
             let nightShift = name.contains("中") || name.contains("晚") || name.contains("夜")
-            let tint: Color = selected ? palette.onPrimary
+            let tint: Color = selected ? onSelectedInk
                 : (dayShift ? Color.gsOrange : (nightShift ? nightTint : Ledger.inkSoft))
 
             if store.settings.classDisplay == "text" {
