@@ -59,7 +59,7 @@ struct MonthCalendar: View {
         .offset(x: drag)
         .scaleEffect(1 - min(abs(drag), 150) / 2600, anchor: .center)
         .opacity(1 - min(abs(drag), 150) / 1100)
-        .gesture(
+        .simultaneousGesture(
             DragGesture(minimumDistance: 6)
                 .onChanged { v in
                     if axis == 0 {
@@ -164,12 +164,30 @@ private struct CalendarDayCell: View {
         return Ledger.inkSoft
     }
 
-    /// 发薪日的金，亮色模式偏沉、暗色模式偏亮，都带一点发光。
+    /// 发薪日的金：亮模式取纯金（少一点褐，才不发脏），暗模式提亮
     private var gold: Color {
         Color(uiColor: UIColor { t in
             t.userInterfaceStyle == .dark
-                ? UIColor(red: 1.00, green: 0.82, blue: 0.36, alpha: 1)
-                : UIColor(red: 0.72, green: 0.50, blue: 0.05, alpha: 1)
+                ? UIColor(red: 1.00, green: 0.84, blue: 0.42, alpha: 1)
+                : UIColor(red: 0.78, green: 0.55, blue: 0.03, alpha: 1)
+        })
+    }
+
+    /// 9pt 小字用的深金：纯金压在白底上只有 2.5:1，小字会糊，这里保住金色相又把对比拉到 4.6:1
+    private var goldInk: Color {
+        Color(uiColor: UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(red: 1.00, green: 0.86, blue: 0.50, alpha: 1)
+                : UIColor(red: 0.58, green: 0.40, blue: 0.02, alpha: 1)
+        })
+    }
+
+    /// 压在金底上的字，接近黑，金底白字会看不清
+    private var goldOnGold: Color {
+        Color(uiColor: UIColor { t in
+            t.userInterfaceStyle == .dark
+                ? UIColor(red: 0.12, green: 0.09, blue: 0, alpha: 1)
+                : UIColor(red: 0.13, green: 0.09, blue: 0, alpha: 1)
         })
     }
 
@@ -211,13 +229,14 @@ private struct CalendarDayCell: View {
                     .font(.system(size: 17, weight: selected ? .bold : .semibold))
                     .monospacedDigit()
                     .foregroundStyle(dayColor)
-                    .shadow(color: isPayday && !selected ? gold.opacity(0.55) : .clear,
-                            radius: 5)
+                    .shadow(color: isPayday && !selected ? gold.opacity(0.28) : .clear,
+                            radius: 2.5)
                     .frame(height: 21)
 
                 Text(Cal.lunarCellText(key))
-                    .font(.system(size: 9))
-                    .foregroundStyle(selected ? palette.onPrimary.opacity(0.9) : Ledger.inkSoft)
+                    .font(.system(size: 9, weight: isPayday ? .semibold : .regular))
+                    .foregroundStyle(selected ? palette.onPrimary.opacity(0.9)
+                                     : (isPayday ? goldInk : Ledger.inkSoft))
                     .frame(height: 11)
                     .lineLimit(1)
 
@@ -227,8 +246,8 @@ private struct CalendarDayCell: View {
                             .font(.system(size: 9, weight: .bold))
                             .monospacedDigit()
                             .foregroundStyle(selected ? palette.onPrimary : (isPayday ? gold : palette.primary))
-                            .shadow(color: isPayday && !selected ? gold.opacity(0.45) : .clear,
-                                    radius: 4)
+                            .shadow(color: isPayday && !selected ? gold.opacity(0.22) : .clear,
+                                    radius: 2)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
@@ -256,10 +275,18 @@ private struct CalendarDayCell: View {
                 if !mark.isEmpty {
                     Text(mark)
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(markColor)
-                        .shadow(color: isPayday && !selected ? gold.opacity(0.5) : .clear, radius: 4)
-                        .padding(.top, 1)
-                        .padding(.trailing, 3)
+                        .foregroundStyle(isPayday && !selected ? goldOnGold : markColor)
+                        // 发薪日用金底小胶囊，一片金里它是唯一实心块，扫一眼就找到
+                        .padding(.horizontal, isPayday && !selected ? 3.5 : 0)
+                        .padding(.vertical, isPayday && !selected ? 0.8 : 0)
+                        .background {
+                            if isPayday && !selected {
+                                Capsule().fill(gold)
+                            }
+                        }
+                        // 往里收，别压在选中态的圆角上
+                        .padding(.top, 3)
+                        .padding(.trailing, 5)
                 }
             }
             .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))

@@ -431,12 +431,8 @@ struct CalendarPage: View {
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 8)
-        .background {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .overlay(alignment: .top) { LedgerRule() }
-                .ignoresSafeArea(edges: .bottom)
-        }
+        // 底部条完全透明，不再垫毛玻璃或分隔线，页面背景一路透到底
+        .background(Color.clear)
     }
 
     private var noRecordDetail: some View {

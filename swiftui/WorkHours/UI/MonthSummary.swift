@@ -86,13 +86,13 @@ struct MonthSummaryContent: View {
                       subtitle: "共 \(Cal.num(st.hours)) 小时")
             HStack(alignment: .center, spacing: 14) {
                 HoursDonut(zb: st.zb, ot: st.jb, zm: st.zm, jj: st.jj, palette: palette)
-                VStack(alignment: .leading, spacing: 8) {
-                    legendRow(palette.primary, "正班", st.zb)
-                    legendRow(Color.gsOrange, "加班", st.jb)
-                    legendRow(Color.gsGreen, "周末", st.zm)
-                    legendRow(Color.gsRed, "节假", st.jj)
+                VStack(alignment: .leading, spacing: 9) {
+                    legendRow(palette.primary, "正班", st.zb, st.hours)
+                    legendRow(Color.gsOrange, "加班", st.jb, st.hours)
+                    legendRow(Color.gsGreen, "周末", st.zm, st.hours)
+                    legendRow(Color.gsRed, "节假", st.jj, st.hours)
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 2)
             Divider().opacity(0.4)
@@ -165,7 +165,7 @@ struct MonthSummaryContent: View {
         .glassCard(radius: store.settings.cardRadius)
     }
 
-    private func legendRow(_ color: Color, _ name: String, _ v: Double) -> some View {
+    private func legendRow(_ color: Color, _ name: String, _ v: Double, _ total: Double) -> some View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 2)
                 .fill(color)
@@ -181,7 +181,14 @@ struct MonthSummaryContent: View {
             Text("H")
                 .font(.system(size: 9))
                 .foregroundStyle(Color.gsSecondary)
+            Spacer(minLength: 6)
+            // 占比把右边那块空填掉，别让半张卡片空着
+            Text(total > 0 ? "\(Int((v / total * 100).rounded()))%" : "—")
+                .font(.system(size: 10, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(color.opacity(0.9))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func legend(_ title: String, _ color: Color) -> some View {
@@ -574,25 +581,29 @@ struct HoursDonut: View {
 
         ZStack {
             Circle()
-                .stroke(Color.primary.opacity(0.06), lineWidth: 11)
+                .stroke(Color.primary.opacity(0.06), lineWidth: 13)
 
             arc(from: 0, to: appeared ? a : 0, color: palette.primary)
             arc(from: a, to: appeared ? b : a, color: Color.gsOrange)
             arc(from: b, to: appeared ? c : b, color: Color.gsGreen)
             arc(from: c, to: appeared ? 1 : c, color: Color.gsRed)
 
-            VStack(spacing: 0) {
+            VStack(spacing: 1) {
                 Text(Cal.num(zb + ot + zm + jj))
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(Color.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .contentTransition(.numericText())
                 Text("小时")
-                    .font(.system(size: 9))
+                    .font(.system(size: 10.5, weight: .medium))
                     .foregroundStyle(Color.gsSecondary)
             }
+            // 环内直径约 92pt，数字两头留出呼吸，不贴环壁
+            .padding(.horizontal, 15)
         }
-        .frame(width: 104, height: 104)
+        .frame(width: 118, height: 118)
         .onAppear { replay() }
         .onChange(of: store.chartToken) { _, _ in replay() }
     }
@@ -609,7 +620,7 @@ struct HoursDonut: View {
     private func arc(from: Double, to: Double, color: Color) -> some View {
         Circle()
             .trim(from: from, to: max(from, min(1, to)))
-            .stroke(color, style: StrokeStyle(lineWidth: 11, lineCap: .butt))
+            .stroke(color, style: StrokeStyle(lineWidth: 13, lineCap: .butt))
             .rotationEffect(.degrees(-90))
     }
 }

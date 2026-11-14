@@ -168,13 +168,13 @@ struct SummaryPage: View {
 
                 HStack(alignment: .center, spacing: 14) {
                     HoursDonut(zb: zbTotal, ot: jbTotal, zm: zmTotal, jj: jjTotal, palette: palette)
-                    VStack(alignment: .leading, spacing: 7) {
-                        legendRow(palette.primary, "正班", zbTotal)
-                        legendRow(Color.gsOrange, "加班", jbTotal)
-                        legendRow(Color.gsGreen, "周末", zmTotal)
-                        legendRow(Color.gsRed, "节假", jjTotal)
+                    VStack(alignment: .leading, spacing: 9) {
+                        legendRow(palette.primary, "正班", zbTotal, ys.hours)
+                        legendRow(Color.gsOrange, "加班", jbTotal, ys.hours)
+                        legendRow(Color.gsGreen, "周末", zmTotal, ys.hours)
+                        legendRow(Color.gsRed, "节假", jjTotal, ys.hours)
                     }
-                    Spacer(minLength: 0)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.vertical, 2)
 
@@ -251,7 +251,7 @@ struct SummaryPage: View {
         }
     }
 
-    private func legendRow(_ color: Color, _ name: String, _ v: Double) -> some View {
+    private func legendRow(_ color: Color, _ name: String, _ v: Double, _ total: Double) -> some View {
         HStack(spacing: 6) {
             RoundedRectangle(cornerRadius: 2).fill(color).frame(width: 8, height: 8)
             Text(name)
@@ -265,7 +265,13 @@ struct SummaryPage: View {
             Text("H")
                 .font(.system(size: 9))
                 .foregroundStyle(Color.gsSecondary)
+            Spacer(minLength: 6)
+            Text(total > 0 ? "\(Int((v / total * 100).rounded()))%" : "—")
+                .font(.system(size: 10, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(color.opacity(0.9))
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func compareBar(_ name: String, _ value: Double, _ color: Color) -> some View {

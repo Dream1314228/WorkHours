@@ -696,16 +696,16 @@ final class Store: ObservableObject {
             }.joined(separator: "；")
             let tail = [note, extra].filter { !$0.isEmpty }.joined(separator: " · ")
             var cells: [String] = []
-            cells.append("<td class=\"c\">" + String(format: "%02d", Cal.day(key)) + "</td>")
-            cells.append("<td>" + Cal.weekdayName(key) + "</td>")
-            cells.append("<td>" + escapeHTML(shift) + "</td>")
-            cells.append("<td class=\"n\">" + Cal.num(rec.work.zb) + "</td>")
-            cells.append("<td class=\"n\">" + Cal.num(rec.work.jb) + "</td>")
-            cells.append("<td class=\"n\">" + Cal.num(rec.work.zm) + "</td>")
-            cells.append("<td class=\"n\">" + Cal.num(rec.work.jj) + "</td>")
-            cells.append("<td class=\"n b\">" + Cal.num(rec.work.total) + "</td>")
-            cells.append("<td class=\"n b\">" + Cal.money(dayPay(rec)) + "</td>")
-            cells.append("<td class=\"note\">" + (tail.isEmpty ? "—" : tail) + "</td>")
+            cells.append("<td class=\"c\" data-label=\"日\">" + String(format: "%02d", Cal.day(key)) + "</td>")
+            cells.append("<td data-label=\"星期\">" + Cal.weekdayName(key) + "</td>")
+            cells.append("<td data-label=\"班次\">" + escapeHTML(shift) + "</td>")
+            cells.append("<td class=\"n\" data-label=\"正班\">" + Cal.num(rec.work.zb) + "</td>")
+            cells.append("<td class=\"n\" data-label=\"加班\">" + Cal.num(rec.work.jb) + "</td>")
+            cells.append("<td class=\"n\" data-label=\"周末\">" + Cal.num(rec.work.zm) + "</td>")
+            cells.append("<td class=\"n\" data-label=\"节假\">" + Cal.num(rec.work.jj) + "</td>")
+            cells.append("<td class=\"n b\" data-label=\"工时\">" + Cal.num(rec.work.total) + "</td>")
+            cells.append("<td class=\"n b\" data-label=\"金额\">" + Cal.money(dayPay(rec)) + "</td>")
+            cells.append("<td class=\"note\" data-label=\"备注\">" + (tail.isEmpty ? "—" : tail) + "</td>")
             dayRows += "<tr>" + cells.joined() + "</tr>"
         }
         if dayRows.isEmpty {
@@ -789,21 +789,19 @@ final class Store: ObservableObject {
         .bar .fill { display:block; height:100%; border-radius:99px; }
         .bar .num { text-align:right; font-variant-numeric:tabular-nums; color:var(--ink2); }
         .table-wrap { background:var(--paper); border:1px solid var(--line);
-                      border-radius:var(--radius); overflow-x:auto;
-                      -webkit-overflow-scrolling:touch; }
-        table { width:100%; min-width:660px; border-collapse:collapse; }
-        table.mini { min-width:0; }
+                      border-radius:var(--radius); overflow:hidden; }
+        table { width:100%; max-width:100%; border-collapse:collapse; table-layout:auto; }
         th, td { padding:8px 10px; border-bottom:1px solid var(--line);
                  text-align:left; font-size:12.5px; vertical-align:top;
-                 font-variant-numeric:tabular-nums; }
+                 font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
         th { background:var(--paper); color:var(--ink3); font-weight:600; font-size:11px;
-             letter-spacing:.04em; white-space:nowrap; }
+             letter-spacing:.04em; }
         tbody tr:nth-child(even) td { background:var(--zebra); }
         tbody tr:last-child td { border-bottom:none; }
         .n { text-align:right; }
         .c { text-align:center; }
         .b { font-weight:700; }
-        .note { color:var(--ink2); min-width:130px; }
+        .note { color:var(--ink2); overflow-wrap:anywhere; }
         .empty { text-align:center; color:var(--ink3); padding:22px; }
         .sum { display:flex; justify-content:space-between; align-items:baseline;
                gap:12px; margin-top:12px; font-size:12.5px; color:var(--ink2); }
@@ -815,17 +813,53 @@ final class Store: ObservableObject {
           th, td { padding: 7px 8px; }
           .bar { grid-template-columns: 38px 1fr 64px; }
         }
+        /* 窄屏：逐日明细不再横向撑开，一行一张卡片 */
+        @media (max-width: 600px) {
+          .table-wrap:has(> table:not(.mini)) { border:0; background:none; border-radius:0; }
+          .table-wrap > table:not(.mini),
+          .table-wrap > table:not(.mini) > tbody,
+          .table-wrap > table:not(.mini) > tbody > tr,
+          .table-wrap > table:not(.mini) > tbody > tr > td { display:block; width:auto; }
+          .table-wrap > table:not(.mini) > thead { display:none; }
+          .table-wrap > table:not(.mini) > tbody > tr {
+            background:var(--paper); border:1px solid var(--line);
+            border-radius:12px; padding:9px 12px 10px; margin-bottom:8px;
+          }
+          .table-wrap > table:not(.mini) > tbody > tr > td {
+            border:0; padding:3px 0; display:flex; gap:12px;
+            justify-content:space-between; align-items:baseline; text-align:right;
+          }
+          .table-wrap > table:not(.mini) > tbody > tr > td::before {
+            content:attr(data-label); color:var(--ink3); font-size:11px;
+            text-align:left; flex:none;
+          }
+          .table-wrap > table:not(.mini) > tbody > tr > td:first-child {
+            font-size:19px; font-weight:700; justify-content:flex-start; padding-bottom:4px;
+          }
+          .table-wrap > table:not(.mini) > tbody > tr > td:first-child::before { align-self:center; }
+          .table-wrap > table:not(.mini) > tbody > tr > td.empty { display:block; text-align:center; }
+          .table-wrap > table:not(.mini) > tbody > tr > td.empty::before { content:""; }
+        }
         @media print {
           :root { --bg:#fff; --paper:#fff; --line:#d8d4ca; --ink:#000; --ink2:#333;
                   --ink3:#555; --zebra:#f4f2ec; --accent:#1f3a6e; --orange:#8a4a09;
                   --green:#145c30; --red:#8f1d14; }
           body { padding:0; font-size:12px; }
+          .wrap { max-width:none; }
           .card, .table-wrap, .bars { break-inside:avoid; }
           tbody tr { break-inside:avoid; }
           thead { display:table-header-group; }
-          table { min-width:0; }
-          .table-wrap { overflow:visible; }
-          @page { margin:14mm 12mm; }
+          /* 打印一律回到表格排版，宽度锁在纸张内 */
+          .table-wrap > table:not(.mini) { display:table; width:100%; }
+          .table-wrap > table:not(.mini) > thead { display:table-header-group; }
+          .table-wrap > table:not(.mini) > tbody { display:table-row-group; }
+          .table-wrap > table:not(.mini) > tbody > tr { display:table-row; }
+          .table-wrap > table:not(.mini) > tbody > tr > td { display:table-cell; }
+          .table-wrap > table:not(.mini) > tbody > tr > td::before { content:none; }
+          .table-wrap { overflow:visible; border-color:#d8d4ca; }
+          th, td { font-size:10.5pt; padding:5px 6px; }
+          tr, td { break-inside:avoid; }
+          @page { size:A4 portrait; margin:12mm 10mm; }
         }
         </style></head><body><div class="wrap">
 
