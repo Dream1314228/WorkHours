@@ -24,6 +24,8 @@ struct MonthCalendar: View {
     @State private var lastDir: CGFloat = 1
     @State private var flipX: CGFloat = 0
     @State private var flipAlpha: Double = 1
+    /// 本月是用户横滑翻页翻过来的（而不是点按钮/切期），用来跳过推入动画
+    @State private var viaSwipe = false
 
     /// 表头 18 + 间距 3 + 6 行 × 58 + 5 个行距 2 + 底部 6
     private static let gridHeight: CGFloat = 386
@@ -58,16 +60,29 @@ struct MonthCalendar: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Ledger.rule, lineWidth: 0.6)
         }
-        .onChange(of: page) { _, now in
-            guard let now, now != 0 else { return }
+        // 只在真正停稳后切月。拖动过程中 scrollPosition 是实时变的（过中线就变成相邻页），
+        // 早先用它直接切月，表现就是「手指还没松开日历已经换了」。
+        .onScrollPhaseChange { _, phase in
+            guard phase == .idle, let now = page, now != 0 else { return }
+            viaSwipe = true
             lastDir = now < 0 ? -1 : 1
             onStep?(now < 0 ? -1 : 1)
-            // 月份已经换了，把播放头无声地推回中间那页
-            var t = Transaction()
-            t.disablesAnimations = true
-            withTransaction(t) { page = 0 }
         }
         .onChange(of: month) { _, _ in
+            let swiped = viaSwipe
+            viaSwipe = false
+            if swiped {
+                // 分页已经把上/下月滑到位了，不再叠加推入动画；
+                // 播放头和内容同一次事务里复位，避免中间闪一帧旧月份。
+                var t = Transaction()
+                t.disablesAnimations = true
+                withTransaction(t) {
+                    page = 0
+                    flipX = 0
+                    flipAlpha = 1
+                }
+                return
+            }
             page = 0
             guard store.calendarMotion else { return }
             // 新一个月按刚才的翻页方向轻轻推入，替掉直接换字
