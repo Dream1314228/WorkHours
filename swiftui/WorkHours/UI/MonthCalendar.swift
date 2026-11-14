@@ -18,7 +18,8 @@ struct MonthCalendar: View {
     var onStep: ((Int) -> Void)? = nil
 
     @EnvironmentObject private var store: Store
-    @State private var page: Int? = 1
+    /// 三页的滚动 id 就是 off：-1 上月 / 0 本月 / 1 下月，播放头停在 0
+    @State private var page: Int? = 0
 
     /// 表头 18 + 间距 3 + 6 行 × 58 + 5 个行距 2 + 底部 6
     private static let gridHeight: CGFloat = 386
@@ -52,14 +53,14 @@ struct MonthCalendar: View {
                 .strokeBorder(Ledger.rule, lineWidth: 0.6)
         }
         .onChange(of: page) { _, now in
-            guard let now, now != 1 else { return }
-            onStep?(now == 0 ? -1 : 1)
+            guard let now, now != 0 else { return }
+            onStep?(now < 0 ? -1 : 1)
             // 月份已经换了，把播放头无声地推回中间那页
             var t = Transaction()
             t.disablesAnimations = true
-            withTransaction(t) { page = 1 }
+            withTransaction(t) { page = 0 }
         }
-        .onChange(of: month) { _, _ in page = 1 }
+        .onChange(of: month) { _, _ in page = 0 }
     }
 
     // MARK: 单页
