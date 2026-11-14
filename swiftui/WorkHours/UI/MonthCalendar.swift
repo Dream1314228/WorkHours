@@ -2,7 +2,8 @@ import SwiftUI
 
 /// 记录页与排班页共用的月历，视觉对齐 UIKit 版 GSCalendarView：
 /// 固定 42 格、纸面底、顶上一条班次图标、日期固定 17pt、农历、工时、底部小横线。
-/// 左右滑动切月，格子按行错开做进场动画。
+/// 切月靠表头的左右箭头，不在日历上挂横向拖动手势 —— 那个会把纵向滚动抢掉。
+/// 格子按行错开做进场动画。
 struct MonthCalendar: View {
     let year: Int
     let month: Int
@@ -15,8 +16,6 @@ struct MonthCalendar: View {
     var onStep: ((Int) -> Void)? = nil
 
     @EnvironmentObject private var store: Store
-    @State private var drag: CGFloat = 0
-    @State private var axis = 0
 
     private var headers: [String] {
         store.settings.weekStart == 1
@@ -56,44 +55,6 @@ struct MonthCalendar: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .strokeBorder(Ledger.rule, lineWidth: 0.6)
         }
-        .offset(x: drag)
-        .scaleEffect(1 - min(abs(drag), 150) / 2600, anchor: .center)
-        .opacity(1 - min(abs(drag), 150) / 1100)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 6)
-                .onChanged { v in
-                    if axis == 0 {
-                        axis = abs(v.translation.width) > abs(v.translation.height) ? 1 : 2
-                    }
-                    guard axis == 1 else { return }
-                    let dx = v.translation.width
-                    // 1:1 跟手，超出 110pt 后加阻尼，拖不出屏
-                    if abs(dx) <= 110 {
-                        drag = dx
-                    } else {
-                        let over = abs(dx) - 110
-                        drag = (dx < 0 ? -1 : 1) * (110 + over * 0.22)
-                    }
-                }
-                .onEnded { v in
-                    let dx = v.translation.width
-                    let horizontal = axis == 1
-                    axis = 0
-                    if horizontal, abs(drag) > 58 {
-                        withAnimation(.snappy(duration: 0.24)) {
-                            drag = dx < 0 ? -240 : 240
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                            onStep?(dx < 0 ? 1 : -1)
-                            drag = 0
-                        }
-                    } else {
-                        withAnimation(.interactiveSpring(response: 0.34, dampingFraction: 0.8)) {
-                            drag = 0
-                        }
-                    }
-                }
-        )
     }
 
     @ViewBuilder
@@ -182,15 +143,6 @@ private struct CalendarDayCell: View {
         })
     }
 
-    /// 压在金底上的字，接近黑，金底白字会看不清
-    private var goldOnGold: Color {
-        Color(uiColor: UIColor { t in
-            t.userInterfaceStyle == .dark
-                ? UIColor(red: 0.12, green: 0.09, blue: 0, alpha: 1)
-                : UIColor(red: 0.13, green: 0.09, blue: 0, alpha: 1)
-        })
-    }
-
     private var dayColor: Color {
         if selected { return palette.onPrimary }
         if isPayday { return gold }
@@ -275,15 +227,7 @@ private struct CalendarDayCell: View {
                 if !mark.isEmpty {
                     Text(mark)
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(isPayday && !selected ? goldOnGold : markColor)
-                        // 发薪日用金底小胶囊，一片金里它是唯一实心块，扫一眼就找到
-                        .padding(.horizontal, isPayday && !selected ? 3.5 : 0)
-                        .padding(.vertical, isPayday && !selected ? 0.8 : 0)
-                        .background {
-                            if isPayday && !selected {
-                                Capsule().fill(gold)
-                            }
-                        }
+                        .foregroundStyle(isPayday && !selected ? goldInk : markColor)
                         // 往里收，别压在选中态的圆角上
                         .padding(.top, 3)
                         .padding(.trailing, 5)

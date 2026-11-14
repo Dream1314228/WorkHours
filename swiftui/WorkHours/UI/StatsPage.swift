@@ -6,10 +6,15 @@ struct StatsPage: View {
     var palette: Palette
     @EnvironmentObject var store: Store
 
-    @State private var year = Cal.year(Cal.todayKey())
-    @State private var month = Cal.month(Cal.todayKey())
+    // 默认看「今天所属的那一期」，而不是今天所在的自然月：
+    // 期跨月时（比如 10/27-11/26），11 月开头要看的还是 10 月那期。
+    @State private var pickedYear: Int?
+    @State private var pickedMonth: Int?
     @State private var shareItems: [Any] = []
     @State private var showShare = false
+
+    private var year: Int { pickedYear ?? store.currentPeriodKey().year }
+    private var month: Int { pickedMonth ?? store.currentPeriodKey().month }
 
     private var st: MonthStats { store.monthStats(year: year, month: month) }
 
@@ -67,8 +72,8 @@ struct StatsPage: View {
     private func step(_ delta: Int) {
         let next = Cal.monthAdd(year, month, delta)
         withAnimation(store.pageMotion ? .snappy(duration: 0.24) : nil) {
-            year = next.year
-            month = next.month
+            pickedYear = next.year
+            pickedMonth = next.month
         }
     }
 

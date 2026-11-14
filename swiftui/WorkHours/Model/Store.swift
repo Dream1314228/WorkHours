@@ -270,6 +270,21 @@ final class Store: ObservableObject {
         return (s, e, Cal.periodLabel(start: s, end: e))
     }
 
+    /// 今天落进哪一期：返回那一期的 (年, 月) 作为键。
+    /// 期是跨月的，今天有可能算在上个月甚至上上个月那期里，所以往下看三期。
+    func currentPeriodKey(today: String = Cal.todayKey()) -> (year: Int, month: Int) {
+        var y = Cal.year(today)
+        var m = Cal.month(today)
+        for _ in 0..<3 {
+            let r = periodRange(year: y, month: m)
+            if today >= r.start && today <= r.end { return (y, m) }
+            let prev = Cal.monthAdd(y, m, -1)
+            y = prev.year
+            m = prev.month
+        }
+        return (Cal.year(today), Cal.month(today))
+    }
+
     // MARK: 统计
 
     func monthStats(year: Int, month: Int, usePeriod: Bool = true) -> MonthStats {
