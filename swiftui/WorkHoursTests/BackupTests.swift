@@ -33,7 +33,9 @@ struct BackupTests {
         let packedNS = try (payload as NSData).compressed(using: .lzfse)
         let packed = packedNS as Data
         #expect(packed.count > 8)
-        #expect([UInt8](packed.prefix(4)) == [0x62, 0x76, 0x78, 0x32], "系统 LZFSE 输出应带 bvx2 头")
+        // 小数据量时系统可能输出未压缩块（bvx-）而不是 bvx2，格式头不是本文档的契约，别写死
+        let head = String(decoding: packed.prefix(4), as: UTF8.self)
+        #expect(head == "bvx2" || head == "bvx-", "LZFSE 头应是 bvx2 或 bvx-，实际 \(head)")
         #expect(Store.unwrapBackup(packed) == payload)
     }
 
@@ -99,9 +101,21 @@ struct BackupTests {
         }
     }
 
-    @Test func 整库JSON只带records也能导入() throws {
+    @Test func 整库缺settings被拒且原数据不动() throws {
+        // 1.3.1 起：整库文件必须带 settings，否则等于拿一个残缺文件覆盖设置/项目/班次
+        let raw = Data(#"{"records":{"2026-03-02":{"work":{"zb":8},"type":"zb","classId":"1","projectId":"default"}}}"#.utf8)
+        let s = FX.store(FX.payload(records: ["2026-04-01": FX.rec(zb: 8)]))
+        #expect(throws: Store.ImportError.self) {
+            try s.importBackup(raw)
+        }
+        #expect(s.data.records.count == 1)
+        #expect(s.data.records["2026-04-01"] != nil)
+    }
+
+    @Test func 整库records加settings可导入() throws {
         try withCleanStoreFiles {
-            let raw = Data(#"{"records":{"2026-03-02":{"work":{"zb":8},"type":"zb","classId":"1","projectId":"default"}}}"#.utf8)
+            let settings = try FX.settingsFragment()
+            let raw = Data("{\"settings\":\(settings),\"records\":{\"2026-03-02\":{\"work\":{\"zb\":8},\"type\":\"zb\",\"classId\":\"1\",\"projectId\":\"default\"}}}".utf8)
             let s = FX.store(FX.payload())
             try s.importBackup(raw)
             #expect(s.data.records.count == 1)
@@ -109,17 +123,16 @@ struct BackupTests {
         }
     }
 
-    @Test func 旧版w字段的整库JSON会丢工时() throws {
-        // 已知问题：`AppData` 的解码器太宽松，`JSONDecoder().decode(AppData.self)` 永远成功，
-        // 于是走不到「按 w 数组逐条读」的兜底分支，w=[8,0,0,0] 被解成 work 全 0。
+    @Test func 旧版w字段的整库JSON不再丢工时() throws {
+        // 老 bug：`decode(AppData.self)` 永远成功，走不到「按 w 数组逐条读」的兜底，w=[8,0,0,0] 被解成全 0。
+        // 1.3.1 起按记录形状先判 legacy，直接走宽松分支。整库文件仍需带 settings。
         try withCleanStoreFiles {
-            let raw = Data(#"{"records":{"2026-03-02":{"w":[8,0,0,0],"t":"zb"}}}"#.utf8)
+            let settings = try FX.settingsFragment()
+            let raw = Data("{\"settings\":\(settings),\"records\":{\"2026-03-02\":{\"w\":[8,0,0,0],\"t\":\"zb\"}}}".utf8)
             let s = FX.store(FX.payload())
             try s.importBackup(raw)
             #expect(s.data.records.count == 1)
-            withKnownIssue("整库 JSON 带 w 字段时工时被静默丢成 0") {
-                #expect(s.data.records["2026-03-02"]?.work.zb != 0)
-            }
+            expectClose(s.data.records["2026-03-02"]?.work.zb ?? -1, 8)
         }
     }
 }
