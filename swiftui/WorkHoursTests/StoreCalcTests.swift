@@ -157,14 +157,14 @@ struct AnnualLeaveTests {
             "2026-01-07": FX.rec(leave: LeaveInfo(type: "xiu", hour: 4)),   // 0.5 天
             "2025-12-31": FX.rec(leave: LeaveInfo(type: "xiu", hour: 8))    // 别的年份不算
         ]
-        let s = FX.store(FX.payload(annualLeaveDays: 5, records: records))
+        let s = FX.store(FX.payload(records: records, annualLeaveDays: 5))
         expectClose(s.annualLeaveUsed(year: 2026), 1.5)
         expectClose(s.annualLeaveRemaining(year: 2026), 3.5)
     }
 
     @Test func 年假小数按两位四舍五入() {
         let records = ["2026-01-05": FX.rec(leave: LeaveInfo(type: "xiu", hour: 3))]   // 0.375 天
-        let s = FX.store(FX.payload(annualLeaveDays: 5, records: records))
+        let s = FX.store(FX.payload(records: records, annualLeaveDays: 5))
         expectClose(s.annualLeaveUsed(year: 2026), 0.38)
     }
 }
