@@ -125,11 +125,13 @@ final class Store: ObservableObject {
         guard loaded, !writesBlocked else { return }
         saveWork?.cancel()
         let snap = data
+        // 闭包里不碰 self：URL 先取成局部量，顺便避免延迟写入强引用 store
+        let target = dataURL
         let work = DispatchWorkItem {
             let enc = JSONEncoder()
             enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             guard let raw = try? enc.encode(snap) else { return }
-            try? raw.write(to: dataURL, options: .atomic)
+            try? raw.write(to: target, options: .atomic)
         }
         saveWork = work
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.35, execute: work)
