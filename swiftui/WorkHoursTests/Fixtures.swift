@@ -46,6 +46,16 @@ enum FX {
     }
 
     static func store(_ d: AppData) -> Store { Store(payload: d) }
+
+    /// 取一份真实 settings 的 JSON 片段，拼进整库测试文件用。
+    /// 整库导入现在要求 `settings` 存在（否则按没用的整库拒绝），手写 settings 容易漏字段。
+    static func settingsFragment() throws -> String {
+        let raw = try JSONEncoder().encode(FX.payload())
+        let obj = try JSONSerialization.jsonObject(with: raw) as? [String: Any]
+        let settings = obj?["settings"] ?? [:]
+        let data = try JSONSerialization.data(withJSONObject: settings)
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
 }
 
 /// 金额断言：先 round2 再比，避开二进制浮点末位抖动。
@@ -70,14 +80,4 @@ func withCleanStoreFiles(_ body: () throws -> Void) rethrows {
         if let savedSnapshot = savedSnapshot { try? savedSnapshot.write(to: snapshot) }
     }
     try body()
-
-    /// 取一份真实 settings 的 JSON 片段，拼进整库测试文件用。
-    /// 整库导入现在要求 `settings` 存在（否则按没用的整库拒绝），手写 settings 容易漏字段。
-    static func settingsFragment() throws -> String {
-        let raw = try JSONEncoder().encode(FX.payload())
-        let obj = try JSONSerialization.jsonObject(with: raw) as? [String: Any]
-        let settings = obj?["settings"] ?? [:]
-        let data = try JSONSerialization.data(withJSONObject: settings)
-        return String(data: data, encoding: .utf8) ?? "{}"
-    }
 }
