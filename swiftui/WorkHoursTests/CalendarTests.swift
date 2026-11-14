@@ -66,11 +66,13 @@ struct CalTests {
     /// 42 格首日偏移公式 `(weekday - 1 - weekStart + 7) % 7`。
     /// 目前这段是内联在 `UI/MonthCalendar.swift` 里的，`Cal` 没有对应函数，
     /// 所以只能先把两种起点的期望值写成禁用用例留档；等它提成 `Cal.weekStartOffset` 再放开。
-    @Test(.disabled("等待把首日偏移提成 Cal.weekStartOffset(year:month:weekStart:)"))
-    func 四十二格首日偏移() {
-        // 2026-01-01 是周四（weekday = 5）
-        #expect((5 - 1 - 1 + 7) % 7 == 3)   // 周一开头：前面空 3 格（周一 二 三）
-        #expect((5 - 1 - 7 + 7) % 7 == 4)   // 周日开头：前面空 4 格（周日 一 二 三）
+    @Test func 四十二格首日偏移() {
+        // 2026-01-01 是周四（weekday = 5）。这个用例原先禁用以等待 Cal.weekStartOffset，
+        // 修复版已经把这个算式提成函数，所以放开并改为直接测那个函数。
+        let mondayOffset: Int = Cal.weekStartOffset(year: 2026, month: 1, weekStart: 1)
+        let sundayOffset: Int = Cal.weekStartOffset(year: 2026, month: 1, weekStart: 7)
+        #expect(mondayOffset == 3)   // 周一开头：前面空 3 格（周一 二 三）
+        #expect(sundayOffset == 4)   // 周日开头：前面空 4 格（周日 一 二 三）
     }
 }
 
