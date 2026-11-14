@@ -50,6 +50,10 @@ struct RootView: View {
         .onAppear {
             let s = store.settings
             Reminder.shared.sync(enabled: s.reminderEnabled, hour: s.reminderHour, minute: s.reminderMinute)
+            // 启动时数据文件读不出来，开屏说一次，别让用户以为记录凭空没了
+            if let issue = store.loadIssue {
+                ToastCenter.shared.show(issue)
+            }
         }
     }
 }

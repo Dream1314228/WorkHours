@@ -1,0 +1,118 @@
+name: Verify SwiftUI
+
+on:
+  push:
+    branches:
+      - "ios/**"
+      - "fix/**"
+      - "feat/**"
+    paths:
+      - "swiftui/**"
+      - ".github/workflows/verify.yml"
+  pull_request:
+    paths:
+      - "swiftui/**"
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: 编译 + 单测
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 打印工具链
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          swift --version || true
+
+      - name: 生成 Xcode 工程
+        working-directory: swiftui
+        run: |
+          set -eux
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+          xcodegen generate
+
+      - name: 编译（不签名）
+        id: build
+        working-directory: swiftui
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project WorkHours.xcodeproj \
+            -scheme WorkHours \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee build.log
+
+      - name: 单测（检测到 test target 才跑）
+        if: success()
+        working-directory: swiftui
+        run: |
+          set -o pipefail
+          if [ ! -d WorkHoursTests ] || ! grep -q "WorkHoursTests" project.yml; then
+            echo "::notice::还没有 WorkHoursTests target，本次只验证编译"
+            exit 0
+          fi
+          # 直接用 UDID：既避开同名机型的多目的地歧义，也不会挑到只存在于旧 runtime 的机型
+          SIMID=$(xcrun simctl list devices available -j \
+                | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];ds=[x for k,v in sorted(d.items(),reverse=True) if "iOS" in k for x in v if x["name"].startswith("iPhone")];print(ds[0]["udid"] if ds else "")')
+          if [ -z "$SIMID" ]; then
+            echo "::error::runner 镜像里没找到可用的 iPhone 模拟器"
+            xcrun simctl list devices available || true
+            exit 1
+          fi
+          echo "选用模拟器 UDID: $SIMID"
+          xcrun simctl list devices | grep -i "$SIMID" || true
+          set +e
+          xcodebuild test \
+            -project WorkHours.xcodeproj \
+            -scheme WorkHours \
+            -destination "platform=iOS Simulator,id=$SIMID" \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            2>&1 | tee test.log
+          RC=${PIPESTATUS[0]}
+          set -e
+          echo "--- 用例统计 ---"
+          grep -E "Executed [0-9]+ test|✘|✔|passed|failed" test.log | tail -40 || true
+          exit $RC
+
+      - name: 抓编译错误
+        if: failure()
+        working-directory: swiftui
+        run: |
+          echo "=== error 行 ==="
+          grep -nE "error:" build.log 2>/dev/null | head -60 || true
+          echo "=== 测试失败 ==="
+          grep -nE "error:|failed" test.log 2>/dev/null | head -40 || true
+          echo "=== 编译日志末尾 ==="
+          tail -40 build.log 2>/dev/null || true
+
+      - name: 上传日志
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-logs
+          path: |
+            swiftui/build.log
+            swiftui/test.log
+          if-no-files-found: warn
+          retention-days: 14

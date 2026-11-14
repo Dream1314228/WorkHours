@@ -11,6 +11,11 @@ struct SettingsPage: View {
     @State private var showPeriodEditor = false
     @State private var showWage = false
     @State private var showImporter = false
+    /// 备份导入是覆盖式操作，先停下来问一次再动手（DEF-02）
+    @State private var pendingImportURL: URL?
+    @State private var confirmImport = false
+    @State private var confirmRestore = false
+    @State private var hasImportSnapshot = false
     @State private var backupURL: URL?
     @State private var confirmClear = false
     @State private var extraYear = Cal.year(Cal.todayKey())
@@ -68,10 +73,18 @@ struct SettingsPage: View {
             WagePage(palette: palette)
                 .environmentObject(store)
         }
-        .sheet(isPresented: $showImporter) {
+        .sheet(isPresented: $showImporter, onDismiss: {
+            // P0: 等 sheet 真正退场再弹确认。同一帧里 dismiss sheet + present alert，iOS 会吞掉 alert，
+            // 用户看到的是"选了文件什么都没发生"，然后再点一次。
+            if pendingImportURL != nil { confirmImport = true }
+        }) {
             DocumentPicker(types: [.item, .data, .json, .text]) { url in
                 showImporter = false
-                handleImportURL(url)
+                if importMode == "holiday" {
+                    handleImportURL(url)
+                } else {
+                    pendingImportURL = url
+                }
             }
         }
         .alert("加一笔\(bonusKind == "bonus" ? "补贴" : "扣款")", isPresented: $showBonusAdd) {
@@ -925,6 +938,44 @@ struct SettingsPage: View {
             }
             .buttonStyle(PressableStyle(scale: 0.99))
 
+            if hasImportSnapshot {
+                Divider().opacity(0.35)
+                Button {
+                    confirmRestore = true
+                } label: {
+                    HStack {
+                        Label("恢复导入前的数据", systemImage: "arrow.uturn.backward")
+                            .font(.system(size: 14))
+                        Spacer()
+                        Text(snapshotLabel.isEmpty ? "有快照" : snapshotLabel)
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.gsSecondary)
+                    }
+                    .frame(height: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(PressableStyle(scale: 0.99))
+                // 一行一元素：否则 VoiceOver 会把标题和时间拆成两个念
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("恢复导入前的数据，快照时间 \(snapshotLabel)")
+                .accessibilityAddTraits(.isButton)
+                // 挂在行自己身上，和导入确认物理隔离，避免同视图两个 alert 互相打断
+                .alert("恢复导入前的数据？", isPresented: $confirmRestore) {
+                    Button("恢复", role: .destructive) {
+                        do {
+                            try store.restoreImportSnapshot()
+                            refreshSnapshotState()
+                            ToastCenter.shared.show("已恢复导入前的数据")
+                        } catch {
+                            ToastCenter.shared.show(importErrorMessage(error))
+                        }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text(restoreConfirmMessage)
+                }
+            }
+
             Divider().opacity(0.35)
 
             Button {
@@ -942,13 +993,67 @@ struct SettingsPage: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius)
+        .onAppear { refreshSnapshotState() }
+        .alert("导入会覆盖现有记录", isPresented: $confirmImport) {
+            Button("替换并导入", role: .destructive) {
+                defer { pendingImportURL = nil }
+                guard let url = pendingImportURL else { return }
+                handleImportURL(url)
+            }
+            Button("取消", role: .cancel) { pendingImportURL = nil }
+        } message: {
+            Text(importConfirmMessage)
+        }
+    }
+
+    // MARK: 导入 / 恢复的文案
+
+    /// 快照时间就用文件 mtime，用户不用猜"上一次"是刚才还是上周。
+    private var snapshotLabel: String {
+        guard let date = store.importSnapshotDate else { return "" }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "zh_CN")
+        f.dateFormat = "M月d日 HH:mm"
+        return f.string(from: date)
+    }
+
+    private func refreshSnapshotState() {
+        hasImportSnapshot = store.hasImportSnapshot
+    }
+
+    private var importConfirmMessage: String {
+        let name = pendingImportURL?.lastPathComponent ?? "这份备份"
+        let records = store.data.records.count
+        let plans = store.data.plans.count
+        if records == 0 && plans == 0 {
+            return "文件：\(name)\n当前没有工时记录，将导入这份备份。"
+        }
+        return "文件：\(name)\n当前 \(records) 条工时记录、\(plans) 条排班会被全部替换。导入前会自动留一份快照，之后可以还原。"
+    }
+
+    private var restoreConfirmMessage: String {
+        let when = snapshotLabel.isEmpty ? "上次导入" : snapshotLabel
+        let tail = "只保留最近一次导入前的快照，更早的恢复不回来。想留底就先导出备份。"
+        let records = store.data.records.count
+        if records == 0 {
+            return "将恢复成 \(when) 之前的那一份数据，当前没有记录会被覆盖。\(tail)"
+        }
+        return "当前 \(records) 条工时记录会被替换成 \(when) 导入前的那一份。\(tail)"
+    }
+
+    /// 只有自家的错误类型有中文文案，系统抛的英文错误（CocoaError / DecodingError）不直接弹给用户。
+    private func importErrorMessage(_ error: Error) -> String {
+        if error is Store.ImportError || error is HolidayData.ImportError {
+            return error.localizedDescription
+        }
+        return "这份备份打不开，可能不是工时记录的备份文件"
     }
 
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("工时记录 · SwiftUI 版 \(version)")
                 .font(.system(size: 12, weight: .medium))
-            Text("液态玻璃界面，iOS 26 起可用。数据存在 App 沙盒里的 gsjilu.json，卸载或清除会一起消失。")
+            Text("账本纸面风格。数据存在 App 沙盒里的 gsjilu.json，卸载或清除会一起消失。")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.gsSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -1011,10 +1116,11 @@ struct SettingsPage: View {
             } else {
                 try store.importBackup(raw)
                 backupURL = nil
+                refreshSnapshotState()
                 ToastCenter.shared.show("导入成功：" + url.lastPathComponent)
             }
         } catch {
-            ToastCenter.shared.show(error.localizedDescription)
+            ToastCenter.shared.show(importErrorMessage(error))
         }
     }
 

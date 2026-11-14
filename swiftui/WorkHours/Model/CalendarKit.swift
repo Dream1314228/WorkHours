@@ -18,16 +18,22 @@ enum Cal {
         return f
     }()
 
-    static let cnFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "zh_CN")
-        f.timeZone = .current
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
     static func key(_ date: Date) -> String { keyFormatter.string(from: date) }
-    static func date(_ key: String) -> Date { cnFormatter.date(from: key) ?? Date() }
+
+    /// 解析 yyyy-MM-dd。日历一屏 42 格、翻页三页都要用它，DateFormatter 太贵，
+    /// 直接拆字符串走 DateComponents（Calendar 是值类型，不受线程影响）。
+    static func date(_ key: String) -> Date {
+        guard key.count >= 10,
+              let y = Int(key.prefix(4)),
+              let m = Int(key.dropFirst(5).prefix(2)),
+              let d = Int(key.suffix(2)),
+              y > 0, (1...12).contains(m), (1...31).contains(d) else { return Date() }
+        var comps = DateComponents()
+        comps.year = y
+        comps.month = m
+        comps.day = d
+        return gregorian.date(from: comps) ?? Date()
+    }
     static func todayKey() -> String { key(Date()) }
     static func year(_ key: String) -> Int { Int(key.prefix(4)) ?? 0 }
     static func month(_ key: String) -> Int {
@@ -65,6 +71,31 @@ enum Cal {
         ["日", "一", "二", "三", "四", "五", "六"][max(0, min(6, weekday(key) - 1))]
     }
 
+
+    /// 只认 yyyy-MM-dd 这一种形状，且必须是真实存在的日期。
+    /// 导入整库时用它挡掉日历和统计都筛不出来的"幽灵记录"（比如 2026-1-1、2026-2-30）。
+    static func isValidKey(_ key: String) -> Bool {
+        guard key.count == 10 else { return false }
+        let parts = key.split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              parts[0].count == 4, parts[1].count == 2, parts[2].count == 2,
+              let y = Int(parts[0]), let m = Int(parts[1]), let d = Int(parts[2]),
+              y > 1970, (1...12).contains(m), (1...31).contains(d) else { return false }
+        var comps = DateComponents()
+        comps.year = y
+        comps.month = m
+        comps.day = d
+        guard let date = gregorian.date(from: comps) else { return false }
+        let back = gregorian.dateComponents([.year, .month, .day], from: date)
+        return back.year == y && back.month == m && back.day == d
+    }
+
+    /// 某月 1 号在 7 列里占第几格。weekStart: 1 = 周一, 7 = 周日。
+    /// 原来这段算式在 MonthCalendar / BatchSheet / CalendarPage / ShiftPage 各写了一遍，来这里收口。
+    static func weekStartOffset(year: Int, month: Int, weekStart: Int) -> Int {
+        let first = String(format: "%04d-%02d-01", year, month)
+        return (weekday(first) - 1 - weekStart + 7) % 7
+    }
 
     static func isWeekend(_ key: String) -> Bool {
         let w = weekday(key)

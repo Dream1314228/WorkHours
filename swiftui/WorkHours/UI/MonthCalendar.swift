@@ -88,6 +88,7 @@ struct MonthCalendar: View {
 
     private func pageGrid(_ off: Int) -> some View {
         let m = Cal.monthAdd(year, month, off)
+        let cells = buildCells(year: m.year, month: m.month)
         return VStack(spacing: 3) {
             HStack(spacing: 0) {
                 ForEach(headers, id: \.self) { w in
@@ -102,7 +103,13 @@ struct MonthCalendar: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7),
                       spacing: 2) {
                 ForEach(0..<42, id: \.self) { i in
-                    slot(i, y: m.year, mo: m.month)
+                    if let cell = cells[i] {
+                        CalendarDayCell(data: cell, index: i, selected: cell.key == selected,
+                                        palette: palette, motion: store.calendarMotion,
+                                        onPick: onPick)
+                    } else {
+                        Color.clear.frame(height: 58)
+                    }
                 }
             }
         }
@@ -110,68 +117,106 @@ struct MonthCalendar: View {
         .padding(.bottom, 6)
     }
 
-    @ViewBuilder
-    private func slot(_ i: Int, y: Int, mo: Int) -> some View {
-        let first = String(format: "%04d-%02d-01", y, mo)
-        let lead = (Cal.weekday(first) - 1 - store.settings.weekStart + 7) % 7
+    /// 一页 42 格的数据在这里算一次。格子不再读 store，一次编辑也不会重算 126 格。
+    /// 这一层只产出数据，行高/字号/超大字号降级归布局层（像素）。
+    private func buildCells(year y: Int, month mo: Int) -> [DayCellData?] {
+        let lead = Cal.weekStartOffset(year: y, month: mo, weekStart: store.settings.weekStart)
         let days = Cal.daysInMonth(y, mo)
-        let dayNum = i - lead + 1
-
-        if dayNum < 1 || dayNum > days {
-            Color.clear.frame(height: 58)
-        } else {
+        let today = Cal.todayKey()
+        var out: [DayCellData?] = []
+        out.reserveCapacity(42)
+        for i in 0..<42 {
+            let dayNum = i - lead + 1
+            guard dayNum >= 1, dayNum <= days else {
+                out.append(nil)
+                continue
+            }
             let key = String(format: "%04d-%02d-%02d", y, mo, dayNum)
-            CalendarDayCell(
-                key: key,
-                dayNum: dayNum,
-                index: i,
-                selected: key == selected,
-                palette: palette,
-                showsHours: showsHours,
-                preferRecordedShift: preferRecordedShift,
-                isPayday: store.settings.payday > 0 && dayNum == min(store.settings.payday, days),
-                onPick: onPick
-            )
+            out.append(makeCell(key, dayNum, days, today))
         }
+        return out
     }
+
+    private func makeCell(_ key: String, _ dayNum: Int, _ days: Int, _ today: String) -> DayCellData {
+        let rec = store.record(key)
+        let isPayday = store.settings.payday > 0 && dayNum == min(store.settings.payday, days)
+
+        // 班次：记录页优先用记录里的班次，排班页只看排班
+        var clsId = store.plan(key)
+        if preferRecordedShift, let r = rec, !r.classId.isEmpty { clsId = r.classId }
+        let clsName = clsId.isEmpty ? nil : store.shiftClass(clsId)?.name
+        let isDay = clsName.map { $0.contains("白") || $0.contains("早") } ?? false
+        let isNight = clsName.map { $0.contains("中") || $0.contains("晚") || $0.contains("夜") } ?? false
+        let icon: String? = clsName == nil ? nil
+            : (isDay ? "sunrise.fill" : (isNight ? "moon.stars.fill" : "briefcase.fill"))
+
+        let holidayName = Cal.holidayName(key)
+        let kind = Cal.dayKind(key)
+        let makeup = Cal.isMakeupWorkday(key)
+
+        var mark = ""
+        if isPayday { mark = "薪" }
+        else if kind == "jj" { mark = "节" }
+        else if kind == "zm" { mark = "休" }
+        else if makeup { mark = "班" }
+
+        var hours: String?
+        if showsHours, let r = rec { hours = store.daySummary(r) }
+
+        // 农历跟着"日历显示农历"开关走；关掉只留节假日名（原来这一格不看开关）
+        let sub = holidayName ?? (store.settings.showLunar ? Cal.lunarCellText(key) : "")
+
+        return DayCellData(key: key, dayNum: dayNum,
+                           shiftIcon: icon, shiftName: clsName,
+                           isDayShift: isDay, isNightShift: isNight,
+                           subText: sub, hoursText: hours, mark: mark,
+                           isPayday: isPayday, isToday: key == today,
+                           useTextClass: store.settings.classDisplay == "text",
+                           hasRecord: rec != nil,
+                           isHoliday: holidayName != nil, isMakeupWorkday: makeup)
+    }
+}
+
+/// 一格要显示的全部数据，父层算好一次，格子只负责画。
+/// 四个内容字段（shiftIcon / dayNum / subText / hoursText）刻意分开给，
+/// 超大字号下布局可以单独丢掉某一段而不碰计算。
+/// selected 是交互态、不进这里：它一变就该只有那一格重画。
+struct DayCellData: Identifiable, Hashable {
+    let key: String
+    let dayNum: Int
+    let shiftIcon: String?
+    let shiftName: String?
+    let isDayShift: Bool
+    let isNightShift: Bool
+    let subText: String
+    let hoursText: String?
+    let mark: String
+    let isPayday: Bool
+    let isToday: Bool
+    let useTextClass: Bool
+    let hasRecord: Bool
+    let isHoliday: Bool
+    let isMakeupWorkday: Bool
+
+    var id: String { key }
 }
 
 /// 单个日历格：固定行高，图标、日期、农历、工时各占固定高度，不会因为内容多少跳位。
 private struct CalendarDayCell: View {
-    let key: String
-    let dayNum: Int
+    /// 数据全部由父层算好；格子不读 store，也不再自己解析日期。
+    let data: DayCellData
     let index: Int
     let selected: Bool
     let palette: Palette
-    let showsHours: Bool
-    let preferRecordedShift: Bool
-    let isPayday: Bool
+    let motion: Bool
     let onPick: (String) -> Void
 
-    @EnvironmentObject private var store: Store
     @State private var shown = false
 
-    private var rec: DayRecord? { store.record(key) }
-
-    private var shift: ShiftClass? {
-        let planId = store.plan(key)
-        var clsId = planId
-        if preferRecordedShift, let r = rec, !r.classId.isEmpty {
-            clsId = r.classId
-        }
-        return clsId.isEmpty ? nil : store.shiftClass(clsId)
-    }
-
-    private var kind: String { Cal.dayKind(key) }
-    private var holiday: String? { Cal.holidayName(key) }
-
-    private var mark: String {
-        if isPayday { return "薪" }
-        if kind == "jj" { return "节" }
-        if kind == "zm" { return "休" }
-        if Cal.isMakeupWorkday(key) { return "班" }
-        return ""
-    }
+    private var key: String { data.key }
+    private var dayNum: Int { data.dayNum }
+    private var isPayday: Bool { data.isPayday }
+    private var mark: String { data.mark }
 
     /// 选中态下的字色：发薪日不许被刷成白色，仍然是金
     private var onSelectedInk: Color { isPayday ? goldInk : palette.onPrimary }
@@ -179,8 +224,8 @@ private struct CalendarDayCell: View {
     private var markColor: Color {
         if selected { return onSelectedInk }
         if isPayday { return gold }
-        if kind == "jj" { return Color.gsRed }
-        if Cal.isMakeupWorkday(key) { return Color.gsGreen }
+        if data.isHoliday { return Color.gsRed }
+        if data.isMakeupWorkday { return Color.gsGreen }
         return Ledger.inkSoft
     }
 
@@ -215,19 +260,16 @@ private struct CalendarDayCell: View {
     }
 
     private var showsBar: Bool {
-        key == Cal.todayKey() || rec != nil || isPayday
+        data.isToday || data.hasRecord || isPayday
     }
 
-    /// 日期下面那一行：有节假日就顶掉农历，直接写节日名
-    private var subText: String {
-        if let h = holiday { return h }
-        return Cal.lunarCellText(key)
-    }
+    /// 日期下面那一行：有节假日就顶掉农历，直接写节日名（父层算好）
+    private var subText: String { data.subText }
 
     private var subColor: Color {
         if selected { return isPayday ? onSelectedInk : palette.onPrimary.opacity(0.9) }
         if isPayday { return goldInk }
-        if holiday != nil { return Color.gsRed }
+        if data.isHoliday { return Color.gsRed }
         return Ledger.inkSoft
     }
 
@@ -265,8 +307,8 @@ private struct CalendarDayCell: View {
                     .minimumScaleFactor(0.65)
 
                 Group {
-                    if showsHours, let r = rec {
-                        Text(store.daySummary(r))
+                    if let hours = data.hoursText {
+                        Text(hours)
                             .font(.system(size: 9, weight: .bold))
                             .monospacedDigit()
                             .foregroundStyle(selected ? onSelectedInk : (isPayday ? gold : palette.primary))
@@ -315,14 +357,14 @@ private struct CalendarDayCell: View {
             }
             // 选中时整格轻弹一下（背景和内容一起走，不然边缘会错开）
             .scaleEffect(selected ? 1.025 : 1)
-            .animation(store.calendarMotion ? .spring(response: 0.3, dampingFraction: 0.66) : nil,
+            .animation(motion ? .spring(response: 0.3, dampingFraction: 0.66) : nil,
                        value: selected)
             .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(PressableStyle(scale: 0.93))
         .onAppear {
             guard !shown else { return }
-            guard store.calendarMotion else {
+            guard motion else {
                 shown = true
                 return
             }
@@ -336,15 +378,13 @@ private struct CalendarDayCell: View {
 
     @ViewBuilder
     private var shiftTop: some View {
-        if let shift = shift {
-            let name = shift.name
-            let dayShift = name.contains("白") || name.contains("早")
-            let nightShift = name.contains("中") || name.contains("晚") || name.contains("夜")
+        if let name = data.shiftName {
             // 发薪日优先金：那天的班次图标也一律按金走，不再按白班/夜班上色
             let tint: Color = selected ? onSelectedInk
-                : (isPayday ? gold : (dayShift ? Color.gsOrange : (nightShift ? nightTint : Ledger.inkSoft)))
+                : (isPayday ? gold : (data.isDayShift ? Color.gsOrange
+                                     : (data.isNightShift ? nightTint : Ledger.inkSoft)))
 
-            if store.settings.classDisplay == "text" {
+            if data.useTextClass {
                 Text(name)
                     .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(tint)
@@ -352,7 +392,7 @@ private struct CalendarDayCell: View {
                     .minimumScaleFactor(0.55)
                     .padding(.horizontal, 2)
             } else {
-                Image(systemName: dayShift ? "sunrise.fill" : (nightShift ? "moon.stars.fill" : "briefcase.fill"))
+                Image(systemName: data.shiftIcon ?? "briefcase.fill")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(tint)
                     .shadow(color: isPayday && !selected ? gold.opacity(0.35) : .clear, radius: 3)

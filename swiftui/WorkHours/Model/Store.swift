@@ -20,10 +20,18 @@ final class Store: ObservableObject {
     /// 图表专用的重播信号：数据变了、切到别的标签页，都让它 +1。
     @Published private(set) var chartToken = 0
 
+    /// 启动时数据文件读不出来、已隔离到旁边时的说明，界面开屏提示一次。
+    @Published private(set) var loadIssue: String?
+
     func refreshCharts() { chartToken &+= 1 }
 
     private var loaded = false
+    /// 隔离老文件失败时置真：宁可不存，也不能拿空库盖掉用户原始数据。
+    private var writesBlocked = false
     private var saveWork: DispatchWorkItem?
+
+    /// 数据文件的实际位置。默认在沙盒 Documents 下；单测用 init(payload:dataURL:) 指到临时目录。
+    let dataURL: URL
 
     static var fileURL: URL {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -31,42 +39,109 @@ final class Store: ObservableObject {
     }
 
     private init() {
+        dataURL = Self.fileURL
         load()
         loaded = true
         autoCarry()
         saveNow()
     }
 
+    /// 测试专用：直接注入一份数据，不读不写磁盘，也不触发自动保存。
+    /// dataURL 传临时目录，导入/恢复这些会落盘的路径也不会碰到真容器。
+    init(payload: AppData, dataURL: URL? = nil) {
+        self.dataURL = dataURL ?? Self.fileURL
+        data = payload
+        loaded = false
+    }
+
     // MARK: 读写
 
     func load() {
-        guard let raw = try? Data(contentsOf: Self.fileURL) else { return }
-        let dec = JSONDecoder()
-        if let d = try? dec.decode(AppData.self, from: raw) {
+        let url = dataURL
+        // 第一次启动没有文件，直接用种子数据，不算异常
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        guard let raw = try? Data(contentsOf: url) else { return }
+        if let d = try? JSONDecoder().decode(AppData.self, from: raw) {
             data = d
+            return
+        }
+        // 解码失败：绝不拿空库覆盖原文件，先挪到旁边留证，再让界面提示
+        let stampFormatter = DateFormatter()
+        stampFormatter.locale = Locale(identifier: "en_US_POSIX")
+        stampFormatter.dateFormat = "yyyy-MM-dd-HHmmss"
+        let stamp = stampFormatter.string(from: Date())
+        let broken = url.deletingLastPathComponent()
+            .appendingPathComponent("gsjilu.json.broken-\(stamp)")
+        do {
+            try FileManager.default.moveItem(at: url, to: broken)
+            loadIssue = "数据文件读不出来，已另存为 \(broken.lastPathComponent)，请从备份恢复记录"
+        } catch {
+            writesBlocked = true
+            loadIssue = "数据文件读不出来，为避免覆盖已停止写入，请联系开发者恢复"
         }
     }
 
+    /// 导入前自动快照的位置，和主库放同一个目录，不进备份文件。
+    var snapshotFileURL: URL {
+        dataURL.deletingLastPathComponent()
+            .appendingPathComponent("gsjilu.json.before-import")
+    }
+
+    /// 默认容器里的快照位置（等价于单例的数据目录），给测试清理用。
+    static var snapshotURL: URL {
+        fileURL.deletingLastPathComponent()
+            .appendingPathComponent("gsjilu.json.before-import")
+    }
+
+    var hasImportSnapshot: Bool {
+        FileManager.default.fileExists(atPath: snapshotFileURL.path)
+    }
+
+    /// 快照的生成时间，界面用它说清"恢复的是哪一次的"。
+    var importSnapshotDate: Date? {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: snapshotFileURL.path)
+        return attrs?[.modificationDate] as? Date
+    }
+
+    /// 导入前把当前库原样留一份，导错了还能捡回来。
+    private func snapshotBeforeImport() {
+        guard FileManager.default.fileExists(atPath: dataURL.path) else { return }
+        try? FileManager.default.removeItem(at: snapshotFileURL)
+        try? FileManager.default.copyItem(at: dataURL, to: snapshotFileURL)
+    }
+
+    /// 把快照装回来。快照用掉即删，避免下一次导入把坏数据又盖到它上面。
+    func restoreImportSnapshot() throws {
+        guard let raw = try? Data(contentsOf: snapshotFileURL),
+              let d = try? JSONDecoder().decode(AppData.self, from: raw) else {
+            throw ImportError.badFile
+        }
+        data = d
+        saveNow()
+        try? FileManager.default.removeItem(at: snapshotFileURL)
+    }
+
     private func scheduleSave() {
-        guard loaded else { return }
+        guard loaded, !writesBlocked else { return }
         saveWork?.cancel()
         let snap = data
         let work = DispatchWorkItem {
             let enc = JSONEncoder()
             enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             guard let raw = try? enc.encode(snap) else { return }
-            try? raw.write(to: Self.fileURL, options: .atomic)
+            try? raw.write(to: dataURL, options: .atomic)
         }
         saveWork = work
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 
     func saveNow() {
+        guard !writesBlocked else { return }
         saveWork?.cancel()
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let raw = try? enc.encode(data) else { return }
-        try? raw.write(to: Self.fileURL, options: .atomic)
+        try? raw.write(to: dataURL, options: .atomic)
     }
 
     /// 节假日自动更新：七天一次，成功才记时间；失败静默，下次再试。
@@ -540,7 +615,26 @@ final class Store: ObservableObject {
 
     enum ImportError: LocalizedError {
         case badFile
-        var errorDescription: String? { "这个文件不是工时记录的备份" }
+        case emptyBackup
+        case emptyLibrary
+        case badDateKeys
+        var errorDescription: String? {
+            switch self {
+            case .badFile: return "这个文件不是工时记录的备份"
+            case .emptyBackup: return "备份里没有工时记录，已取消导入，原数据没有动"
+            // 这几种输入都不该让用户去"查设置"：空字典、缺 settings、日期全非法都落在这里。
+            case .emptyLibrary: return "这个整库文件不完整或没有可用的工时记录，已取消导入，原数据没有动"
+            case .badDateKeys: return "这份整库文件里有日期格式不对的记录，已取消导入，原数据没有动"
+            }
+        }
+    }
+
+    /// 覆盖式导入的统一入口：先落盘当前数据 → 留一份快照 → 再换库。
+    private func commitImport(_ imported: AppData) {
+        saveNow()
+        snapshotBeforeImport()
+        data = imported
+        saveNow()
     }
 
     /// UIKit 老版导出的是 LZFSE 压缩 JSON（文件头 bvx2），新版是纯 JSON；两种都认。
@@ -565,6 +659,8 @@ final class Store: ObservableObject {
 
         if let days = obj["days"] as? [[String: Any]],
            (obj["format"] as? String) == "gsjilu-backup" || obj["format"] == nil {
+            // 空备份会把整库清空，直接拒绝（DEF-01）
+            guard !days.isEmpty else { throw ImportError.emptyBackup }
             var imported = AppData()
             if let v = obj["settings"] {
                 imported.settings = decodeValue(v, as: Settings.self) ?? Settings()
@@ -611,20 +707,41 @@ final class Store: ObservableObject {
                 records[key] = r
             }
             imported.records = records
-            data = imported
-            saveNow()
+            commitImport(imported)
             return
         }
 
         if let recObj = obj["records"] {
-            if let d = try? JSONDecoder().decode(AppData.self, from: payload) {
-                data = d
-                saveNow()
+            // 整库 JSON（就是 gsjilu.json 本身）：App 自己写出来的文件一定带 settings 且 records 非空。
+            // 缺任意一个都不许导入——否则一个 {"records":{}} 就能把记录、设置、项目、班次全换成默认值。
+            guard let recDict = recObj as? [String: Any], !recDict.isEmpty,
+                  obj["settings"] != nil else {
+                throw ImportError.emptyLibrary
+            }
+
+            // 旧格式整库 JSON 的每条记录用 c/p/t/w 短键，DayRecord 认不出 work，
+            // 严格解码会把四段工时静默解成 0。先认形状，直接交给下面的逐条宽松读。
+            let legacyShape = recDict.values.contains { item in
+                guard let day = item as? [String: Any] else { return false }
+                return day["w"] != nil || (day["c"] != nil && day["work"] == nil)
+            }
+            if !legacyShape, let d = try? JSONDecoder().decode(AppData.self, from: payload) {
+                // 解码前那道门只看字典非空。值不是 JSON 对象时（[]、"x"、null），
+                // [String: DayRecord] 整份解码失败被 try? 吞成 [:]，外层解码却"成功"，
+                // 于是拿空库提交。必须解码后再检一次，两处都检才闭合（DEF-01c）。
+                guard !d.records.isEmpty else { throw ImportError.emptyLibrary }
+                // 日历和统计只认 10 字符的日期键，格式不对的记录导进来就再也筛不出来，
+                // 导入还提示成功。整份拒绝，不做部分导入（DEF-13）。
+                guard d.records.keys.allSatisfy(Cal.isValidKey) else {
+                    throw ImportError.badDateKeys
+                }
+                commitImport(d)
                 return
             }
-            // 旧版整库 JSON：字段名可能对不上，按宽松方式逐条读
-            var imported = AppData()
-            if let v = obj["settings"] { imported.settings = decodeValue(v, as: Settings.self) ?? Settings() }
+            // 旧版整库 JSON：字段名可能对不上，按宽松方式逐条读。
+            // 以当前库为底：文件里没带设置/项目/班次就沿用现在的，不能悄悄重置成内置默认。
+            var imported = data
+            if let v = obj["settings"] { imported.settings = decodeValue(v, as: Settings.self) ?? data.settings }
             if let v = obj["projects"], let list = decodeValue(v, as: [Project].self), !list.isEmpty {
                 imported.projects = list
             }
@@ -632,12 +749,17 @@ final class Store: ObservableObject {
                 imported.classes = list
             }
             if let v = obj["plans"] as? [String: String] { imported.plans = v }
-            if let v = obj["bonuses"] { imported.bonuses = decodeValue(v, as: [String: [BonusItem]].self) ?? [:] }
-            if let v = obj["deductions"] { imported.deductions = decodeValue(v, as: [String: [BonusItem]].self) ?? [:] }
+            if let v = obj["bonuses"] { imported.bonuses = decodeValue(v, as: [String: [BonusItem]].self) ?? data.bonuses }
+            if let v = obj["deductions"] { imported.deductions = decodeValue(v, as: [String: [BonusItem]].self) ?? data.deductions }
 
             var records: [String: DayRecord] = [:]
             if let dict = recObj as? [String: [String: Any]] {
-                for (key, item) in dict where key.count == 10 {
+                // 宽松分支也要整份拒绝。原来用 where 过滤，坏键被静默跳过，
+                // 结果是同一份文件两种命运：新格式整份拒、旧格式把好的导进来坏的丢掉（DEF-13）。
+                guard dict.keys.allSatisfy(Cal.isValidKey) else {
+                    throw ImportError.badDateKeys
+                }
+                for (key, item) in dict {
                     var r = DayRecord()
                     r.classId = (item["c"] as? String) ?? (item["classId"] as? String) ?? imported.settings.currentClass
                     r.projectId = (item["p"] as? String) ?? (item["projectId"] as? String) ?? imported.settings.projectId
@@ -656,12 +778,12 @@ final class Store: ObservableObject {
                     records[key] = r
                 }
             }
-            guard !records.isEmpty else { throw ImportError.badFile }
+            // 这里已经在整库文件分支里了，说"不是备份文件"不合适，统一按"整库没有可用记录"报
+            guard !records.isEmpty else { throw ImportError.emptyLibrary }
             imported.records = records
             if imported.projects.isEmpty { imported.projects = AppData().projects }
             if imported.classes.isEmpty { imported.classes = AppData().classes }
-            data = imported
-            saveNow()
+            commitImport(imported)
             return
         }
         throw ImportError.badFile
