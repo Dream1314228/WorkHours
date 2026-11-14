@@ -9,7 +9,7 @@
 | 版本 | 语言 | 最低系统 | UI 设计 | 成品包 | 源码 |
 |---|---|---|---|---|---|
 | UIKit 版 | Objective-C + UIKit | iOS 15 | 经典原生风：TabBar、卡片列表、手写毛玻璃 | `releases/WorkHours-uikit-3.1.1-unsigned.ipa` | `uikit/` |
-| SwiftUI 版 | Swift + SwiftUI | iOS 26 | 重做：液态玻璃、动态效果、图表页全新版式 | `releases/WorkHours-swiftui-1.2.2-unsigned.ipa` | `swiftui/` |
+| SwiftUI 版 | Swift + SwiftUI | iOS 26 | 重做：液态玻璃、动态效果、图表页全新版式 | `releases/WorkHours-swiftui-1.3.0-unsigned.ipa` | `swiftui/` |
 
 两个包都是**未签名 IPA**，装到手机上要自己用 AltStore / Sideloadly / 证书重签。
 
@@ -77,6 +77,7 @@ cd swiftui && xcodegen generate && xcodebuild -project WorkHours.xcodeproj \
 
 ## 更新记录
 
+- **SwiftUI 1.3.0**（2026-11-14）：切月按翻页方向滑入、月份数字滚动、选中格轻弹；发薪日图标常显金色（那天没排班给金色钱币）；切期/切月/切年后柱状图与环形图重播，统计数字滚动
 - **SwiftUI 1.2.2**（2026-11-14）：修月历横滑的播放头 id 错位——中间页应为 0，之前初值停在 1（下月页），导致只能往一个方向滑、显示月份与标题不符
 - **SwiftUI 1.2.1**（2026-11-14）：修横滑切月只能单向滑（初始页未居中）与切月重建闪动；设置页新增「配置默认时长」，按班次配正班/加班/周末/节假/日结
 - **SwiftUI 1.2.0**（2026-11-14）：日历横滑切月改横向分页 ScrollView（纵向滚动不再冲突）；统计页加「本期」一键回到当前考勤期；发薪日选中后仍为金色（改用浅底）；日历副行显示节假日名称
