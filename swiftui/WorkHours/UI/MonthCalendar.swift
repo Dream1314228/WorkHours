@@ -20,6 +20,10 @@ struct MonthCalendar: View {
     @EnvironmentObject private var store: Store
     /// 三页的滚动 id 就是 off：-1 上月 / 0 本月 / 1 下月，播放头停在 0
     @State private var page: Int? = 0
+    /// 上一个翻页方向，用来决定新一个月从哪边滑进来
+    @State private var lastDir: CGFloat = 1
+    @State private var flipX: CGFloat = 0
+    @State private var flipAlpha: Double = 1
 
     /// 表头 18 + 间距 3 + 6 行 × 58 + 5 个行距 2 + 底部 6
     private static let gridHeight: CGFloat = 386
@@ -36,6 +40,8 @@ struct MonthCalendar: View {
                 ForEach(-1...1, id: \.self) { off in
                     pageGrid(off)
                         .containerRelativeFrame(.horizontal)
+                        .offset(x: flipX)
+                        .opacity(flipAlpha)
                         .id(off)
                 }
             }
@@ -54,13 +60,28 @@ struct MonthCalendar: View {
         }
         .onChange(of: page) { _, now in
             guard let now, now != 0 else { return }
+            lastDir = now < 0 ? -1 : 1
             onStep?(now < 0 ? -1 : 1)
             // 月份已经换了，把播放头无声地推回中间那页
             var t = Transaction()
             t.disablesAnimations = true
             withTransaction(t) { page = 0 }
         }
-        .onChange(of: month) { _, _ in page = 0 }
+        .onChange(of: month) { _, _ in
+            page = 0
+            guard store.calendarMotion else { return }
+            // 新一个月按刚才的翻页方向轻轻推入，替掉直接换字
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) {
+                flipX = lastDir * 13
+                flipAlpha = 0.42
+            }
+            withAnimation(.spring(response: 0.36, dampingFraction: 0.84)) {
+                flipX = 0
+                flipAlpha = 1
+            }
+        }
     }
 
     // MARK: 单页
@@ -292,6 +313,10 @@ private struct CalendarDayCell: View {
                         .padding(.trailing, 5)
                 }
             }
+            // 选中时整格轻弹一下（背景和内容一起走，不然边缘会错开）
+            .scaleEffect(selected ? 1.025 : 1)
+            .animation(store.calendarMotion ? .spring(response: 0.3, dampingFraction: 0.66) : nil,
+                       value: selected)
             .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(PressableStyle(scale: 0.93))
@@ -315,8 +340,9 @@ private struct CalendarDayCell: View {
             let name = shift.name
             let dayShift = name.contains("白") || name.contains("早")
             let nightShift = name.contains("中") || name.contains("晚") || name.contains("夜")
+            // 发薪日优先金：那天的班次图标也一律按金走，不再按白班/夜班上色
             let tint: Color = selected ? onSelectedInk
-                : (dayShift ? Color.gsOrange : (nightShift ? nightTint : Ledger.inkSoft))
+                : (isPayday ? gold : (dayShift ? Color.gsOrange : (nightShift ? nightTint : Ledger.inkSoft)))
 
             if store.settings.classDisplay == "text" {
                 Text(name)
@@ -329,7 +355,14 @@ private struct CalendarDayCell: View {
                 Image(systemName: dayShift ? "sunrise.fill" : (nightShift ? "moon.stars.fill" : "briefcase.fill"))
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(tint)
+                    .shadow(color: isPayday && !selected ? gold.opacity(0.35) : .clear, radius: 3)
             }
+        } else if isPayday {
+            // 发薪日没排班也留一枚金色钱币，别让这天光秃秃
+            Image(systemName: "yensign.circle.fill")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(selected ? onSelectedInk : gold)
+                .shadow(color: selected ? .clear : gold.opacity(0.35), radius: 3)
         }
     }
 }

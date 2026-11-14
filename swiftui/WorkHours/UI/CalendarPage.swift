@@ -71,10 +71,12 @@ struct CalendarPage: View {
                 Text("\(year) 年 \(month) 月")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(Ledger.ink)
+                    .contentTransition(.numericText(countsDown: true))
                 Text(monthStats.label)
                     .font(.system(size: 12))
                     .foregroundStyle(Ledger.inkSoft)
                     .monospacedDigit()
+                    .contentTransition(.opacity)
             }
             Spacer(minLength: 6)
             HStack(spacing: 6) {
@@ -95,6 +97,7 @@ struct CalendarPage: View {
         }
         .padding(.horizontal, 2)
         .padding(.top, 2)
+        .animation(store.pageMotion ? .snappy(duration: 0.26) : nil, value: month)
     }
 
     private var overviewCard: some View {
@@ -174,6 +177,7 @@ struct CalendarPage: View {
                 .strokeBorder(Ledger.rule, lineWidth: 0.8)
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .animation(store.pageMotion ? .snappy(duration: 0.26) : nil, value: month)
     }
 
     private func overviewMetric(_ title: String, _ value: String, _ unit: String) -> some View {
@@ -288,6 +292,7 @@ struct CalendarPage: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(Cal.shortDate(selected))
                         .font(.system(size: 20, weight: .bold))
+                        .contentTransition(.numericText(countsDown: true))
                     HStack(spacing: 6) {
                         Text(Cal.weekdayName(selected))
                         if selected == today { Text("· 今天") }

@@ -69,6 +69,8 @@ struct ShiftPage: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(Cal.monthTitle(year: year, month: month))
                     .font(.system(size: 26, weight: .bold))
+                    .contentTransition(.numericText(countsDown: true))
+                    .animation(store.pageMotion ? .snappy(duration: 0.26) : nil, value: month)
                 Text("点日期排班，批量一次设好一周")
                     .font(.system(size: 12))
                     .foregroundStyle(Color.gsSecondary)

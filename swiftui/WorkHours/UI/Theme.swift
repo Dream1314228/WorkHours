@@ -256,6 +256,7 @@ struct StatTile: View {
                 .foregroundStyle(color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .contentTransition(.numericText(countsDown: true))
             Text(label)
                 .font(.system(size: 11))
                 .foregroundStyle(Color.gsSecondary)

@@ -110,6 +110,8 @@ struct SummaryPage: View {
                 month = next.month
             }
         }
+        // 换年/换月后柱状图、环形图重新长一遍
+        store.refreshCharts()
     }
 
     // MARK: 全年

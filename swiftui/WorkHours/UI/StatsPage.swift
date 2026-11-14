@@ -27,6 +27,7 @@ struct StatsPage: View {
             pickedYear = nil
             pickedMonth = nil
         }
+        store.refreshCharts()
     }
 
     private var st: MonthStats { store.monthStats(year: year, month: month) }
@@ -110,6 +111,8 @@ struct StatsPage: View {
             pickedYear = next.year
             pickedMonth = next.month
         }
+        // 换期后图表重新长一遍，别让柱子直接跳成新高度
+        store.refreshCharts()
     }
 
     private func exportHTML() {
