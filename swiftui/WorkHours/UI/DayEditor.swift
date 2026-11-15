@@ -43,7 +43,7 @@ struct DayEditor: View {
                     extrasCard
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 4)
+                .padding(.top, 18)   // 顶上给下滑抓手让出位置，不然胶囊会压在日期上
                 .padding(.bottom, 130)
             }
             .scrollIndicators(.hidden)
