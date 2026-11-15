@@ -41,9 +41,38 @@ final class Store: ObservableObject {
     private init() {
         dataURL = Self.fileURL
         load()
+        migrateClasses()
         loaded = true
         autoCarry()
         saveNow()
+    }
+
+    /// 1.4.0 起班次只留早/中/晚。老库里的内置四班（白 1 / 早 2 / 中 3 / 晚 4）合并：
+    /// 白班并进早班，重复的早班（id 2）删掉，记录、排班、默认工时里指向 2 的一律改指 1。
+    /// 只在班次正好是那四个内置班次时才动，用户自己加过的不碰。
+    private func migrateClasses() { Self.migrateBuiltinClasses(&data) }
+
+    /// 抽成 static 便于单测直接验，不必真写文件。
+    static func migrateBuiltinClasses(_ d: inout AppData) {
+        let builtin: [String: String] = ["1": "白班", "2": "早班", "3": "中班", "4": "晚班"]
+        guard d.classes.count == 4,
+              d.classes.allSatisfy({ builtin[$0.id] == $0.name }) else { return }
+        d.classes = [
+            ShiftClass(id: "1", name: "早班", color: "#FCB819"),
+            ShiftClass(id: "3", name: "中班", color: "#FF9900"),
+            ShiftClass(id: "4", name: "晚班", color: "#224799")
+        ]
+        if let d2 = d.settings.classDefaults["2"] {
+            d.settings.classDefaults["2"] = nil
+            if d.settings.classDefaults["1"] == nil { d.settings.classDefaults["1"] = d2 }
+        }
+        for key in d.records.keys where d.records[key]?.classId == "2" {
+            d.records[key]?.classId = "1"
+        }
+        for key in d.plans.keys where d.plans[key] == "2" {
+            d.plans[key] = "1"
+        }
+        if d.settings.currentClass == "2" { d.settings.currentClass = "1" }
     }
 
     /// 测试专用：直接注入一份数据，不读不写磁盘，也不触发自动保存。
@@ -287,6 +316,18 @@ final class Store: ObservableObject {
         }
         if rec.bt.contains(where: { $0.name == name }) { return }
         rec.bt.append(BonusItem(name: name, money: amount, note: "自动补助", autoAllowance: true))
+    }
+
+    /// 按「这天算什么」把班次默认工时摊到对应的一栏。
+    /// 周末/节假只填 zm / jj 那一栏，值等于当天总时长：原来把 jb 也一起填，
+    /// 8 正班 + 2 加班的班次切到周末就变成 12 小时。
+    static func workForType(_ type: String, from def: WorkHours) -> WorkHours {
+        switch type {
+        case "zm": return WorkHours(zb: 0, jb: 0, zm: def.zm > 0 ? def.zm : def.zb + def.jb, jj: 0)
+        case "jj": return WorkHours(zb: 0, jb: 0, zm: 0, jj: def.jj > 0 ? def.jj : def.zb + def.jb)
+        case "xiu": return WorkHours()
+        default: return WorkHours(zb: def.zb, jb: def.jb, zm: 0, jj: 0)
+        }
     }
 
     func defaultWork(forClass classId: String) -> WorkHours {

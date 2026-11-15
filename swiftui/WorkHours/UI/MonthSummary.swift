@@ -84,18 +84,41 @@ struct MonthSummaryContent: View {
         VStack(alignment: .leading, spacing: 12) {
             IconTitle(icon: "chart.pie.fill", title: "工时构成",
                       subtitle: "共 \(Cal.num(st.hours)) 小时")
+            // 双图：左边环形看构成，右边折线看这个周期每天怎么起伏。
+            // 原来右边只有四行短图例，右侧整片是空的。
             HStack(alignment: .center, spacing: 14) {
                 HoursDonut(zb: st.zb, ot: st.jb, zm: st.zm, jj: st.jj, palette: palette)
-                VStack(alignment: .leading, spacing: 9) {
-                    legendRow(palette.primary, "正班", st.zb, st.hours)
-                    legendRow(Color.gsOrange, "加班", st.jb, st.hours)
-                    legendRow(Color.gsGreen, "周末", st.zm, st.hours)
-                    legendRow(Color.gsRed, "节假", st.jj, st.hours)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chart.xyaxis.line")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(palette.primary)
+                        Text("每日工时")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.gsSecondary)
+                        Spacer(minLength: 4)
+                        if let peak = dayTotals.max(), peak > 0 {
+                            Text("最高 \(Cal.num(peak))H")
+                                .font(.system(size: 10, weight: .medium))
+                                .monospacedDigit()
+                                .foregroundStyle(palette.primary)
+                        }
+                    }
+                    TrendLine(values: dayTotals, color: palette.primary)
+                        .frame(height: 84)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 2)
             Divider().opacity(0.4)
+            HStack(spacing: 8) {
+                legendChip(palette.primary, "正班", st.zb, st.hours)
+                legendChip(Color.gsOrange, "加班", st.jb, st.hours)
+            }
+            HStack(spacing: 8) {
+                legendChip(Color.gsGreen, "周末", st.zm, st.hours)
+                legendChip(Color.gsRed, "节假", st.jj, st.hours)
+            }
             iconRow("yensign.circle.fill", "补贴", "+" + Cal.money(st.bonus), Color.gsGreen)
             iconRow("minus.circle.fill", "扣款", "-" + Cal.money(st.deduct), Color.gsRed)
             iconRow("clock.arrow.circlepath", "日均工时",
@@ -163,6 +186,36 @@ struct MonthSummaryContent: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius)
+    }
+
+    private var dayTotals: [Double] { rows.map { max(0, $0.1.work.total) } }
+
+    /// 一块图例：色块 + 名称 + 工时 + 占比，两列铺满整行
+    private func legendChip(_ color: Color, _ name: String, _ v: Double, _ total: Double) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 8, height: 8)
+            Text(name)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.gsSecondary)
+            Spacer(minLength: 4)
+            Text(Cal.num(v))
+                .font(.system(size: 12, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Color.primary)
+            Text(total > 0 ? "\(Int((v / total * 100).rounded()))%" : "—")
+                .font(.system(size: 10, weight: .medium))
+                .monospacedDigit()
+                .foregroundStyle(color.opacity(0.9))
+                .frame(width: 28, alignment: .trailing)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(color.opacity(0.07))
+        }
     }
 
     private func legendRow(_ color: Color, _ name: String, _ v: Double, _ total: Double) -> some View {
@@ -407,6 +460,9 @@ struct DayBarChart: View {
 
     @EnvironmentObject private var store: Store
     @State private var progress: CGFloat = 0
+    /// 只在本视图第一次出现时从 0 长一遍。切月不再清零重长，
+    /// 否则柱子先塌到底再重新冒出来，看着就是「动画异常」。
+    @State private var didGrow = false
 
     private let plotH: CGFloat = 88
 
@@ -491,6 +547,11 @@ struct DayBarChart: View {
                                             .delay(Double(min(idx, 30)) * 0.012)
                                        : nil,
                                        value: progress)
+                            // 换期后柱高平滑过渡到新值，不再靠清零重长
+                            .animation(store.chartMotion
+                                       ? .spring(response: 0.42, dampingFraction: 0.9)
+                                       : nil,
+                                       value: total)
                         }
                     }
                     .frame(height: usable, alignment: .bottom)
@@ -516,8 +577,11 @@ struct DayBarChart: View {
             }
             .frame(height: 12)
         }
-        .onAppear { play() }
-        .onChange(of: store.chartToken) { _, _ in play() }
+        .onAppear {
+            guard !didGrow else { return }
+            didGrow = true
+            play()
+        }
     }
 
     private func play() {
@@ -713,6 +777,97 @@ struct RadarChart: View {
             let pt = point(i, v, cx, cy, r, values.count)
             if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
         }
+        p.closeSubpath()
+        return p
+    }
+}
+
+// MARK: - 迷你折线
+
+/// 每日工时走势：细折线 + 渐隐面积，和环形图并排，把卡片右边用起来。
+struct TrendLine: View {
+    let values: [Double]
+    var color: Color
+
+    @EnvironmentObject private var store: Store
+    @State private var grow: CGFloat = 0
+    @State private var played = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = max(1, geo.size.width)
+            let h = max(1, geo.size.height)
+            let peak = max(1, values.max() ?? 1)
+            let count = max(values.count, 2)
+            let stepX = w / CGFloat(count - 1)
+            let pts = points(w: w, h: h, peak: peak, stepX: stepX, count: count)
+
+            ZStack(alignment: .bottom) {
+                Path { p in
+                    p.move(to: CGPoint(x: 0, y: h - 0.5))
+                    p.addLine(to: CGPoint(x: w, y: h - 0.5))
+                }
+                .stroke(Color.primary.opacity(0.10), lineWidth: 0.7)
+
+                if pts.count > 1 {
+                    area(pts, h: h)
+                        .fill(LinearGradient(colors: [color.opacity(0.22), color.opacity(0.02)],
+                                             startPoint: .top, endPoint: .bottom))
+                    line(pts)
+                        .stroke(color, style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round))
+                    if let last = pts.last {
+                        Circle()
+                            .fill(color)
+                            .frame(width: 5, height: 5)
+                            .position(last)
+                    }
+                }
+            }
+        }
+        .onAppear {
+            guard !played else { return }
+            played = true
+            replay()
+        }
+        .onChange(of: store.chartToken) { _, _ in replay() }
+        .animation(store.chartMotion ? .easeOut(duration: 0.5) : nil, value: grow)
+    }
+
+    private func replay() {
+        guard store.chartMotion else {
+            grow = 1
+            return
+        }
+        grow = 0
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) { grow = 1 }
+    }
+
+    private func points(w: CGFloat, h: CGFloat, peak: Double, stepX: CGFloat, count: Int) -> [CGPoint] {
+        var out: [CGPoint] = []
+        out.reserveCapacity(count)
+        for i in 0..<count {
+            let v = i < values.count ? values[i] : 0
+            let ratio = CGFloat(max(0, v) / peak)
+            let x = CGFloat(i) * stepX
+            let y = h - 2 - (h - 10) * ratio * grow
+            out.append(CGPoint(x: x, y: y))
+        }
+        return out
+    }
+
+    private func line(_ pts: [CGPoint]) -> Path {
+        var p = Path()
+        guard let first = pts.first else { return p }
+        p.move(to: first)
+        for pt in pts.dropFirst() { p.addLine(to: pt) }
+        return p
+    }
+
+    private func area(_ pts: [CGPoint], h: CGFloat) -> Path {
+        var p = line(pts)
+        guard let first = pts.first, let last = pts.last else { return p }
+        p.addLine(to: CGPoint(x: last.x, y: h - 1))
+        p.addLine(to: CGPoint(x: first.x, y: h - 1))
         p.closeSubpath()
         return p
     }

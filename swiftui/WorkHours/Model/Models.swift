@@ -268,8 +268,10 @@ struct Settings: Codable {
     var reminderEnabled: Bool = false
     var reminderHour: Int = 21
     var reminderMinute: Int = 0
+    // 早 8+2、中 8+2、晚 8+4；周末/节假按各班的日总时长，用户在设置里可改。
     var classDefaults: [String: ClassDefault] = [
         "1": ClassDefault(zb: 8, jb: 2, zm: 10, jj: 10),
+        "3": ClassDefault(zb: 8, jb: 2, zm: 10, jj: 10),
         "4": ClassDefault(zb: 8, jb: 4, zm: 12, jj: 12)
     ]
     var projectId: String = "default"
@@ -346,9 +348,9 @@ struct AppData: Codable {
             Project(id: "2", name: "祥发模具", mode: "gddx", base: 3300,
                     rates: WorkHours(zb: 18.97, jb: 18.96, zm: 25.28, jj: 37.92))
         ]
+        // 1.4.0：班次只要早/中/晚三个。id 沿用 1/3/4，历史记录全指向它们，不用改写数据。
         classes = [
-            ShiftClass(id: "1", name: "白班", color: "#FCB819"),
-            ShiftClass(id: "2", name: "早班", color: "#33A0FF"),
+            ShiftClass(id: "1", name: "早班", color: "#FCB819"),
             ShiftClass(id: "3", name: "中班", color: "#FF9900"),
             ShiftClass(id: "4", name: "晚班", color: "#224799")
         ]

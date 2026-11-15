@@ -129,15 +129,9 @@ struct DayEditor: View {
             }
         } else {
             draft.leave = nil
-            var w = draft.work
-            if w.total == 0 {
+            if draft.work.total == 0 {
                 let def = store.defaultWork(forClass: draft.classId)
-                switch type {
-                case "zm": w = WorkHours(zb: 0, jb: def.jb, zm: def.zm, jj: 0)
-                case "jj": w = WorkHours(zb: 0, jb: def.jb, zm: 0, jj: def.jj)
-                default: w = WorkHours(zb: def.zb, jb: def.jb, zm: 0, jj: 0)
-                }
-                draft.work = w
+                draft.work = Store.workForType(type, from: def)
             }
         }
     }
@@ -508,11 +502,7 @@ struct DayEditor: View {
            let last = store.lastWork(forClass: r.classId) {
             def = WorkHours(zb: last.zb, jb: last.jb, zm: last.zm, jj: last.jj)
         }
-        switch r.type {
-        case "zm": r.work = WorkHours(zb: 0, jb: def.jb, zm: def.zm, jj: 0)
-        case "jj": r.work = WorkHours(zb: 0, jb: def.jb, zm: 0, jj: def.jj)
-        default: r.work = WorkHours(zb: def.zb, jb: def.jb, zm: 0, jj: 0)
-        }
+        r.work = Store.workForType(r.type, from: def)
         store.ensureAutoAllowance(&r)
         draft = r
     }

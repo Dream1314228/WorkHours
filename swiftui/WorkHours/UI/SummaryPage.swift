@@ -328,6 +328,7 @@ struct MonthBarChart: View {
 
     @EnvironmentObject private var store: Store
     @State private var grown = false
+    @State private var didGrow = false
 
     private let plotH: CGFloat = 100
 
@@ -398,6 +399,11 @@ struct MonthBarChart: View {
                                                 .delay(Double(i) * 0.016)
                                            : nil,
                                            value: grown)
+                                // 数据变了就平滑改高度，不再整排缩回再长
+                                .animation(store.chartMotion
+                                           ? .spring(response: 0.42, dampingFraction: 0.9)
+                                           : nil,
+                                           value: m.hours)
                             }
                             .frame(height: plotH - 14, alignment: .bottom)
 
@@ -418,8 +424,11 @@ struct MonthBarChart: View {
             }
         }
         .frame(height: plotH + 6)
-        .onAppear { play() }
-        .onChange(of: store.chartToken) { _, _ in play() }
+        .onAppear {
+            guard !didGrow else { return }
+            didGrow = true
+            play()
+        }
     }
 
     private func rule(_ opacity: Double) -> some View {

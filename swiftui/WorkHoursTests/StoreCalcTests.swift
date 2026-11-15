@@ -70,7 +70,7 @@ struct DayPayTests {
 // MARK: - 第 2 组：自动补助
 
 struct AllowanceTests {
-    /// 种子班次 1 白班 / 2 早班 / 3 中班 / 4 晚班，另加 5 夜班、6 日班（无关键字）。
+    /// 1.4.0 起种子班次是 1 早班 / 3 中班 / 4 晚班，另加 5 夜班、6 日班（无关键字）。
     static func classes() -> [ShiftClass] {
         var list = AppData().classes
         list.append(ShiftClass(id: "5", name: "夜班", color: "#224799"))
@@ -80,8 +80,7 @@ struct AllowanceTests {
 
     @Test func 班次名映射到补助名() {
         let s = FX.store(FX.payload(classes: Self.classes()))
-        #expect(s.allowanceName(forClass: "1") == "白班补助")   // 白班
-        #expect(s.allowanceName(forClass: "2") == "白班补助")   // 早班
+        #expect(s.allowanceName(forClass: "1") == "白班补助")   // 早班：带「早」
         #expect(s.allowanceName(forClass: "3") == "夜班补助")   // 中班
         #expect(s.allowanceName(forClass: "4") == "夜班补助")   // 晚班
         #expect(s.allowanceName(forClass: "5") == "夜班补助")   // 夜班
@@ -229,5 +228,66 @@ struct StatsCaliberTests {
         ]))
         #expect(s.monthStats(year: 2026, month: 1, usePeriod: false).days == 2)
         #expect(s.monthStats(year: 2026, month: 1, usePeriod: true).days == 1)
+    }
+}
+
+// MARK: - 第 10 组：周末/节假的默认工时、四班迁三班
+
+struct WeekendAndClassTests {
+    @Test func 周末默认不叠加班() {
+        // 早班 8 正班 + 2 加班：切到周末应该就是一天 10 小时，不是 12
+        let def = WorkHours(zb: 8, jb: 2, zm: 10, jj: 10)
+        let w = Store.workForType("zm", from: def)
+        expectClose(w.total, 10)
+        expectClose(w.jb, 0)
+        expectClose(w.zm, 10)
+        expectClose(w.zb, 0)
+    }
+
+    @Test func 节假默认不叠加班() {
+        let def = WorkHours(zb: 8, jb: 2, zm: 10, jj: 10)
+        let w = Store.workForType("jj", from: def)
+        expectClose(w.total, 10)
+        expectClose(w.jb, 0)
+        expectClose(w.jj, 10)
+    }
+
+    @Test func 没配周末时长就按正班加加班的总时长() {
+        let def = WorkHours(zb: 8, jb: 2, zm: 0, jj: 0)
+        expectClose(Store.workForType("zm", from: def).total, 10)
+        expectClose(Store.workForType("jj", from: def).total, 10)
+    }
+
+    @Test func 老库四班迁成早中晚() {
+        var d = AppData()
+        d.classes = [
+            ShiftClass(id: "1", name: "白班", color: "#FCB819"),
+            ShiftClass(id: "2", name: "早班", color: "#33A0FF"),
+            ShiftClass(id: "3", name: "中班", color: "#FF9900"),
+            ShiftClass(id: "4", name: "晚班", color: "#224799")
+        ]
+        d.records["2026-03-02"] = FX.rec(zb: 8, classId: "2")
+        d.plans["2026-03-03"] = "2"
+        d.settings.currentClass = "2"
+        Store.migrateBuiltinClasses(&d)
+        #expect(d.classes.map { $0.name } == ["早班", "中班", "晚班"])
+        #expect(d.records["2026-03-02"]?.classId == "1")
+        #expect(d.plans["2026-03-03"] == "1")
+        #expect(d.settings.currentClass == "1")
+        #expect(d.settings.classDefaults["2"] == nil)
+    }
+
+    @Test func 用户自己加过班次就不迁移() {
+        var d = AppData()
+        d.classes = [
+            ShiftClass(id: "1", name: "白班", color: "#FCB819"),
+            ShiftClass(id: "2", name: "早班", color: "#33A0FF"),
+            ShiftClass(id: "3", name: "中班", color: "#FF9900"),
+            ShiftClass(id: "4", name: "晚班", color: "#224799"),
+            ShiftClass(id: "9", name: "临时班")
+        ]
+        let before = d.classes
+        Store.migrateBuiltinClasses(&d)
+        #expect(d.classes == before)
     }
 }
