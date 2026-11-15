@@ -718,11 +718,11 @@ struct RadarChart: View {
                 // 整块面一起从中心长开：雷达 Shape 自己的 animatableData 驱动，
                 // 不是每个顶点各动各的
                 RadarShape(values: axes.map { $0.1 }, progress: appeared ? 1 : 0)
-                    .frame(width: radius * 2, height: radius * 2)
                     .fill(palette.primary.opacity(0.16))
-                RadarShape(values: axes.map { $0.1 }, progress: appeared ? 1 : 0)
                     .frame(width: radius * 2, height: radius * 2)
+                RadarShape(values: axes.map { $0.1 }, progress: appeared ? 1 : 0)
                     .stroke(palette.primary, style: StrokeStyle(lineWidth: 1.8, lineJoin: .round))
+                    .frame(width: radius * 2, height: radius * 2)
                     .shadow(color: palette.primary.opacity(0.25), radius: 3)
 
                 ForEach(0..<n, id: \.self) { i in
