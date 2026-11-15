@@ -35,29 +35,17 @@ struct DayEditor: View {
         ZStack {
             AppBackdrop(palette: palette)
             ScrollView {
-                VStack(spacing: 14) {
+                VStack(spacing: 12) {
                     header
-                    typeCard
-                    shiftCard
+                    summary
+                    mainCard
                     workCard
                     leaveCard
                     bonusCard
                     noteCard
-                    if store.record(date) != nil {
-                        Button {
-                            confirmDelete = true
-                        } label: {
-                            Text("删除这天的记录")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Color.gsRed)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 44)
-                        }
-                        .buttonStyle(PressableStyle())
-                    }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.top, 4)
                 .padding(.bottom, 130)
             }
             .scrollIndicators(.hidden)
@@ -110,10 +98,44 @@ struct DayEditor: View {
         }
     }
 
+    // MARK: 摘要
+
+    /// 顶上这行给焦点：现在能拿多少、几小时、哪个班，不用滚到底看
+    private var summary: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(Cal.money(total))
+                .font(.system(size: 30, weight: .bold))
+                .monospacedDigit()
+                .foregroundStyle(Color.gsOrange)
+                .contentTransition(.numericText())
+                .animation(store.pageMotion ? .snappy(duration: 0.2) : nil, value: total)
+            Spacer(minLength: 8)
+            Text(summaryDetail)
+                .font(.system(size: 12))
+                .foregroundStyle(Color.gsSecondary)
+                .lineLimit(1)
+        }
+        .padding(.top, -2)
+    }
+
+    private var summaryDetail: String {
+        var parts: [String] = []
+        if isLeave {
+            parts.append("请假")
+        } else {
+            parts.append("\(Cal.num(draft.work.total)) 小时")
+        }
+        if let c = store.classes.first(where: { $0.id == draft.classId }) {
+            parts.append(c.name)
+        }
+        return parts.joined(separator: " · ")
+    }
+
     // MARK: 类型
 
-    private var typeCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    /// 类型、班次、项目合成一张卡：三块原来各占一张，光卡片间隙就吃掉大半屏
+    private var mainCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: "这天算什么", subtitle: Cal.dayKind(date) == draft.type ? "按日历默认" : nil)
             HStack(spacing: 6) {
                 ForEach(typeOptions, id: \.key) { opt in
@@ -125,34 +147,10 @@ struct DayEditor: View {
                     .buttonStyle(PressableStyle())
                 }
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius, padding: 14)
-    }
 
-    private func setType(_ type: String) {
-        draft.type = type
-        if type == "xiu" {
-            draft.work = WorkHours()
-            if draft.leave == nil {
-                draft.leave = LeaveInfo(type: "xiu", hour: 8, multiple: 0)
-            }
-        } else {
-            draft.leave = nil
-            if draft.work.total == 0 {
-                let def = store.defaultWork(forClass: draft.classId)
-                draft.work = Store.workForType(type, from: def)
-            }
-        }
-    }
-
-    // MARK: 班次
-
-    private var shiftCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(spacing: 8) {
                 SectionTitle(title: "班次")
-                Spacer()
+                Spacer(minLength: 6)
                 Button {
                     draft.work = store.defaultWork(forClass: draft.classId)
                     ToastCenter.shared.show("已套用班次默认工时")
@@ -161,7 +159,7 @@ struct DayEditor: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(Color.primary)
                         .padding(.horizontal, 10)
-                        .frame(height: 32)
+                        .frame(height: 30)
                         .background(Capsule().fill(Color.primary.opacity(0.06)))
                         .contentShape(Capsule())
                 }
@@ -199,12 +197,13 @@ struct DayEditor: View {
                     }
                     .buttonStyle(PressableStyle())
                 }
-                .padding(10)
+                .padding(8)
                 .background {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(palette.primary.opacity(0.07))
                 }
             }
+
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(store.classes) { c in
@@ -219,7 +218,7 @@ struct DayEditor: View {
                             }
                             .foregroundStyle(draft.classId == c.id ? Theme.readableOn(c.color) : Color.primary)
                             .padding(.horizontal, 14)
-                            .frame(height: 44)
+                            .frame(height: 42)
                             .background {
                                 Capsule().fill(draft.classId == c.id
                                                ? Color(hex: c.color)
@@ -234,6 +233,9 @@ struct DayEditor: View {
                 }
                 .padding(.horizontal, 1)
             }
+
+            Divider().opacity(0.4)
+
             HStack {
                 Text("项目")
                     .font(.system(size: 15))
@@ -246,11 +248,29 @@ struct DayEditor: View {
                 .pickerStyle(.menu)
                 .tint(palette.primary)
             }
-            .frame(height: 44)
+            .frame(height: 40)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
+
+    private func setType(_ type: String) {
+        draft.type = type
+        if type == "xiu" {
+            draft.work = WorkHours()
+            if draft.leave == nil {
+                draft.leave = LeaveInfo(type: "xiu", hour: 8, multiple: 0)
+            }
+        } else {
+            draft.leave = nil
+            if draft.work.total == 0 {
+                let def = store.defaultWork(forClass: draft.classId)
+                draft.work = Store.workForType(type, from: def)
+            }
+        }
+    }
+
+    // MARK: 班次
 
     // MARK: 工时
 
@@ -476,29 +496,33 @@ struct DayEditor: View {
     // MARK: 底部
 
     private var bottomBar: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("当天合计")
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.gsSecondary)
-                Text(Cal.money(total))
-                    .font(.system(size: 22, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(Color.gsOrange)
-                    .contentTransition(.numericText())
-                    .animation(store.pageMotion ? .snappy(duration: 0.2) : nil, value: total)
+        HStack(spacing: 10) {
+            if store.record(date) != nil {
+                Button {
+                    confirmDelete = true
+                } label: {
+                    Text("删除")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Color.gsRed)
+                        .frame(width: 76, height: 48)
+                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color.gsRed.opacity(0.10)))
+                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .strokeBorder(Color.gsRed.opacity(0.22), lineWidth: 0.8))
+                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(PressableStyle())
             }
-            Spacer(minLength: 8)
             Button {
                 save()
             } label: {
                 Text("保存")
             }
             .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
-            .frame(width: 150)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, 18)
-        .padding(.top, 12)
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
         .padding(.bottom, 8)
         .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Ledger.paper))
         .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))

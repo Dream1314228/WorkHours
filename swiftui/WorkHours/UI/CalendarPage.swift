@@ -513,7 +513,7 @@ struct CalendarPage: View {
 // MARK: - 编辑页浮层
 
 /// 从日历格子原地放大成整页：起始缩到格子大小并贴住它，spring 到满屏；关掉时反向缩回去。
-/// 用浮层而不是 sheet —— sheet 是独立层级，做不了和格子的连贯放大。
+/// 退出给了四条路：顶部抓手下滑、左边缘右滑、右上角叉、底部红按钮删掉这天。
 struct DayEditorStage: View {
     var date: String
     var palette: Palette
@@ -523,6 +523,8 @@ struct DayEditorStage: View {
     @EnvironmentObject private var store: Store
     @State private var open = false
     @State private var closing = false
+    @State private var dragY: CGFloat = 0
+    @State private var dragX: CGFloat = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -530,20 +532,26 @@ struct DayEditorStage: View {
             let startScale = origin.width > 4
                 ? max(0.07, min(1, origin.width / max(1, full.width)))
                 : 0.9
+            let pull = max(0, dragY)
 
             ZStack(alignment: .topLeading) {
                 Color.black
-                    .opacity(open ? 0.32 : 0)
+                    .opacity(open ? 0.32 * max(0, 1 - pull / 300) : 0)
                     .ignoresSafeArea()
                     .onTapGesture { if store.pageMotion { close() } }
 
                 DayEditor(date: date, palette: palette, onClose: close)
                     .frame(width: full.width, height: full.height)
                     .clipShape(RoundedRectangle(cornerRadius: open ? 26 : 12, style: .continuous))
-                    .scaleEffect(open ? 1 : startScale, anchor: .topLeading)
-                    .offset(x: open ? 0 : origin.minX - full.minX,
-                            y: open ? 0 : origin.minY - full.minY)
+                    .scaleEffect(open ? max(0.88, 1 - pull / 2800) : startScale, anchor: .topLeading)
+                    .offset(x: (open ? 0 : origin.minX - full.minX) + dragX,
+                            y: (open ? 0 : origin.minY - full.minY) + pull)
                     .opacity(open ? 1 : 0.55)
+
+                if open && !closing {
+                    dragHandle(full: full)
+                    edgeHandle
+                }
             }
         }
         .onAppear {
@@ -553,6 +561,64 @@ struct DayEditorStage: View {
             }
             withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) { open = true }
         }
+    }
+
+    /// 顶部抓手：往下拖过 110pt 或甩出去就关，跟手时整页跟着沉、背景跟着淡
+    private func dragHandle(full: CGRect) -> some View {
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(Color.primary.opacity(dragY > 0 ? 0.38 : 0.20))
+                .frame(width: 38, height: 5)
+                .padding(.top, 7)
+                .padding(.bottom, 10)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 6)
+                        .onChanged { v in
+                            guard !closing else { return }
+                            dragY = v.translation.height
+                        }
+                        .onEnded { v in
+                            let far = v.translation.height > 110
+                            let fling = v.predictedEndTranslation.height > 260
+                            if dragY > 0 && (far || fling) {
+                                close()
+                            } else {
+                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { dragY = 0 }
+                            }
+                        }
+                )
+            Spacer(minLength: 0)
+        }
+        .frame(width: full.width, height: full.height, alignment: .top)
+    }
+
+    /// 左边缘右滑：系统列表那种返回手感，只吃左边 22pt 的横向拖
+    private var edgeHandle: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.clear)
+                .frame(width: 22)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 8)
+                        .onChanged { v in
+                            guard !closing else { return }
+                            dragX = max(0, v.translation.width)
+                        }
+                        .onEnded { v in
+                            if dragX > 70 || v.predictedEndTranslation.width > 220 {
+                                close()
+                            } else {
+                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { dragX = 0 }
+                            }
+                        }
+                )
+            Spacer(minLength: 0)
+        }
+        .frame(maxHeight: .infinity, alignment: .leading)
     }
 
     private func close() {
