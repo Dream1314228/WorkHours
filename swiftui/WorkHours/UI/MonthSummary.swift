@@ -493,10 +493,12 @@ struct DayBarChart: View {
                             let total = max(0, rec.work.total)
                             let showPeak = idx == peakIdx && total > 0 && n <= 24
                             let avail = showPeak ? usable - 12 : usable
-                            let h = avail * CGFloat(total / peak) * progress
+                            // 柱高按最终值画好，再用 mask 从底往上揭，
+                            // 这样颜色分段不会长到一半才冒出来，也不是整根缩放
+                            let full = avail * CGFloat(total / peak)
                             let ot = rec.work.jb + rec.work.zm + rec.work.jj
-                            let otH = total > 0 ? h * CGFloat(ot / total) : 0
-                            let zbH = max(0, h - otH)
+                            let otH = total > 0 ? full * CGFloat(ot / total) : 0
+                            let zbH = max(0, full - otH)
                             let isToday = row.0 == today
 
                             VStack(spacing: 1) {
@@ -513,7 +515,7 @@ struct DayBarChart: View {
                                 }
 
                                 VStack(spacing: 1) {
-                                    if otH > 0.7 {
+                                    if otH > 0.5 {
                                         UnevenRoundedRectangle(topLeadingRadius: radius,
                                                                bottomLeadingRadius: 0,
                                                                bottomTrailingRadius: 0,
@@ -522,26 +524,32 @@ struct DayBarChart: View {
                                             .fill(Color.gsOrange.opacity(0.92))
                                             .frame(width: barW, height: otH)
                                     }
-                                    if zbH > 0.7 {
-                                        UnevenRoundedRectangle(topLeadingRadius: otH > 0.7 ? 0 : radius,
+                                    if zbH > 0.5 {
+                                        UnevenRoundedRectangle(topLeadingRadius: otH > 0.5 ? 0 : radius,
                                                                bottomLeadingRadius: 0,
                                                                bottomTrailingRadius: 0,
-                                                               topTrailingRadius: otH > 0.7 ? 0 : radius,
+                                                               topTrailingRadius: otH > 0.5 ? 0 : radius,
                                                                style: .continuous)
                                             .fill(palette.primary.opacity(isToday ? 1 : 0.88))
                                             .frame(width: barW, height: zbH)
                                     }
-                                    if total <= 0 {
-                                        Capsule()
-                                            .fill(Color.primary.opacity(0.10))
-                                            .frame(width: barW, height: 1.5)
-                                    }
+                                }
+                                .frame(height: max(0.5, full), alignment: .bottom)
+                                // 从根部揭开：底边不动，顶边往上长
+                                .mask(alignment: .bottom) {
+                                    Rectangle().frame(height: max(0.01, full * progress))
+                                }
+                            }
+                            .overlay(alignment: .bottom) {
+                                if total <= 0 {
+                                    Capsule()
+                                        .fill(Color.primary.opacity(0.10))
+                                        .frame(width: barW, height: 1.5)
                                 }
                             }
                             .frame(width: colW, height: usable, alignment: .bottom)
                             .animation(store.chartMotion
-                                       ? .spring(response: 0.55, dampingFraction: 0.85)
-                                            .delay(Double(min(idx, 30)) * 0.012)
+                                       ? .easeOut(duration: 0.65)
                                        : nil,
                                        value: progress)
                             // 换期后柱高平滑过渡到新值，不再靠清零重长

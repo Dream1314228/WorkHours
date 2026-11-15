@@ -397,7 +397,7 @@ struct MonthBarChart: View {
                                         .opacity(grown ? 1 : 0)
                                 }
                                 VStack(spacing: 1) {
-                                    if otH > 0.6 {
+                                    if otH > 0.5 {
                                         UnevenRoundedRectangle(topLeadingRadius: 3,
                                                                bottomLeadingRadius: 0,
                                                                bottomTrailingRadius: 0,
@@ -406,15 +406,21 @@ struct MonthBarChart: View {
                                             .fill(Color.gsOrange.opacity(0.9))
                                             .frame(height: otH)
                                     }
-                                    UnevenRoundedRectangle(topLeadingRadius: otH > 0.6 ? 0 : 3,
-                                                           bottomLeadingRadius: 0,
-                                                           bottomTrailingRadius: 0,
-                                                           topTrailingRadius: otH > 0.6 ? 0 : 3,
-                                                           style: .continuous)
-                                        .fill(palette.primary.opacity(0.92))
-                                        .frame(height: zbH)
+                                    if zbH > 0.5 {
+                                        UnevenRoundedRectangle(topLeadingRadius: otH > 0.5 ? 0 : 3,
+                                                               bottomLeadingRadius: 0,
+                                                               bottomTrailingRadius: 0,
+                                                               topTrailingRadius: otH > 0.5 ? 0 : 3,
+                                                               style: .continuous)
+                                            .fill(palette.primary.opacity(0.92))
+                                            .frame(height: zbH)
+                                    }
                                 }
-                                .scaleEffect(y: grown ? 1 : 0.001, anchor: .bottom)
+                                .frame(height: max(0.5, h), alignment: .bottom)
+                                // 跟日柱一样：按最终高度画好，用裁切从底往上揭
+                                .mask(alignment: .bottom) {
+                                    Rectangle().frame(height: max(0.01, h * (grown ? 1 : 0)))
+                                }
                                 .animation(store.chartMotion
                                            ? .easeOut(duration: 0.65)
                                            : nil,

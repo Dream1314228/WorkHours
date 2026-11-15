@@ -255,9 +255,10 @@ struct CalendarPage: View {
                       },
                       onStep: { delta in moveMonth(delta, animated: false) },
                       onCellFrame: { key, f in
+                          // 只记在本地：滚动时这个回调每帧都来，
+                          // 写 store 会整页重算，那就是卡顿的来源
                           guard key == selected else { return }
                           cellFrame = f
-                          store.editingOrigin = f
                       })
     }
 
