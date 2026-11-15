@@ -14,6 +14,7 @@ struct BatchSheet: View {
 
     @State private var skipWeekend = true
     @State private var projectId = "default"
+    @State private var showClearConfirm = false
 
     private var firstOffset: Int {
         let key = String(format: "%04d-%02d-01", year, month)
@@ -54,18 +55,39 @@ struct BatchSheet: View {
                 }
                 Spacer()
                 Button {
+                    showClearConfirm = true
+                } label: {
+                    Image(systemName: "eraser")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color.gsRed)
+                        .frame(width: 52, height: 48)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.gsRed.opacity(0.08)))
+                }
+                .buttonStyle(PressableStyle())
+                .disabled(selected.isEmpty)
+                .opacity(selected.isEmpty ? 0.4 : 1)
+
+                Button {
                     apply()
                 } label: {
                     Text("批量应用")
                 }
                 .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
-                .frame(width: 160)
+                .frame(width: 128)
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
             .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Ledger.paper))
             .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
             .padding(.horizontal, 12)
+        }
+        .confirmationDialog("把选中的\(selected.count) 天排班清空？", isPresented: $showClearConfirm,
+                            titleVisibility: .visible) {
+            Button("清空排班", role: .destructive) { clearPlans() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("只清班次，不动已经记好的工时。")
         }
         .onAppear {
             if classId.isEmpty {
@@ -123,6 +145,7 @@ struct BatchSheet: View {
 
             HStack(spacing: 6) {
                 quickButton("工作日") { selectWorkdays() }
+                quickButton("这一周") { selectWeek() }
                 quickButton("全选") { selectAll() }
                 quickButton("清空") { selected.removeAll() }
             }
@@ -230,6 +253,38 @@ struct BatchSheet: View {
         selected = Set((1...Cal.daysInMonth(year, month)).map {
             String(format: "%04d-%02d-%02d", year, month, $0)
         })
+    }
+
+    /// 选中「某一周」：以已选的最早一天为准，没选就用今天（不在本月就用 1 号）
+    private func selectWeek() {
+        let prefix = String(format: "%04d-%02d-", year, month)
+        let anchor: String
+        if let first = selected.min() {
+            anchor = first
+        } else {
+            let today = Cal.todayKey()
+            anchor = today.hasPrefix(prefix) ? today : prefix + "01"
+        }
+        let w = Cal.weekday(anchor)
+        let lead = store.settings.weekStart == 1 ? (w + 5) % 7 : (w - 1)
+        guard let start = Cal.gregorian.date(byAdding: .day, value: -lead, to: Cal.date(anchor)) else { return }
+        var list = Set<String>()
+        for i in 0..<7 {
+            guard let d = Cal.gregorian.date(byAdding: .day, value: i, to: start) else { continue }
+            let key = Cal.key(d)
+            if key.hasPrefix(prefix) { list.insert(key) }
+        }
+        withAnimation(store.pageMotion ? .snappy(duration: 0.2) : nil) { selected = list }
+    }
+
+    private func clearPlans() {
+        guard !selected.isEmpty else { return }
+        var dates = Array(selected).sorted()
+        if skipWeekend { dates = dates.filter { !Cal.isWeekend($0) } }
+        for key in dates { store.setPlan("", for: key) }
+        store.saveNow()
+        ToastCenter.shared.show("已清空 \(dates.count) 天排班")
+        dismiss()
     }
 
     private func selectWorkdays() {

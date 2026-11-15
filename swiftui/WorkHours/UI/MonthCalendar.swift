@@ -305,10 +305,18 @@ private struct CalendarDayCell: View {
             onPick(key)
         } label: {
             VStack(spacing: 0) {
-                ZStack { shiftTop }
-                    .frame(height: 13)
-                    .opacity(shown ? 1 : 0)
-                    .scaleEffect(shown ? 1 : 0.5)
+                ZStack {
+                    shiftTop
+                        // 班次换了就重新认一次身份，让下面的 transition 真的播出来
+                        .id(data.shiftName ?? "-")
+                        .transition(.scale(scale: 0.35).combined(with: .opacity))
+                }
+                .frame(height: 13)
+                .opacity(shown ? 1 : 0)
+                .scaleEffect(shown ? 1 : 0.5)
+                // 排班/清除排班时图标弹进弹出，不再瞬间换脸
+                .animation(motion ? .spring(response: 0.3, dampingFraction: 0.6) : nil,
+                           value: data.shiftName)
 
                 Text("\(dayNum)")
                     .font(.system(size: 17, weight: selected ? .bold : .semibold))

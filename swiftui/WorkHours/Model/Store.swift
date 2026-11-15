@@ -25,6 +25,22 @@ final class Store: ObservableObject {
 
     func refreshCharts() { chartToken &+= 1 }
 
+    // MARK: 编辑页（挂在最外层，才盖得住标签栏）
+
+    /// 正在编辑哪天；非空时根视图铺一层编辑页。
+    @Published var editingDate: String? = nil
+    /// 从日历哪一格放大出来（全局坐标），拿不到就退回整页放大。
+    @Published var editingOrigin: CGRect = .zero
+
+    func openEditor(_ date: String, from origin: CGRect = .zero) {
+        editingOrigin = origin
+        editingDate = date
+    }
+
+    func closeEditor() {
+        editingDate = nil
+    }
+
     private var loaded = false
     /// 隔离老文件失败时置真：宁可不存，也不能拿空库盖掉用户原始数据。
     private var writesBlocked = false
@@ -1024,10 +1040,42 @@ final class Store: ObservableObject {
           :root { --bg:#fff; --paper:#fff; --line:#d8d4ca; --ink:#000; --ink2:#333;
                   --ink3:#555; --zebra:#f4f2ec; --accent:#1f3a6e; --orange:#8a4a09;
                   --green:#145c30; --red:#8f1d14; }
-          body { padding:0; font-size:12px; }
+          /* 一页 A4 装下整月：所有尺寸按打印收一档 */
+          body { padding:0; font-size:10px; line-height:1.3; }
           .wrap { max-width:none; }
           .card, .table-wrap, .bars { break-inside:avoid; }
           tbody tr { break-inside:avoid; }
+          header { margin-bottom:8px; gap:6px 12px; }
+          h1 { font-size:16px; }
+          .sub { margin-top:2px; font-size:9px; }
+          .pay .k { font-size:8px; }
+          .pay .v { font-size:18px; }
+          .cards { gap:6px; }
+          .card { border-radius:8px; padding:6px 8px; }
+          .card .k { font-size:8px; }
+          .card .v { margin-top:1px; font-size:13px; }
+          h2 { margin:9px 0 5px; font-size:9px; letter-spacing:.08em; }
+          h2::after { height:1px; }
+          .bars { border-radius:8px; padding:8px 10px; gap:6px; }
+          .bar { grid-template-columns:34px 1fr 56px; font-size:9px; gap:6px; }
+          .bar .track { height:5px; }
+          .table-wrap { border-radius:8px; }
+          .table-wrap > table:not(.mini) { table-layout:fixed; width:100%; }
+          .table-wrap > table:not(.mini) th:nth-child(1) { width:5%; }
+          .table-wrap > table:not(.mini) th:nth-child(2) { width:6%; }
+          .table-wrap > table:not(.mini) th:nth-child(3) { width:12%; }
+          .table-wrap > table:not(.mini) th:nth-child(4),
+          .table-wrap > table:not(.mini) th:nth-child(5),
+          .table-wrap > table:not(.mini) th:nth-child(6),
+          .table-wrap > table:not(.mini) th:nth-child(7) { width:7%; }
+          .table-wrap > table:not(.mini) th:nth-child(8) { width:8%; }
+          .table-wrap > table:not(.mini) th:nth-child(9) { width:11%; }
+          .table-wrap > table:not(.mini) th:nth-child(10) { width:28%; }
+          .sum { margin-top:8px; font-size:9px; }
+          .sum b { font-size:13px; }
+          .cols { gap:6px; }
+          .empty { padding:10px; }
+          footer { margin-top:10px; padding-top:6px; font-size:8px; line-height:1.45; }
           thead { display:table-header-group; }
           /* 打印一律回到表格排版，宽度锁在纸张内 */
           .table-wrap > table:not(.mini) { display:table; width:100%; }
@@ -1037,9 +1085,9 @@ final class Store: ObservableObject {
           .table-wrap > table:not(.mini) > tbody > tr > td { display:table-cell; }
           .table-wrap > table:not(.mini) > tbody > tr > td::before { content:none; }
           .table-wrap { overflow:visible; border-color:#d8d4ca; }
-          th, td { font-size:10.5pt; padding:5px 6px; }
+          th, td { font-size:8.5px; padding:2.5px 4px; line-height:1.25; }
           tr, td { break-inside:avoid; }
-          @page { size:A4 portrait; margin:12mm 10mm; }
+          @page { size:A4 portrait; margin:10mm 9mm; }
         }
         </style></head><body><div class="wrap">
 

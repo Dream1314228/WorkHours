@@ -168,17 +168,39 @@ struct SummaryPage: View {
                 IconTitle(icon: "sum", title: "全年构成",
                           subtitle: "\(Cal.num(ys.days)) 天 · \(Cal.num(ys.hours)) 小时")
 
+                // 环形看构成，右边折线看十二个月怎么起伏：跟月视图一套排版
                 HStack(alignment: .center, spacing: 14) {
                     HoursDonut(zb: zbTotal, ot: jbTotal, zm: zmTotal, jj: jjTotal, palette: palette)
-                    VStack(alignment: .leading, spacing: 9) {
-                        legendRow(palette.primary, "正班", zbTotal, ys.hours)
-                        legendRow(Color.gsOrange, "加班", jbTotal, ys.hours)
-                        legendRow(Color.gsGreen, "周末", zmTotal, ys.hours)
-                        legendRow(Color.gsRed, "节假", jjTotal, ys.hours)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chart.xyaxis.line")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(palette.primary)
+                            Text("每月工时")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.gsSecondary)
+                            Spacer(minLength: 4)
+                            if let peak = ys.months.map({ $0.hours }).max(), peak > 0 {
+                                Text("峰 \(Cal.num(peak))H")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .monospacedDigit()
+                                    .foregroundStyle(palette.primary)
+                            }
+                        }
+                        TrendLine(values: ys.months.map { $0.hours }, color: palette.primary)
+                            .frame(height: 78)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.vertical, 2)
+
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 10),
+                                    GridItem(.flexible(), spacing: 10)], spacing: 7) {
+                    legendRow(palette.primary, "正班", zbTotal, ys.hours)
+                    legendRow(Color.gsOrange, "加班", jbTotal, ys.hours)
+                    legendRow(Color.gsGreen, "周末", zmTotal, ys.hours)
+                    legendRow(Color.gsRed, "节假", jjTotal, ys.hours)
+                }
 
                 Divider().opacity(0.4)
 
@@ -328,7 +350,6 @@ struct MonthBarChart: View {
 
     @EnvironmentObject private var store: Store
     @State private var grown = false
-    @State private var didGrow = false
 
     private let plotH: CGFloat = 100
 
@@ -395,8 +416,7 @@ struct MonthBarChart: View {
                                 }
                                 .scaleEffect(y: grown ? 1 : 0.001, anchor: .bottom)
                                 .animation(store.chartMotion
-                                           ? .spring(response: 0.5, dampingFraction: 0.82)
-                                                .delay(Double(i) * 0.016)
+                                           ? .easeOut(duration: 0.65)
                                            : nil,
                                            value: grown)
                                 // 数据变了就平滑改高度，不再整排缩回再长
@@ -424,11 +444,8 @@ struct MonthBarChart: View {
             }
         }
         .frame(height: plotH + 6)
-        .onAppear {
-            guard !didGrow else { return }
-            didGrow = true
-            play()
-        }
+        .onAppear { play() }
+        .onChange(of: store.chartToken) { _, _ in play() }
     }
 
     private func rule(_ opacity: Double) -> some View {
@@ -444,7 +461,7 @@ struct MonthBarChart: View {
         }
         grown = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-            grown = true
+            withAnimation(.easeOut(duration: 0.65)) { grown = true }
         }
     }
 }

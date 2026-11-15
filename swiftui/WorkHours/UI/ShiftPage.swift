@@ -42,11 +42,19 @@ struct ShiftPage: View {
         .confirmationDialog("这天排什么班", isPresented: $showPicker, titleVisibility: .visible) {
             ForEach(store.classes) { c in
                 Button(c.name) {
-                    if let d = pendingDate { store.setPlan(c.id, for: d) }
+                    if let d = pendingDate {
+                        withAnimation(store.pageMotion ? .spring(response: 0.3, dampingFraction: 0.62) : nil) {
+                            store.setPlan(c.id, for: d)
+                        }
+                    }
                 }
             }
             Button("清除排班", role: .destructive) {
-                if let d = pendingDate { store.setPlan("", for: d) }
+                if let d = pendingDate {
+                    withAnimation(store.pageMotion ? .spring(response: 0.3, dampingFraction: 0.62) : nil) {
+                        store.setPlan("", for: d)
+                    }
+                }
             }
             Button("取消", role: .cancel) {}
         } message: {
@@ -131,6 +139,7 @@ struct ShiftPage: View {
                             Text("\(count(of: c.id))")
                                 .font(.system(size: 16, weight: .semibold))
                                 .monospacedDigit()
+                                .contentTransition(.numericText())
                         }
                         Text(c.name)
                             .font(.system(size: 10))

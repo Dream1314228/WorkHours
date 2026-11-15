@@ -46,6 +46,16 @@ struct RootView: View {
             // 换标签页时让图表重新播一遍
             store.refreshCharts()
         }
+        // 编辑页放在标签栏外面一层，才能整页盖住底栏；放页面里会被底栏压住
+        .overlay {
+            if let date = store.editingDate {
+                DayEditorStage(date: date, palette: palette, origin: store.editingOrigin) {
+                    store.closeEditor()
+                }
+                .environmentObject(store)
+                .zIndex(40)
+            }
+        }
         .overlay(ToastOverlay())
         .onAppear {
             let s = store.settings

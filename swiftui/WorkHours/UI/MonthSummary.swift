@@ -460,9 +460,6 @@ struct DayBarChart: View {
 
     @EnvironmentObject private var store: Store
     @State private var progress: CGFloat = 0
-    /// 只在本视图第一次出现时从 0 长一遍。切月不再清零重长，
-    /// 否则柱子先塌到底再重新冒出来，看着就是「动画异常」。
-    @State private var didGrow = false
 
     private let plotH: CGFloat = 88
 
@@ -577,11 +574,9 @@ struct DayBarChart: View {
             }
             .frame(height: 12)
         }
-        .onAppear {
-            guard !didGrow else { return }
-            didGrow = true
-            play()
-        }
+        // 和环形图同一套：出现时长一遍，图表信号一变（换月/换页/改数据）再长一遍
+        .onAppear { play() }
+        .onChange(of: store.chartToken) { _, _ in play() }
     }
 
     private func play() {
@@ -591,7 +586,7 @@ struct DayBarChart: View {
         }
         progress = 0
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.02) {
-            progress = 1
+            withAnimation(.easeOut(duration: 0.65)) { progress = 1 }
         }
     }
 }
@@ -720,11 +715,13 @@ struct RadarChart: View {
                     .stroke(Color.primary.opacity(0.07), lineWidth: 0.7)
                 }
 
-                let scale = appeared ? 1.0 : 0.02
-
-                ringPath(cx, cy, radius, values: axes.map { $0.1 * scale })
+                // 整块面一起从中心长开：雷达 Shape 自己的 animatableData 驱动，
+                // 不是每个顶点各动各的
+                RadarShape(values: axes.map { $0.1 }, progress: appeared ? 1 : 0)
+                    .frame(width: radius * 2, height: radius * 2)
                     .fill(palette.primary.opacity(0.16))
-                ringPath(cx, cy, radius, values: axes.map { $0.1 * scale })
+                RadarShape(values: axes.map { $0.1 }, progress: appeared ? 1 : 0)
+                    .frame(width: radius * 2, height: radius * 2)
                     .stroke(palette.primary, style: StrokeStyle(lineWidth: 1.8, lineJoin: .round))
                     .shadow(color: palette.primary.opacity(0.25), radius: 3)
 
@@ -732,7 +729,7 @@ struct RadarChart: View {
                     Circle()
                         .fill(palette.primary)
                         .frame(width: 4.5, height: 4.5)
-                        .position(point(i, axes[i].1 * scale, cx, cy, radius, n))
+                        .position(point(i, axes[i].1 * (appeared ? 1 : 0), cx, cy, radius, n))
                 }
 
                 ForEach(0..<n, id: \.self) { i in
@@ -775,6 +772,35 @@ struct RadarChart: View {
         var p = Path()
         for (i, v) in values.enumerated() {
             let pt = point(i, v, cx, cy, r, values.count)
+            if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
+        }
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// 雷达多边形本身。progress 是动画量，path 每帧按它重算，
+/// 所以看起来是整块面积往外扩，而不是几个点各飞各的。
+struct RadarShape: Shape {
+    var values: [Double]
+    var progress: Double
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let n = max(values.count, 3)
+        let cx = rect.midX
+        let cy = rect.midY
+        let r = min(rect.width, rect.height) / 2
+        for i in 0..<n {
+            let v = i < values.count ? values[i] : 0
+            let angle = -Double.pi / 2 + Double(i) * 2 * Double.pi / Double(n)
+            let rr = r * max(0, v) * progress
+            let pt = CGPoint(x: cx + cos(angle) * rr, y: cy + sin(angle) * rr)
             if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
         }
         p.closeSubpath()

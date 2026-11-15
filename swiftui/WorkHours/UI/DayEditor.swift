@@ -83,9 +83,17 @@ struct DayEditor: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(Cal.shortDate(date))
                     .font(.system(size: 24, weight: .bold))
-                Text(Cal.weekdayName(date) + (Cal.holidayName(date).map { " · \($0)" } ?? ""))
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.gsSecondary)
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(store.record(date) != nil ? Color.gsGreen : Color.gsSecondary.opacity(0.45))
+                        .frame(width: 5, height: 5)
+                    Text(Cal.weekdayName(date) + (Cal.holidayName(date).map { " · \($0)" } ?? ""))
+                    if store.record(date) != nil {
+                        Text("· 已记录")
+                    }
+                }
+                .font(.system(size: 12))
+                .foregroundStyle(Color.gsSecondary)
             }
             Spacer()
             Button {
@@ -119,7 +127,7 @@ struct DayEditor: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius)
+        .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
     private func setType(_ type: String) {
@@ -241,37 +249,51 @@ struct DayEditor: View {
             .frame(height: 44)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius)
+        .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
     // MARK: 工时
 
     private var workCard: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            SectionTitle(title: "工时", subtitle: isLeave ? "休假不记工时" : "小时")
-            Group {
-                NumberRow(title: "正班", unit: "H", value: $draft.work.zb, palette: palette, range: 0...24)
-                NumberRow(title: "加班", unit: "H", value: $draft.work.jb, palette: palette, range: 0...24)
-                NumberRow(title: "周末", unit: "H", value: $draft.work.zm, palette: palette, range: 0...24)
-                NumberRow(title: "节假", unit: "H", value: $draft.work.jj, palette: palette, range: 0...24)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                SectionTitle(title: "工时")
+                Spacer()
+                Text(isLeave ? "休假不记工时" : "小时")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.gsSecondary)
+            }
+
+            // 四行竖排太占地方，两列两行：一屏就能看完，不用来回滚
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8),
+                                GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                HourBox(title: "正班", color: palette.primary,
+                        value: $draft.work.zb, palette: palette)
+                HourBox(title: "加班", color: Color.gsOrange,
+                        value: $draft.work.jb, palette: palette)
+                HourBox(title: "周末", color: Color.gsGreen,
+                        value: $draft.work.zm, palette: palette)
+                HourBox(title: "节假", color: Color.gsRed,
+                        value: $draft.work.jj, palette: palette)
             }
             .disabled(isLeave)
             .opacity(isLeave ? 0.45 : 1)
 
-            Divider().opacity(0.4).padding(.vertical, 2)
+            Divider().opacity(0.4).padding(.top, 2)
 
             HStack {
                 Text("日结金额")
-                    .font(.system(size: 15))
+                    .font(.system(size: 14))
                 Spacer()
                 Text("填了就不按工时算")
-                    .font(.system(size: 11))
+                    .font(.system(size: 10))
                     .foregroundStyle(Color.gsSecondary)
             }
             NumberRow(title: "", unit: "元", value: $draft.settle, palette: palette, range: 0...99999)
+                .frame(height: 38)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius)
+        .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
     // MARK: 请假
@@ -369,7 +391,7 @@ struct DayEditor: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius)
+        .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
     // MARK: 补贴
@@ -425,7 +447,7 @@ struct DayEditor: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius)
+        .glassCard(radius: store.settings.cardRadius, padding: 14)
         .alert("加一笔补贴", isPresented: $showBonusAdd) {
             TextField("名称，例如 高温补贴", text: $bonusName)
             TextField("金额，扣款填负数", value: $bonusMoney, format: .number)
@@ -448,7 +470,7 @@ struct DayEditor: View {
                 .lineLimit(2...4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius)
+        .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
     // MARK: 底部
@@ -460,9 +482,11 @@ struct DayEditor: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Color.gsSecondary)
                 Text(Cal.money(total))
-                    .font(.system(size: 21, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(Color.gsOrange)
+                    .contentTransition(.numericText())
+                    .animation(store.pageMotion ? .snappy(duration: 0.2) : nil, value: total)
             }
             Spacer(minLength: 8)
             Button {
@@ -477,9 +501,10 @@ struct DayEditor: View {
         .padding(.top, 12)
         .padding(.bottom, 8)
         .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Ledger.paper))
-            .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
+        .shadow(color: Color.black.opacity(0.06), radius: 12, y: 4)
         .padding(.horizontal, 12)
-        .padding(.bottom, 4)
+        .padding(.bottom, 6)
     }
 
     // MARK: 数据
@@ -528,6 +553,57 @@ struct DayEditor: View {
             onClose()
         } else {
             dismiss()
+        }
+    }
+}
+
+/// 工时输入格：标题一行、数字一行，两个一行排成 2×2。
+private struct HourBox: View {
+    var title: String
+    var color: Color
+    @Binding var value: Double
+    var palette: Palette
+
+    @State private var text = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 5) {
+                Capsule().fill(color).frame(width: 3, height: 10)
+                Text(title)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Color.gsSecondary)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
+                TextField("0", text: $text)
+                    .keyboardType(.decimalPad)
+                    .font(.system(size: 21, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(focused ? color : Color.primary)
+                    .focused($focused)
+                Text("H")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Ledger.inkSoft)
+            }
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(color.opacity(0.07))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(color.opacity(focused ? 0.5 : 0.14), lineWidth: focused ? 1.2 : 0.8)
+        }
+        .onAppear { text = Cal.num(value) }
+        .onChange(of: text) { _, v in
+            let d = Double(v.replacingOccurrences(of: ",", with: ".")) ?? 0
+            value = min(24, max(0, d))
+        }
+        .onChange(of: value) { _, v in
+            if !focused { text = Cal.num(v) }
         }
     }
 }

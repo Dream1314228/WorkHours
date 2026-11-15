@@ -7,8 +7,6 @@ struct CalendarPage: View {
     @State private var year = Cal.year(Cal.todayKey())
     @State private var month = Cal.month(Cal.todayKey())
     @State private var selected = Cal.todayKey()
-    @State private var editorDate = Cal.todayKey()
-    @State private var showEditor = false
     @State private var confirmDelete = false
     /// 选中的日历格子位置，编辑页从这儿放大出来
     @State private var cellFrame: CGRect = .zero
@@ -52,15 +50,6 @@ struct CalendarPage: View {
         }
         .safeAreaInset(edge: .bottom) { bottomBar }
         .task { await store.autoUpdateHoliday() }
-        .overlay {
-            if showEditor {
-                DayEditorStage(date: editorDate, palette: palette, origin: cellFrame) {
-                    showEditor = false
-                }
-                .environmentObject(store)
-                .zIndex(20)
-            }
-        }
         .alert("删除这天的记录？", isPresented: $confirmDelete) {
             Button("删除", role: .destructive) {
                 wipeThenRemove()
@@ -72,6 +61,10 @@ struct CalendarPage: View {
     }
 
     // MARK: 顶部
+
+    private func openEditor() {
+        store.openEditor(selected, from: cellFrame)
+    }
 
     /// 删记录：卡片先从右往左擦掉，再删数据，最后从左展开成「这天还没记」
     private func wipeThenRemove() {
@@ -262,7 +255,9 @@ struct CalendarPage: View {
                       },
                       onStep: { delta in moveMonth(delta, animated: false) },
                       onCellFrame: { key, f in
-                          if key == selected { cellFrame = f }
+                          guard key == selected else { return }
+                          cellFrame = f
+                          store.editingOrigin = f
                       })
     }
 
@@ -341,8 +336,7 @@ struct CalendarPage: View {
                             .foregroundStyle(Ledger.inkSoft)
                     }
                     Button {
-                        editorDate = selected
-                        showEditor = true
+                        openEditor()
                     } label: {
                         Text("编辑")
                             .font(.system(size: 13, weight: .semibold))
@@ -444,8 +438,7 @@ struct CalendarPage: View {
                 palette: palette,
                 magnetic: store.pageMotion
             ) {
-                editorDate = selected
-                showEditor = true
+                openEditor()
             }
 
             if selectedRecord != nil {
