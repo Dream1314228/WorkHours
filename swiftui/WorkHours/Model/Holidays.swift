@@ -25,6 +25,8 @@ final class HolidayData {
 
     private(set) var years: [String: HolidayYear] = [:]
     private(set) var customYears: Set<String> = []
+    /// 节假日数据一改就 +1。日历按这个判断格子缓存要不要作废。
+    private(set) var version = 0
 
     static let fileURL: URL = {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -75,6 +77,7 @@ final class HolidayData {
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         try enc.encode(custom).write(to: HolidayData.fileURL, options: .atomic)
+        version &+= 1
 
         return incoming.keys.compactMap { Int($0) }.sorted()
     }
@@ -83,6 +86,7 @@ final class HolidayData {
         try? FileManager.default.removeItem(at: HolidayData.fileURL)
         customYears = []
         years = HolidayData.builtin
+        version &+= 1
     }
 
     enum ImportError: LocalizedError {

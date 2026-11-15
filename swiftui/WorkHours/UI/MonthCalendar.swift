@@ -28,6 +28,10 @@ struct MonthCalendar: View {
     @State private var flipAlpha: Double = 1
     /// 本月是用户横滑翻页翻过来的（而不是点按钮/切期），用来跳过推入动画
     @State private var viaSwipe = false
+    /// 42 格成品缓存。滑动时 body 每帧都重算，不缓存的话每帧要跑 126 次农历/节假日计算
+    @State private var cellCache = CellCache()
+    /// 逐格弹出的入场动画只播第一次；之后翻月直接出结果，不再 42 格挨个等一下
+    @State private var introDone = false
 
     /// 表头 18 + 间距 3 + 6 行 × 58 + 5 个行距 2 + 底部 6
     private static let gridHeight: CGFloat = 386
@@ -64,6 +68,10 @@ struct MonthCalendar: View {
         }
         // 只在真正停稳后切月。拖动过程中 scrollPosition 是实时变的（过中线就变成相邻页），
         // 早先用它直接切月，表现就是「手指还没松开日历已经换了」。
+        .onAppear {
+            guard !introDone else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { introDone = true }
+        }
         .onScrollPhaseChange { _, phase in
             guard phase == .idle, let now = page, now != 0 else { return }
             viaSwipe = true
@@ -105,7 +113,9 @@ struct MonthCalendar: View {
 
     private func pageGrid(_ off: Int) -> some View {
         let m = Cal.monthAdd(year, month, off)
-        let cells = buildCells(year: m.year, month: m.month)
+        let cells = cellCache.cells("\(m.year)-\(m.month)", stamp: cacheStamp) {
+            buildCells(year: m.year, month: m.month)
+        }
         return VStack(spacing: 3) {
             HStack(spacing: 0) {
                 ForEach(headers, id: \.self) { w in
@@ -122,7 +132,7 @@ struct MonthCalendar: View {
                 ForEach(0..<42, id: \.self) { i in
                     if let cell = cells[i] {
                         CalendarDayCell(data: cell, index: i, selected: cell.key == selected,
-                                        palette: palette, motion: store.calendarMotion,
+                                        palette: palette, motion: store.calendarMotion && !introDone,
                                         onPick: onPick,
                                         onFrame: { f in onCellFrame?(cell.key, f) })
                     } else {
@@ -133,6 +143,15 @@ struct MonthCalendar: View {
         }
         .padding(.horizontal, 8)
         .padding(.bottom, 6)
+    }
+
+    /// 影响格子显示的输入都在这里：任意一项变了，缓存整批作废
+    private var cacheStamp: String {
+        let st = store.settings
+        return [String(store.revision), String(st.weekStart), String(st.showLunar),
+                st.classDisplay, String(st.payday), String(showsHours),
+                String(preferRecordedShift), String(HolidayData.shared.version)]
+            .joined(separator: "|")
     }
 
     /// 一页 42 格的数据在这里算一次。格子不再读 store，一次编辑也不会重算 126 格。
@@ -192,6 +211,23 @@ struct MonthCalendar: View {
                            useTextClass: store.settings.classDisplay == "text",
                            hasRecord: rec != nil,
                            isHoliday: holidayName != nil, isMakeupWorkday: makeup)
+    }
+}
+
+/// 月历格子缓存：按「年-月」存成品，输入签名一变整批丢掉。
+private final class CellCache {
+    private var map: [String: [DayCellData?]] = [:]
+    private var stamp = ""
+
+    func cells(_ key: String, stamp now: String, build: () -> [DayCellData?]) -> [DayCellData?] {
+        if now != stamp {
+            map.removeAll(keepingCapacity: true)
+            stamp = now
+        }
+        if let hit = map[key] { return hit }
+        let made = build()
+        map[key] = made
+        return made
     }
 }
 
