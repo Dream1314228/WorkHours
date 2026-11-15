@@ -41,9 +41,26 @@ struct DayEditor: View {
                     mainCard
                     workCard
                     extrasCard
+                    if store.record(date) != nil {
+                        Button {
+                            confirmDelete = true
+                        } label: {
+                            Text("删除这天的记录")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color.gsRed)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
+                                .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(Color.gsRed.opacity(0.08)))
+                                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Color.gsRed.opacity(0.18), lineWidth: 0.8))
+                                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(PressableStyle())
+                    }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 18)   // 顶上给下滑抓手让出位置，不然胶囊会压在日期上
+                .padding(.top, 26)   // 顶上给抓手和圆角留位置，日期别贴着边
                 .padding(.bottom, 130)
             }
             .scrollIndicators(.hidden)
@@ -505,22 +522,14 @@ struct DayEditor: View {
 
     private var bottomBar: some View {
         HStack(spacing: 10) {
-            if store.record(date) != nil {
-                Button {
-                    confirmDelete = true
-                } label: {
-                    Text("删除")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color.gsRed)
-                        .frame(width: 76, height: 48)
-                        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(Color.gsRed.opacity(0.10)))
-                        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(Color.gsRed.opacity(0.22), lineWidth: 0.8))
-                        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-                .buttonStyle(PressableStyle())
+            Button {
+                close()
+            } label: {
+                Text("关闭")
             }
+            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: false, height: 48))
+            .frame(width: 96)
+
             Button {
                 save()
             } label: {

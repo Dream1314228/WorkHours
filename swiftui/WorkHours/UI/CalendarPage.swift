@@ -512,65 +512,68 @@ struct CalendarPage: View {
 
 // MARK: - 编辑页浮层
 
-/// 从日历格子原地放大成整页：起始缩到格子大小并贴住它，spring 到满屏；关掉时反向缩回去。
-/// 退出给了四条路：顶部抓手下滑、左边缘右滑、右上角叉、底部红按钮删掉这天。
+/// 从底部弹上来的半屏编辑页。
+/// 进来：整块从屏幕外滑上来，spring 收尾带一点回弹，遮罩同时淡进来。
+/// 出去：easeIn 快收，遮罩跟着淡掉；跟手拖动时两者一起走。
 struct DayEditorStage: View {
     var date: String
     var palette: Palette
-    var origin: CGRect
     var onClose: () -> Void
 
     @EnvironmentObject private var store: Store
-    @State private var open = false
+    @State private var shown = false
     @State private var closing = false
     @State private var dragY: CGFloat = 0
-    @State private var dragX: CGFloat = 0
 
     var body: some View {
         GeometryReader { geo in
             let full = geo.frame(in: .global)
-            let startScale = origin.width > 4
-                ? max(0.07, min(1, origin.width / max(1, full.width)))
-                : 0.9
+            let sheetH = min(full.height - 56, max(420, full.height * 0.76))
             let pull = max(0, dragY)
 
-            ZStack(alignment: .topLeading) {
+            ZStack(alignment: .bottom) {
                 Color.black
-                    .opacity(open ? 0.32 * max(0, 1 - pull / 300) : 0)
+                    .opacity(shown ? 0.36 * max(0, 1 - pull / (sheetH * 0.8)) : 0)
                     .ignoresSafeArea()
                     .onTapGesture { if store.pageMotion { close() } }
 
                 DayEditor(date: date, palette: palette, onClose: close)
-                    .frame(width: full.width, height: full.height)
-                    .clipShape(RoundedRectangle(cornerRadius: open ? 26 : 12, style: .continuous))
-                    .scaleEffect(open ? max(0.88, 1 - pull / 2800) : startScale, anchor: .topLeading)
-                    .offset(x: (open ? 0 : origin.minX - full.minX) + dragX,
-                            y: (open ? 0 : origin.minY - full.minY) + pull)
-                    .opacity(open ? 1 : 0.55)
+                    .frame(width: full.width, height: sheetH)
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 30,
+                                                     topTrailingRadius: 30,
+                                                     style: .continuous))
+                    .overlay {
+                        UnevenRoundedRectangle(topLeadingRadius: 30,
+                                               topTrailingRadius: 30,
+                                               style: .continuous)
+                            .strokeBorder(Ledger.rule, lineWidth: 0.8)
+                    }
+                    .shadow(color: Color.black.opacity(0.20), radius: 28, y: -6)
+                    .offset(y: shown ? pull : sheetH + 48)
 
-                if open && !closing {
-                    dragHandle(full: full)
-                    edgeHandle
+                if shown && !closing {
+                    dragHandle(height: sheetH)
+                        .offset(y: pull)
                 }
             }
         }
         .onAppear {
             guard store.pageMotion else {
-                open = true
+                shown = true
                 return
             }
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) { open = true }
+            withAnimation(.spring(response: 0.46, dampingFraction: 0.84)) { shown = true }
         }
     }
 
-    /// 顶部抓手：往下拖过 110pt 或甩出去就关，跟手时整页跟着沉、背景跟着淡
-    private func dragHandle(full: CGRect) -> some View {
+    /// 顶部抓手：整块跟手下沉，过 110pt 或甩出去就关，不到就弹回去
+    private func dragHandle(height: CGFloat) -> some View {
         VStack(spacing: 0) {
             Capsule()
-                .fill(Color.primary.opacity(dragY > 0 ? 0.38 : 0.20))
-                .frame(width: 38, height: 5)
-                .padding(.top, 7)
-                .padding(.bottom, 10)
+                .fill(Color.primary.opacity(dragY > 0 ? 0.55 : 0.34))
+                .frame(width: 52, height: 6)
+                .padding(.top, 9)
+                .padding(.bottom, 12)
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .gesture(
@@ -581,7 +584,7 @@ struct DayEditorStage: View {
                         }
                         .onEnded { v in
                             let far = v.translation.height > 110
-                            let fling = v.predictedEndTranslation.height > 260
+                            let fling = v.predictedEndTranslation.height > 280
                             if dragY > 0 && (far || fling) {
                                 close()
                             } else {
@@ -591,34 +594,8 @@ struct DayEditorStage: View {
                 )
             Spacer(minLength: 0)
         }
-        .frame(width: full.width, height: full.height, alignment: .top)
-    }
-
-    /// 左边缘右滑：系统列表那种返回手感，只吃左边 22pt 的横向拖
-    private var edgeHandle: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(Color.clear)
-                .frame(width: 22)
-                .frame(maxHeight: .infinity)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 8)
-                        .onChanged { v in
-                            guard !closing else { return }
-                            dragX = max(0, v.translation.width)
-                        }
-                        .onEnded { v in
-                            if dragX > 70 || v.predictedEndTranslation.width > 220 {
-                                close()
-                            } else {
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { dragX = 0 }
-                            }
-                        }
-                )
-            Spacer(minLength: 0)
-        }
-        .frame(maxHeight: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .frame(height: height, alignment: .top)
     }
 
     private func close() {
@@ -628,7 +605,8 @@ struct DayEditorStage: View {
             onClose()
             return
         }
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.92)) { open = false }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { onClose() }
+        // 关的时候不再回弹，直接往下压，手感比进的时候更利落
+        withAnimation(.easeIn(duration: 0.24)) { shown = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { onClose() }
     }
 }

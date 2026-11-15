@@ -49,7 +49,7 @@ struct RootView: View {
         // 编辑页放在标签栏外面一层，才能整页盖住底栏；放页面里会被底栏压住
         .overlay {
             if let date = store.editingDate {
-                DayEditorStage(date: date, palette: palette, origin: store.editingOrigin) {
+                DayEditorStage(date: date, palette: palette) {
                     store.closeEditor()
                 }
                 .environmentObject(store)
