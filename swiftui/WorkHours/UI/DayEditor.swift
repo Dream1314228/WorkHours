@@ -4,6 +4,8 @@ import SwiftUI
 struct DayEditor: View {
     var date: String
     var palette: Palette
+    /// 从全屏浮层（日历格子放大）进来时用这个关；走 sheet 时留空，退回 dismiss。
+    var onClose: (() -> Void)? = nil
 
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
@@ -68,7 +70,7 @@ struct DayEditor: View {
         .alert("删除这天的记录？", isPresented: $confirmDelete) {
             Button("删除", role: .destructive) {
                 store.removeRecord(date)
-                dismiss()
+                close()
             }
             Button("取消", role: .cancel) {}
         }
@@ -87,7 +89,7 @@ struct DayEditor: View {
             }
             Spacer()
             Button {
-                dismiss()
+                close()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 14, weight: .semibold))
@@ -518,6 +520,14 @@ struct DayEditor: View {
         store.setRecord(draft, for: date)
         store.saveNow()
         ToastCenter.shared.show("已保存 \(Cal.shortDate(date))")
-        dismiss()
+        close()
+    }
+
+    private func close() {
+        if let onClose {
+            onClose()
+        } else {
+            dismiss()
+        }
     }
 }

@@ -10,6 +10,10 @@ struct CalendarPage: View {
     @State private var editorDate = Cal.todayKey()
     @State private var showEditor = false
     @State private var confirmDelete = false
+    /// 选中的日历格子位置，编辑页从这儿放大出来
+    @State private var cellFrame: CGRect = .zero
+    /// 删除时卡片横向擦除的进度：1 正常，0 全擦掉
+    @State private var wipe: CGFloat = 1
     @State private var showBill = false
 
     private var today: String { Cal.todayKey() }
@@ -48,14 +52,18 @@ struct CalendarPage: View {
         }
         .safeAreaInset(edge: .bottom) { bottomBar }
         .task { await store.autoUpdateHoliday() }
-        .sheet(isPresented: $showEditor) {
-            DayEditor(date: editorDate, palette: palette)
+        .overlay {
+            if showEditor {
+                DayEditorStage(date: editorDate, palette: palette, origin: cellFrame) {
+                    showEditor = false
+                }
                 .environmentObject(store)
+                .zIndex(20)
+            }
         }
         .alert("删除这天的记录？", isPresented: $confirmDelete) {
             Button("删除", role: .destructive) {
-                store.removeRecord(selected)
-                ToastCenter.shared.show("已删除 \(Cal.shortDate(selected)) 的记录")
+                wipeThenRemove()
             }
             Button("取消", role: .cancel) {}
         } message: {
@@ -64,6 +72,22 @@ struct CalendarPage: View {
     }
 
     // MARK: 顶部
+
+    /// 删记录：卡片先从右往左擦掉，再删数据，最后从左展开成「这天还没记」
+    private func wipeThenRemove() {
+        let key = selected
+        guard store.pageMotion else {
+            store.removeRecord(key)
+            ToastCenter.shared.show("已删除 \(Cal.shortDate(key)) 的记录")
+            return
+        }
+        withAnimation(.easeIn(duration: 0.2)) { wipe = 0 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.21) {
+            store.removeRecord(key)
+            ToastCenter.shared.show("已删除 \(Cal.shortDate(key)) 的记录")
+            withAnimation(.spring(response: 0.44, dampingFraction: 0.84)) { wipe = 1 }
+        }
+    }
 
     private var header: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -236,7 +260,10 @@ struct CalendarPage: View {
                       onPick: { key in
                           withAnimation(.snappy(duration: 0.16)) { selected = key }
                       },
-                      onStep: { delta in moveMonth(delta, animated: false) })
+                      onStep: { delta in moveMonth(delta, animated: false) },
+                      onCellFrame: { key, f in
+                          if key == selected { cellFrame = f }
+                      })
     }
 
     @ViewBuilder
@@ -334,7 +361,12 @@ struct CalendarPage: View {
                 noRecordDetail
             }
         }
+        .animation(.spring(response: 0.34, dampingFraction: 0.9), value: selected)
         .glassCard(radius: store.settings.cardRadius)
+        // 擦除放在玻璃卡之后：连底色和边框一起擦，不是只擦字
+        .mask(alignment: .leading) {
+            Rectangle().scaleEffect(x: wipe, anchor: .leading)
+        }
     }
 
     @ViewBuilder
@@ -406,14 +438,15 @@ struct CalendarPage: View {
 
     private var bottomBar: some View {
         HStack(spacing: 10) {
-            Button {
+            MagneticActionButton(
+                title: selectedRecord == nil ? "记一笔 · \(Cal.shortDate(selected))" : "编辑这天",
+                icon: selectedRecord == nil ? "plus" : "pencil",
+                palette: palette,
+                magnetic: store.pageMotion
+            ) {
                 editorDate = selected
                 showEditor = true
-            } label: {
-                Label(selectedRecord == nil ? "记一笔 · \(Cal.shortDate(selected))" : "编辑这天",
-                      systemImage: selectedRecord == nil ? "plus" : "pencil")
             }
-            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
 
             if selectedRecord != nil {
                 Button {
@@ -480,5 +513,62 @@ struct CalendarPage: View {
                 .font(.system(size: 13, weight: .medium))
                 .multilineTextAlignment(.trailing)
         }
+    }
+}
+
+// MARK: - 编辑页浮层
+
+/// 从日历格子原地放大成整页：起始缩到格子大小并贴住它，spring 到满屏；关掉时反向缩回去。
+/// 用浮层而不是 sheet —— sheet 是独立层级，做不了和格子的连贯放大。
+struct DayEditorStage: View {
+    var date: String
+    var palette: Palette
+    var origin: CGRect
+    var onClose: () -> Void
+
+    @EnvironmentObject private var store: Store
+    @State private var open = false
+    @State private var closing = false
+
+    var body: some View {
+        GeometryReader { geo in
+            let full = geo.frame(in: .global)
+            let startScale = origin.width > 4
+                ? max(0.07, min(1, origin.width / max(1, full.width)))
+                : 0.9
+
+            ZStack(alignment: .topLeading) {
+                Color.black
+                    .opacity(open ? 0.32 : 0)
+                    .ignoresSafeArea()
+                    .onTapGesture { if store.pageMotion { close() } }
+
+                DayEditor(date: date, palette: palette, onClose: close)
+                    .frame(width: full.width, height: full.height)
+                    .clipShape(RoundedRectangle(cornerRadius: open ? 26 : 12, style: .continuous))
+                    .scaleEffect(open ? 1 : startScale, anchor: .topLeading)
+                    .offset(x: open ? 0 : origin.minX - full.minX,
+                            y: open ? 0 : origin.minY - full.minY)
+                    .opacity(open ? 1 : 0.55)
+            }
+        }
+        .onAppear {
+            guard store.pageMotion else {
+                open = true
+                return
+            }
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.86)) { open = true }
+        }
+    }
+
+    private func close() {
+        guard !closing else { return }
+        closing = true
+        guard store.pageMotion else {
+            onClose()
+            return
+        }
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.92)) { open = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) { onClose() }
     }
 }

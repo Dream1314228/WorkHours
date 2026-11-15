@@ -16,6 +16,8 @@ struct MonthCalendar: View {
     var preferRecordedShift: Bool = false
     var onPick: (String) -> Void
     var onStep: ((Int) -> Void)? = nil
+    /// 选中格子的全局位置：编辑页从这一格放大展开时用
+    var onCellFrame: ((String, CGRect) -> Void)? = nil
 
     @EnvironmentObject private var store: Store
     /// 三页的滚动 id 就是 off：-1 上月 / 0 本月 / 1 下月，播放头停在 0
@@ -121,7 +123,8 @@ struct MonthCalendar: View {
                     if let cell = cells[i] {
                         CalendarDayCell(data: cell, index: i, selected: cell.key == selected,
                                         palette: palette, motion: store.calendarMotion,
-                                        onPick: onPick)
+                                        onPick: onPick,
+                                        onFrame: { f in onCellFrame?(cell.key, f) })
                     } else {
                         Color.clear.frame(height: 58)
                     }
@@ -225,6 +228,7 @@ private struct CalendarDayCell: View {
     let palette: Palette
     let motion: Bool
     let onPick: (String) -> Void
+    var onFrame: ((CGRect) -> Void)? = nil
 
     @State private var shown = false
 
@@ -377,6 +381,18 @@ private struct CalendarDayCell: View {
             .contentShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(PressableStyle(scale: 0.93))
+        // 选中时才挂测量：条件挂载保证「刚选中」这一下就会上报，编辑页从这儿放大
+        .background {
+            if selected {
+                Color.clear
+                    .onGeometryChange(for: CGRect.self) { proxy in
+                        proxy.frame(in: .global)
+                    } action: { f in
+                        onFrame?(f)
+                    }
+                    .allowsHitTesting(false)
+            }
+        }
         .onAppear {
             guard !shown else { return }
             guard motion else {

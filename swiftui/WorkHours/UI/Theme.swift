@@ -204,6 +204,66 @@ struct GlassActionButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - 磁吸按钮
+
+/// 按下时整块朝手指方向轻微偏移（最多 7pt），松手弹回并触发。
+/// 系统 Button 拿不到触点，所以用 DragGesture(minimumDistance: 0) 自己接；
+/// 视觉沿用「记一笔」原来那套深色胶囊，只是不再走 ButtonStyle。
+struct MagneticActionButton: View {
+    var title: String
+    var icon: String
+    var palette: Palette
+    /// 关掉动效开关时照样能点，只是不做磁吸位移
+    var magnetic: Bool = true
+    var action: () -> Void
+
+    @State private var pull: CGSize = .zero
+    @State private var down = false
+
+    private let maxX: CGFloat = 7
+    private let maxY: CGFloat = 5
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+            Text(title)
+        }
+        .font(.system(size: 16, weight: .semibold))
+        .foregroundStyle(palette.onPrimary)
+        .frame(maxWidth: .infinity)
+        .frame(height: 48)
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(palette.deep)
+        }
+        .scaleEffect(down ? 0.972 : 1)
+        .offset(pull)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: pull)
+        .animation(.spring(response: 0.22, dampingFraction: 0.7), value: down)
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { v in
+                    if !down { down = true }
+                    guard magnetic else { return }
+                    pull = CGSize(width: clamp(v.translation.width * 0.2, maxX),
+                                  height: clamp(v.translation.height * 0.2, maxY))
+                }
+                .onEnded { _ in
+                    down = false
+                    pull = .zero
+                    action()
+                }
+        )
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(title)
+        .accessibilityAction { action() }
+    }
+
+    private func clamp(_ v: CGFloat, _ limit: CGFloat) -> CGFloat {
+        min(limit, max(-limit, v))
+    }
+}
+
 // MARK: - 小部件
 
 struct ChipView: View {
