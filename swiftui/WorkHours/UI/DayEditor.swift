@@ -40,9 +40,7 @@ struct DayEditor: View {
                     summary
                     mainCard
                     workCard
-                    leaveCard
-                    bonusCard
-                    noteCard
+                    extrasCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
@@ -318,7 +316,7 @@ struct DayEditor: View {
 
     // MARK: 请假
 
-    private var leaveCard: some View {
+    private var leaveSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 SectionTitle(title: "请假 / 调休")
@@ -411,12 +409,11 @@ struct DayEditor: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
     // MARK: 补贴
 
-    private var bonusCard: some View {
+    private var bonusSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 SectionTitle(title: "补贴 / 扣款", subtitle: "负数算扣款")
@@ -467,6 +464,30 @@ struct DayEditor: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: 备注
+
+    private var noteSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle(title: "备注")
+            TextField("写点什么，例如 换线、代班", text: $draft.note, axis: .vertical)
+                .font(.system(size: 14))
+                .lineLimit(2...4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 补贴、请假、备注合成一张卡：原来各占一张，三张卡的边距和间隙比内容还占地方
+    private var extrasCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            bonusSection
+            Divider().opacity(0.4)
+            leaveSection
+            Divider().opacity(0.4)
+            noteSection
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius, padding: 14)
         .alert("加一笔补贴", isPresented: $showBonusAdd) {
             TextField("名称，例如 高温补贴", text: $bonusName)
@@ -478,19 +499,6 @@ struct DayEditor: View {
             }
             Button("取消", role: .cancel) {}
         }
-    }
-
-    // MARK: 备注
-
-    private var noteCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionTitle(title: "备注")
-            TextField("写点什么，例如 换线、代班", text: $draft.note, axis: .vertical)
-                .font(.system(size: 14))
-                .lineLimit(2...4)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
     // MARK: 底部
