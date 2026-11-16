@@ -512,6 +512,29 @@ struct CalendarPage: View {
 
 // MARK: - 编辑页浮层
 
+extension Palette: Equatable {
+    /// Color 没法直接比，主题 key 是唯一的，按它判就够了
+    static func == (a: Palette, b: Palette) -> Bool { a.key == b.key }
+}
+
+/// 把 DayEditor 挡在拖动重算之外：
+/// 父视图每帧都在重算，而 onClose 闭包每次都是新实例，直接放进 body 会让整棵编辑器子树跟着重建，
+/// 手指一拖就掉帧。这里显式声明相等条件（忽略闭包），拖动时不再进 body。
+private struct EditorBox: View, Equatable {
+    var date: String
+    var palette: Palette
+    var onClose: () -> Void
+    var bottomInset: CGFloat
+
+    static func == (a: EditorBox, b: EditorBox) -> Bool {
+        a.date == b.date && a.bottomInset == b.bottomInset && a.palette == b.palette
+    }
+
+    var body: some View {
+        DayEditor(date: date, palette: palette, onClose: onClose, bottomInset: bottomInset)
+    }
+}
+
 /// 从底部弹上来的半屏编辑页。
 /// 进来：整块从屏幕外滑上来，spring 收尾带一点回弹，遮罩同时淡进来。
 /// 出去：easeIn 快收，遮罩跟着淡掉；跟手拖动时两者一起走。
@@ -532,6 +555,9 @@ struct DayEditorStage: View {
             let bottomInset = geo.safeAreaInsets.bottom
             let sheetH = min(full.height - 56, max(420, full.height * 0.76)) + bottomInset
             let pull = max(0, dragY)
+            let sheetShape = UnevenRoundedRectangle(topLeadingRadius: 30,
+                                                    topTrailingRadius: 30,
+                                                    style: .continuous)
 
             ZStack(alignment: .bottom) {
                 Color.black
@@ -539,18 +565,16 @@ struct DayEditorStage: View {
                     .ignoresSafeArea()
                     .onTapGesture { if store.pageMotion { close() } }
 
-                DayEditor(date: date, palette: palette, onClose: close, bottomInset: bottomInset)
+                // 拖的时候只留描边：阴影 + 每次重算圆角路径会把整屏重绘一遍，手感全被吃掉
+                EditorBox(date: date, palette: palette, onClose: close, bottomInset: bottomInset)
+                    .equatable()
                     .frame(width: full.width, height: sheetH)
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 30,
-                                                     topTrailingRadius: 30,
-                                                     style: .continuous))
+                    .clipShape(sheetShape)
                     .overlay {
-                        UnevenRoundedRectangle(topLeadingRadius: 30,
-                                               topTrailingRadius: 30,
-                                               style: .continuous)
-                            .strokeBorder(Ledger.rule, lineWidth: 0.8)
+                        sheetShape.strokeBorder(Ledger.rule, lineWidth: 0.8)
                     }
-                    .shadow(color: Color.black.opacity(0.20), radius: 28, y: -6)
+                    .compositingGroup()
+                    .shadow(color: Color.black.opacity(0.16), radius: 10, y: -2)
                     .offset(y: shown ? pull : sheetH + 48)
 
                 if shown && !closing {
@@ -579,8 +603,8 @@ struct DayEditorStage: View {
                 .padding(.bottom, 12)
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 6)
+                .highPriorityGesture(
+                    DragGesture(minimumDistance: 4)
                         .onChanged { v in
                             guard !closing else { return }
                             dragY = v.translation.height
