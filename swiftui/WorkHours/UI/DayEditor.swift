@@ -10,10 +10,6 @@ struct DayEditor: View {
     var bottomInset: CGFloat = 0
     /// 正在被下拉：先把列表滚动锁住，不然两手抢位移，画面会抖
     var dragging: Bool = false
-    /// 抓手拖动时往外写实时位移。留空表示这份不支持下拉关闭（全屏浮层用）。
-    var dragY: Binding<CGFloat>? = nil
-    /// 松手：(当前位移, 预测位移)
-    var onDragEnd: ((CGFloat, CGFloat) -> Void)? = nil
 
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
@@ -30,9 +26,18 @@ struct DayEditor: View {
     ]
 
     private var isLeave: Bool { draft.leave != nil }
+    /// 当天这个班次该上多久。请假时长跟它比，才分得清整天假和半天假。
+    private var classNeed: Double {
+        let n = store.defaultWork(forClass: draft.classId).total
+        return n > 0 ? n : 8
+    }
     /// 整天不在岗：班次、项目、工时、补贴都不占地方。
-    /// 是否上班由请假区那个开关说了算，跟请几小时无关。
-    private var fullLeave: Bool { draft.leave != nil && !(draft.leave?.alsoWork ?? false) }
+    /// 判据是「假时长请满了应上工时」——请 4 小时上 4 小时是半天假，工时区照常出来。
+    private var fullLeave: Bool {
+        guard let l = draft.leave else { return false }
+        if l.alsoWork { return false }
+        return l.hour + 0.01 >= classNeed
+    }
     private var leaveHour: Double { draft.leave?.hour ?? 0 }
 
     /// 当天排班表里排的班次
@@ -89,17 +94,7 @@ struct DayEditor: View {
                 .frame(width: dragging ? 68 : 56, height: dragging ? 7 : 6)
                 .padding(.horizontal, 52)
                 .padding(.vertical, 8)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 4)
-                        .onChanged { v in
-                            dragY?.wrappedValue = max(0, v.translation.height)
-                        }
-                        .onEnded { v in
-                            dragY?.wrappedValue = 0
-                            onDragEnd?(v.translation.height, v.predictedEndTranslation.height)
-                        }
-                )
+                .allowsHitTesting(false)
                 .animation(store.pageMotion ? .spring(response: 0.28, dampingFraction: 0.7) : nil,
                            value: dragging)
         }
@@ -393,7 +388,7 @@ struct DayEditor: View {
                         if on {
                             draft.type = "xiu"
                             draft.work = WorkHours()
-                            draft.leave = LeaveInfo(type: "xiu", hour: 8, multiple: 0)
+                            draft.leave = LeaveInfo(type: "xiu", hour: classNeed, multiple: 0)
                         } else {
                             draft.leave = nil
                             if draft.type == "xiu" { draft.type = Cal.dayKind(date) }
@@ -447,7 +442,17 @@ struct DayEditor: View {
 
                 NumberRow(title: "请假小时", unit: "H",
                           value: Binding(get: { draft.leave?.hour ?? 0 },
-                                         set: { draft.leave?.hour = $0 }),
+                                         set: { h in
+                                             draft.leave?.hour = h
+                                             // 改成半天假：把没请的那段补成正班工时；
+                                             // 请满了就把工时收掉。用户自己填过更少的工时就不动它。
+                                             let need = classNeed
+                                             if h + 0.01 >= need {
+                                                 draft.work = WorkHours()
+                                             } else if draft.work.total == 0 || draft.work.total > need - h + 0.01 {
+                                                 draft.work = WorkHours(zb: max(0, need - h))
+                                             }
+                                         }),
                           palette: palette, range: 0...24)
 
                 if !fullLeave {
@@ -671,8 +676,9 @@ struct DayEditor: View {
     }
 
     private func save() {
-        // 整天不在岗才算休假类型；请了假还来上班的，类型留着他选的班/周末/节假
-        if let l = draft.leave, !l.alsoWork {
+        // 只有整天不在岗才算休假类型：半天假照常是正班/周末/节假，
+        // 类型一改成休假，工时和补助就跟着被当成「这天没上班」处理了
+        if let l = draft.leave, !l.alsoWork, l.hour + 0.01 >= classNeed {
             draft.type = "xiu"
         }
         if draft.work.total > 24 * 4 {

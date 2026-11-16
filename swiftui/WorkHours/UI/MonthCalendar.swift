@@ -186,7 +186,9 @@ struct MonthCalendar: View {
         let isNight = clsName.map { $0.contains("中") || $0.contains("晚") || $0.contains("夜") } ?? false
         let leaveHour = rec?.leave?.hour ?? 0
         let hasLeave = (rec?.leave != nil) && leaveHour > 0
-        let fullLeave = hasLeave && leaveHour >= 8
+        // 跟编辑页同一个口径：假时长请满当天该上的工时才算整天，原来硬写 8 小时
+        let needHour = store.defaultWork(forClass: rec?.classId ?? "").total
+        let fullLeave = hasLeave && leaveHour + 0.01 >= (needHour > 0 ? needHour : 8)
         let icon: String? = fullLeave ? "bed.double.fill"
             : (clsName == nil ? nil
                : (isDay ? "sunrise.fill" : (isNight ? "moon.stars.fill" : "briefcase.fill")))
@@ -204,7 +206,13 @@ struct MonthCalendar: View {
 
         var hours: String?
         if showsHours, let r = rec {
-            hours = hasLeave ? "假\(Cal.num(leaveHour))H" : store.daySummary(r)
+            // 整天假才只写假时长；半天假是「上了几小时 + 加班几小时」，
+            // 半天这个事实由右上角的「½」标出来，不再霸占工时那格
+            if hasLeave && fullLeave {
+                hours = "假\(Cal.num(leaveHour))H"
+            } else {
+                hours = store.daySummary(r)
+            }
         }
 
         // 农历跟着"日历显示农历"开关走；关掉只留节假日名（原来这一格不看开关）

@@ -294,7 +294,7 @@ final class Store: ObservableObject {
     /// 当天到手：工时钱 + 补贴 − 请假扣款。请一天假就是负的，界面上按负数显示。
     func dayPay(_ rec: DayRecord) -> Double {
         // 整天休假的日子，历史数据里可能还挂着补助，这里一律不计
-        let extra = Self.offAllDay(rec) ? 0 : bonusTotal(rec)
+        let extra = offAllDay(rec) ? 0 : bonusTotal(rec)
         var p = 0.0
         if rec.settle > 0 {
             p = rec.settle
@@ -328,12 +328,18 @@ final class Store: ObservableObject {
         return nil
     }
 
-    /// 整天不在岗：请假且没勾「当天仍上班」，或者干脆记成休假又没工时。
-    /// 这种日子一分补助都不该有。
-    static func offAllDay(_ rec: DayRecord) -> Bool {
-        if rec.leave != nil && !(rec.leave?.alsoWork ?? false) { return true }
-        if rec.type == "xiu" && rec.work.total <= 0 { return true }
-        return false
+    /// 整天不在岗：假时长把当天该上的工时请满了（或者干脆记成休假又没工时）。
+    /// 半天假不算——请 4 小时、上 4 小时的日子照常有补助。
+    /// 判据必须是时长，不能只看「有没有请假」：那会把半天假一并算成整天。
+    func offAllDay(_ rec: DayRecord) -> Bool {
+        if let l = rec.leave {
+            if l.alsoWork { return false }
+            let need = defaultWork(forClass: rec.classId).total
+            let base = need > 0 ? need : 8
+            if l.hour + 0.01 >= base { return true }
+            return l.hour < 0.5 && rec.work.total <= 0
+        }
+        return rec.type == "xiu" && rec.work.total <= 0
     }
 
     func ensureAutoAllowance(_ rec: inout DayRecord) {
@@ -348,7 +354,7 @@ final class Store: ObservableObject {
         }
 
         // 整天休假没上班就别发补助；请了假但还来上班的（加班），照发
-        if Self.offAllDay(rec) { return }
+        if offAllDay(rec) { return }
         if rec.work.total <= 0 { return }
         guard let name = name else { return }
         let night = name == "夜班补助"

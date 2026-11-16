@@ -527,8 +527,6 @@ private struct EditorBox: View, Equatable {
     var onClose: () -> Void
     var bottomInset: CGFloat
     var dragging: Bool
-    var dragY: Binding<CGFloat>
-    var onDragEnd: (CGFloat, CGFloat) -> Void
 
     static func == (a: EditorBox, b: EditorBox) -> Bool {
         a.date == b.date && a.bottomInset == b.bottomInset
@@ -537,8 +535,7 @@ private struct EditorBox: View, Equatable {
 
     var body: some View {
         DayEditor(date: date, palette: palette, onClose: onClose,
-                  bottomInset: bottomInset, dragging: dragging,
-                  dragY: dragY, onDragEnd: onDragEnd)
+                  bottomInset: bottomInset, dragging: dragging)
     }
 }
 
@@ -553,8 +550,9 @@ struct DayEditorStage: View {
     @EnvironmentObject private var store: Store
     @State private var shown = false
     @State private var closing = false
-    /// 实时位移：由编辑器里的抓手写进来（抓手本身不可滚动，永远不会和按钮抢触摸）
-    @State private var dragY: CGFloat = 0
+    /// 实时位移仍放 GestureState：它更新路径最短、松手自动归零。
+    /// 上一版绕出去、用 @State 每帧写一遍，等于每帧都把整棵浮层重算一次，手指一拖就抖。
+    @GestureState private var dragY: CGFloat = 0
     /// 松手后接住当前位移，再动画归位
     @State private var settle: CGFloat = 0
     /// 拖动的时候要按住里面的滚动列表，否则两边一起动，画面就在抖
@@ -579,15 +577,7 @@ struct DayEditorStage: View {
 
                 // 拖的时候只留描边：阴影 + 每次重算圆角路径会把整屏重绘一遍，手感全被吃掉
                 EditorBox(date: date, palette: palette, onClose: close,
-                          bottomInset: bottomInset, dragging: dragging,
-                          dragY: Binding(get: { dragY },
-                                         set: { v in
-                                             dragY = v
-                                             // 只在第一次拉起时置真：按 v > 0 每帧判会让 dragging 反复翻，
-                                             // 编辑页整棵跟着重建，拖动就一顿一顿的
-                                             if v > 0 && !dragging { dragging = true }
-                                         }),
-                          onDragEnd: endDrag)
+                          bottomInset: bottomInset, dragging: dragging)
                     .equatable()
                     .frame(width: full.width, height: sheetH)
                     .background(sheetShape.fill(Ledger.paper))
@@ -597,6 +587,9 @@ struct DayEditorStage: View {
                     }
                     .offset(y: shown ? pull : sheetH + 48)
 
+                if shown && !closing {
+                    gripZone(height: sheetH)
+                }
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -609,22 +602,47 @@ struct DayEditorStage: View {
         }
     }
 
-    /// 松手：拉得够远或者甩得够快就关，否则弹回去。
-    /// 手势由编辑页里的抓手发起，这里只做结算。
-    private func endDrag(_ translation: CGFloat, _ predicted: CGFloat) {
-        dragging = false
-        let far = translation > 150
-        let fling = predicted > 430
-        settle = max(0, translation)
-        if far || fling {
-            close()
-        } else {
-            DispatchQueue.main.async {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                    settle = 0
-                }
-            }
-        }
+    /// 接指区：只占抓手那一块（居中 168×26）。
+    ///
+    /// 位置有讲究——它必须挂在浮层外面、由 Stage 持有，位移才能用 GestureState 走系统更新路径；
+    /// 但又不能像 1.8.4 那样铺满整条，否则列表滚到顶时下面的按钮全被它吃掉。
+    /// 抓手那条横带是唯一「内容永远滚不到」的地方（内容顶距 34），放这里两头都占到。
+    private func gripZone(height: CGFloat) -> some View {
+        Color.black.opacity(0.001)
+            .frame(width: 168, height: 26)
+            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity)
+            .frame(height: height, alignment: .top)
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .updating($dragY) { v, state, _ in
+                        state = max(0, v.translation.height)
+                    }
+                    .onChanged { _ in
+                        guard !dragging else { return }
+                        dragging = true
+                        // 上一轮弹回去还没走完就又按住，两个位移会叠在一起，看着就是抖
+                        var t = Transaction()
+                        t.disablesAnimations = true
+                        withTransaction(t) { settle = 0 }
+                    }
+                    .onEnded { v in
+                        dragging = false
+                        let far = v.translation.height > 150
+                        let fling = v.predictedEndTranslation.height > 430
+                        if far || fling {
+                            settle = max(0, v.translation.height)
+                            close()
+                        } else {
+                            settle = max(0, v.translation.height)
+                            DispatchQueue.main.async {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                    settle = 0
+                                }
+                            }
+                        }
+                    }
+            )
     }
 
     private func close() {
