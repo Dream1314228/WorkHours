@@ -75,7 +75,7 @@ struct StatsPage: View {
                                 Text("本期")
                                     .font(.system(size: 10, weight: .semibold))
                             }
-                            .foregroundStyle(palette.primary)
+                            .foregroundStyle(palette.deep)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
                             .background(Capsule().fill(palette.primary.opacity(0.12)))
@@ -103,6 +103,13 @@ struct StatsPage: View {
                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
         .buttonStyle(PressableStyle())
+        .accessibilityLabel({
+            switch icon {
+            case "chevron.left": return "上一个周期"
+            case "chevron.right": return "下一个周期"
+            default: return "导出报表"
+            }
+        }())
     }
 
     private func step(_ delta: Int) {
@@ -124,7 +131,7 @@ struct StatsPage: View {
             shareItems = [url]
             showShare = true
         } catch {
-            ToastCenter.shared.show("导出失败：\(error.localizedDescription)")
+            ToastCenter.shared.show("报表没导出来：\(error.localizedDescription)。再点一次，或换一份数据再导", kind: .error)
         }
     }
 }

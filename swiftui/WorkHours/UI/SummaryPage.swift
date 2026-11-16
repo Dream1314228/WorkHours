@@ -80,7 +80,7 @@ struct SummaryPage: View {
             .padding(.horizontal, 12)
             .frame(height: 34)
             .background {
-                Capsule().fill(mode == value ? palette.primary : Color.primary.opacity(0.06))
+                Capsule().fill(mode == value ? palette.deep : Color.primary.opacity(0.06))
             }
             .contentShape(Capsule())
         }
@@ -175,7 +175,7 @@ struct SummaryPage: View {
                         HStack(spacing: 4) {
                             Image(systemName: "chart.xyaxis.line")
                                 .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(palette.primary)
+                                .foregroundStyle(palette.deep)
                             Text("每月工时")
                                 .font(.system(size: 11))
                                 .foregroundStyle(Color.gsSecondary)
@@ -184,7 +184,7 @@ struct SummaryPage: View {
                                 Text("峰 \(Cal.num(peak))H")
                                     .font(.system(size: 10, weight: .medium))
                                     .monospacedDigit()
-                                    .foregroundStyle(palette.primary)
+                                    .foregroundStyle(palette.deep)
                             }
                         }
                         TrendLine(values: ys.months.map { $0.hours }, color: palette.primary)
@@ -391,7 +391,7 @@ struct MonthBarChart: View {
                                     Text(Cal.num(m.hours))
                                         .font(.system(size: 8, weight: .semibold))
                                         .monospacedDigit()
-                                        .foregroundStyle(palette.primary)
+                                        .foregroundStyle(palette.deep)
                                         .fixedSize()
                                         .offset(y: -h - 10)
                                         .opacity(grown ? 1 : 0)

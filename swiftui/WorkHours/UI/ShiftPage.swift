@@ -103,6 +103,7 @@ struct ShiftPage: View {
                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
         .buttonStyle(PressableStyle())
+        .accessibilityLabel(icon == "chevron.left" ? "前一天" : "后一天")
     }
 
     private func move(_ delta: Int, animated: Bool = true) {

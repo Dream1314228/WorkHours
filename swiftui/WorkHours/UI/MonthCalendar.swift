@@ -316,7 +316,8 @@ private struct CalendarDayCell: View {
 
     private var dayColor: Color {
         if selected { return onSelectedInk }
-        if isPayday { return gold }
+        // 17pt 也是正文，纯金对纸面只有 2.78:1；深金 4.80:1，金色相还在
+        if isPayday { return goldInk }
         return Ledger.ink
     }
 
@@ -388,7 +389,7 @@ private struct CalendarDayCell: View {
                             .monospacedDigit()
                             .foregroundStyle(selected ? onSelectedInk
                                              : (data.isLeave ? Color.gsRed
-                                                : (isPayday ? gold : palette.primary)))
+                                                : (isPayday ? gold : palette.deep)))
                             .shadow(color: isPayday && !selected ? gold.opacity(0.22) : .clear,
                                     radius: 2)
                             .lineLimit(1)
@@ -411,7 +412,7 @@ private struct CalendarDayCell: View {
             .background {
                 RoundedRectangle(cornerRadius: 13, style: .continuous)
                     // 发薪日选中时改成主题色浅底：实心色块上金字看不清，浅底才留得住金色
-                    .fill(selected ? (isPayday ? palette.primary.opacity(0.16) : palette.primary)
+                    .fill(selected ? (isPayday ? palette.deep.opacity(0.14) : palette.deep)
                                    : Color.clear)
                     .overlay {
                         if selected && isPayday {

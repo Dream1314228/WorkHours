@@ -286,8 +286,10 @@ struct ChipView: View {
                     .foregroundStyle(selectedText)
                     .padding(.horizontal, 14)
                     .frame(height: 44)
+                    // 选中态压深一档：青绿/松绿/赤橙的白字压在 primary 上只有 3.3:1，
+                    // 换成 deep 后 5.0–5.8:1，主按钮也是这个色阶
                     .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(color ?? palette.primary))
+                        .fill(color ?? palette.deep))
             } else {
                 Text(title)
                     .font(.system(size: 13))
@@ -410,13 +412,31 @@ struct NumberRow: View {
 
 final class ToastCenter: ObservableObject {
     static let shared = ToastCenter()
-    @Published var message: String?
 
-    func show(_ text: String) {
+    enum Kind { case success, error }
+
+    @Published var message: String?
+    @Published var isError = false
+
+    func show(_ text: String) { show(text, kind: .success) }
+
+    /// 成功自己走，错误必须留到用户点掉：不然低头一看提示就没了，也截不到图
+    func show(_ text: String, kind: Kind) {
         message = text
+        isError = kind == .error
+        UIAccessibility.post(notification: .announcement, argument: text)
+        guard kind == .success else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.9) { [weak self] in
-            if self?.message == text { self?.message = nil }
+            if self?.message == text {
+                self?.message = nil
+                self?.isError = false
+            }
         }
+    }
+
+    func dismiss() {
+        message = nil
+        isError = false
     }
 }
 
@@ -428,19 +448,41 @@ struct ToastOverlay: View {
         VStack {
             Spacer()
             if let m = center.message {
-                Text(m)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(scheme == .dark ? Color.black : Color.white)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(
-                        Capsule().fill(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.86))
-                    )
-                    .padding(.bottom, 110)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(m)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(scheme == .dark ? Color.black : Color.white)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if center.isError {
+                        Button {
+                            center.dismiss()
+                        } label: {
+                            Text("知道了")
+                                .font(.system(size: 13, weight: .semibold))
+                                .padding(.horizontal, 14)
+                                .frame(height: 32)
+                                .background(
+                                    Capsule().fill(scheme == .dark
+                                                   ? Color.black.opacity(0.10)
+                                                   : Color.white.opacity(0.18))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(scheme == .dark ? Color.black : Color.white)
+                    }
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: center.isError ? 16 : 22, style: .continuous)
+                        .fill(scheme == .dark ? Color.white.opacity(0.92) : Color.black.opacity(0.86))
+                )
+                .padding(.horizontal, 24)
+                .padding(.bottom, 110)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: center.message)
-        .allowsHitTesting(false)
+        .allowsHitTesting(center.isError)
     }
 }

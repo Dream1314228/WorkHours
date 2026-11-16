@@ -128,6 +128,7 @@ struct DayEditor: View {
                     .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
             }
             .buttonStyle(PressableStyle())
+            .accessibilityLabel("关闭编辑")
         }
     }
 
@@ -206,7 +207,7 @@ struct DayEditor: View {
                     HStack(spacing: 8) {
                         Image(systemName: "square.grid.3x3.topleft.filled")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(palette.primary)
+                            .foregroundStyle(palette.deep)
                         VStack(alignment: .leading, spacing: 1) {
                             Text("排班表：\(planned.name)")
                                 .font(.system(size: 12, weight: .medium))
@@ -228,7 +229,7 @@ struct DayEditor: View {
                                 .foregroundStyle(palette.onPrimary)
                                 .padding(.horizontal, 12)
                                 .frame(height: 28)
-                                .background(Capsule().fill(palette.primary))
+                                .background(Capsule().fill(palette.deep))
                                 .contentShape(Capsule())
                         }
                         .buttonStyle(PressableStyle())
@@ -462,7 +463,7 @@ struct DayEditor: View {
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 38)
                                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(on ? palette.primary : Color.primary.opacity(0.06)))
+                                    .fill(on ? palette.deep : Color.primary.opacity(0.06)))
                                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .strokeBorder(Color.primary.opacity(on ? 0 : 0.10), lineWidth: 0.8))
                                 .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

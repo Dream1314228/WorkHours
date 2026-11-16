@@ -225,6 +225,7 @@ struct CalendarPage: View {
                 .overlay(Circle().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8))
         }
         .buttonStyle(PressableStyle())
+        .accessibilityLabel(icon == "chevron.left" ? "上个月" : "下个月")
     }
 
     private func moveMonth(_ delta: Int, animated: Bool = true) {
@@ -571,7 +572,7 @@ struct DayEditorStage: View {
                 Color.black
                     .opacity(shown ? 0.36 * max(0, 1 - pull / (sheetH * 0.8)) : 0)
                     .ignoresSafeArea()
-                    .onTapGesture { if store.pageMotion { close() } }
+                    .onTapGesture { close() }
 
                 // 拖的时候只留描边：阴影 + 每次重算圆角路径会把整屏重绘一遍，手感全被吃掉
                 EditorBox(date: date, palette: palette, onClose: close,
@@ -613,7 +614,8 @@ struct DayEditorStage: View {
                 Rectangle()
                     .fill(Color.black.opacity(0.001))
                     .frame(maxWidth: .infinity)
-                    .frame(height: 46)
+                    // 28 以下就是标题行：再高就把标题盖住、列表也没法从上往下滑
+                    .frame(height: 28)
                     .contentShape(Rectangle())
                     .gesture(
                         DragGesture(minimumDistance: 8)

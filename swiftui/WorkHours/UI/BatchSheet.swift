@@ -173,7 +173,7 @@ struct BatchSheet: View {
             .frame(height: 40)
             .background {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(on ? palette.primary : Color.primary.opacity(0.04))
+                    .fill(on ? palette.deep : Color.primary.opacity(0.04))
             }
             .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }

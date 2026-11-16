@@ -967,7 +967,7 @@ struct SettingsPage: View {
                             refreshSnapshotState()
                             ToastCenter.shared.show("已恢复导入前的数据")
                         } catch {
-                            ToastCenter.shared.show(importErrorMessage(error))
+                            ToastCenter.shared.show(importErrorMessage(error), kind: .error)
                         }
                     }
                     Button("取消", role: .cancel) {}
@@ -1046,7 +1046,7 @@ struct SettingsPage: View {
         if error is Store.ImportError || error is HolidayData.ImportError {
             return error.localizedDescription
         }
-        return "这份备份打不开，可能不是工时记录的备份文件"
+        return "这不是工时记录的备份。选 .gsjilu 结尾的文件再试"
     }
 
     private var aboutSection: some View {
@@ -1065,7 +1065,7 @@ struct SettingsPage: View {
 
     private func exportBackup() {
         guard let data = store.backupData() else {
-            ToastCenter.shared.show("导出失败")
+            ToastCenter.shared.show("备份没生成出来。再点一次导出；还不行就重启 App 再试", kind: .error)
             return
         }
         let name = "工时记录备份-\(Cal.todayKey()).gsjilu"
@@ -1075,7 +1075,7 @@ struct SettingsPage: View {
             backupURL = url
             ToastCenter.shared.show("已生成，点下面分享")
         } catch {
-            ToastCenter.shared.show("写入文件失败")
+            ToastCenter.shared.show("文件没写进临时目录。清理一下手机存储，再点导出", kind: .error)
         }
     }
 
@@ -1099,7 +1099,7 @@ struct SettingsPage: View {
             refreshingHolidays = false
             holidayYears = HolidayData.shared.coveredYears
             if got.isEmpty {
-                ToastCenter.shared.show("没取到节假日：\(lastError ?? "网络不通")")
+                ToastCenter.shared.show("没取到节假日：\(lastError ?? "网络不通")。检查网络后再点一次更新", kind: .error)
             } else {
                 ToastCenter.shared.show("已更新 " + got.map(String.init).joined(separator: "、") + " 年")
             }
@@ -1120,7 +1120,7 @@ struct SettingsPage: View {
                 ToastCenter.shared.show("导入成功：" + url.lastPathComponent)
             }
         } catch {
-            ToastCenter.shared.show(importErrorMessage(error))
+            ToastCenter.shared.show(importErrorMessage(error), kind: .error)
         }
     }
 

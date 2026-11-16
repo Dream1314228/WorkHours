@@ -92,7 +92,7 @@ struct MonthSummaryContent: View {
                     HStack(spacing: 4) {
                         Image(systemName: "chart.xyaxis.line")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(palette.primary)
+                            .foregroundStyle(palette.deep)
                         Text("每日工时")
                             .font(.system(size: 11))
                             .foregroundStyle(Color.gsSecondary)
@@ -101,7 +101,7 @@ struct MonthSummaryContent: View {
                             Text("最高 \(Cal.num(peak))H")
                                 .font(.system(size: 10, weight: .medium))
                                 .monospacedDigit()
-                                .foregroundStyle(palette.primary)
+                                .foregroundStyle(palette.deep)
                         }
                     }
                     TrendLine(values: dayTotals, color: palette.primary)
@@ -509,7 +509,7 @@ struct DayBarChart: View {
                                     Text(Cal.num(total))
                                         .font(.system(size: 9, weight: .semibold))
                                         .monospacedDigit()
-                                        .foregroundStyle(palette.primary)
+                                        .foregroundStyle(palette.deep)
                                         .frame(height: 10)
                                         .fixedSize()
                                         .opacity(progress > 0.15 ? 1 : 0)
