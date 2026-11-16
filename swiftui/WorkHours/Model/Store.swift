@@ -277,26 +277,33 @@ final class Store: ObservableObject {
 
     func dayHours(_ rec: DayRecord) -> Double { rec.work.total }
 
-    func leavePay(_ rec: DayRecord) -> Double {
+    /// 请假要扣多少：小时 × 正班单价 × 倍率；按固定金额填就是那个数。
+    /// 返回值是正数，表示扣掉多少。
+    func leaveDeduct(_ rec: DayRecord) -> Double {
         guard let l = rec.leave, l.hour > 0 else { return 0 }
-        if l.rule == "money" { return l.money }
-        return l.hour * rate(projectId: rec.projectId, type: "zb") * l.multiple
+        if l.rule == "money" { return max(0, l.money) }
+        return l.hour * rate(projectId: rec.projectId, type: "zb") * max(0, l.multiple)
     }
 
     func bonusTotal(_ rec: DayRecord) -> Double {
         rec.bt.reduce(0) { $0 + $1.money }
     }
 
+    /// 当天到手：工时钱 + 补贴 − 请假扣款。请一天假就是负的，界面上按负数显示。
     func dayPay(_ rec: DayRecord) -> Double {
         let extra = bonusTotal(rec)
-        if rec.settle > 0 { return Cal.round2(rec.settle + extra) }
         var p = 0.0
-        p += rec.work.zb * rate(projectId: rec.projectId, type: "zb")
-        p += rec.work.jb * rate(projectId: rec.projectId, type: "jb")
-        p += rec.work.zm * rate(projectId: rec.projectId, type: "zm")
-        p += rec.work.jj * rate(projectId: rec.projectId, type: "jj")
-        p += leavePay(rec)
-        return Cal.round2(p + extra)
+        if rec.settle > 0 {
+            p = rec.settle
+        } else {
+            p += rec.work.zb * rate(projectId: rec.projectId, type: "zb")
+            p += rec.work.jb * rate(projectId: rec.projectId, type: "jb")
+            p += rec.work.zm * rate(projectId: rec.projectId, type: "zm")
+            p += rec.work.jj * rate(projectId: rec.projectId, type: "jj")
+        }
+        p += extra
+        p -= leaveDeduct(rec)
+        return Cal.round2(p)
     }
 
     func daySummary(_ rec: DayRecord?) -> String {
@@ -320,7 +327,8 @@ final class Store: ObservableObject {
 
     func ensureAutoAllowance(_ rec: inout DayRecord) {
         guard data.settings.autoBonus else { return }
-        if rec.type == "xiu" { return }
+        // 整天休假没上班就别发补助；请了假但还来上班的（加班），照发
+        if rec.type == "xiu" && rec.work.total <= 0 { return }
         let hasLeave = rec.leave != nil
         if rec.work.total <= 0 && !hasLeave { return }
         guard let name = allowanceName(forClass: rec.classId) else { return }

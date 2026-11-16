@@ -26,8 +26,9 @@ struct DayEditor: View {
     ]
 
     private var isLeave: Bool { draft.leave != nil }
-    /// 请满 8 小时算全天：这时候不上班，班次、项目、工时、补贴都不该再占地方
-    private var fullLeave: Bool { (draft.leave?.hour ?? 0) >= 8 && draft.leave != nil }
+    /// 整天不在岗：班次、项目、工时、补贴都不占地方。
+    /// 是否上班由请假区那个开关说了算，跟请几小时无关。
+    private var fullLeave: Bool { draft.leave != nil && !(draft.leave?.alsoWork ?? false) }
     private var leaveHour: Double { draft.leave?.hour ?? 0 }
 
     /// 当天排班表里排的班次
@@ -135,7 +136,7 @@ struct DayEditor: View {
     /// 顶上这行给焦点：现在能拿多少、几小时、哪个班，不用滚到底看
     private var summary: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(total < 0 ? "-" + Cal.money(-total) : Cal.money(total))
+            Text(Cal.signedMoney(total))
                 .font(.system(size: 30, weight: .bold))
                 .monospacedDigit()
                 .foregroundStyle(total < 0 ? Color.gsRed : Color.gsOrange)
@@ -153,7 +154,7 @@ struct DayEditor: View {
     private var summaryDetail: String {
         var parts: [String] = []
         if fullLeave {
-            parts.append("全天请假 \(Cal.num(leaveHour)) 小时")
+            parts.append("整天请假 \(Cal.num(leaveHour)) 小时")
         } else {
             if draft.work.total > 0 { parts.append("\(Cal.num(draft.work.total)) 小时") }
             if let l = draft.leave { parts.append("请假 \(Cal.num(l.hour)) 小时") }
@@ -299,7 +300,7 @@ struct DayEditor: View {
             if draft.leave == nil {
                 draft.leave = LeaveInfo(type: "xiu", hour: 8, multiple: 0)
             }
-            if (draft.leave?.hour ?? 8) >= 8 {
+            if draft.leave?.alsoWork == false {
                 draft.work = WorkHours()
             } else if draft.work.total == 0 {
                 draft.work = Store.workForType("zb", from: def)
@@ -401,28 +402,51 @@ struct DayEditor: View {
                     Spacer()
                 }
 
+                HStack(spacing: 8) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("当天仍上班")
+                            .font(.system(size: 15))
+                        Text("整天请假又回来加班时打开")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.gsSecondary)
+                    }
+                    Spacer(minLength: 6)
+                    Toggle("", isOn: Binding(
+                        get: { draft.leave?.alsoWork ?? false },
+                        set: { on in
+                            draft.leave?.alsoWork = on
+                            if on && draft.work.total == 0 {
+                                draft.work = Store.workForType("zb", from: store.defaultWork(forClass: draft.classId))
+                            }
+                            if !on { draft.work = WorkHours() }
+                        }
+                    ))
+                    .labelsHidden()
+                    .tint(palette.primary)
+                }
+
                 NumberRow(title: "请假小时", unit: "H",
                           value: Binding(get: { draft.leave?.hour ?? 0 },
-                                         set: { v in
-                                             draft.leave?.hour = v
-                                             if v >= 8 {
-                                                 // 整天不在，工时没有意义
-                                                 draft.work = WorkHours()
-                                             } else if draft.work.total == 0 {
-                                                 // 只请半天，剩下半天照常上班，先把默认工时铺上
-                                                 draft.work = Store.workForType("zb", from: store.defaultWork(forClass: draft.classId))
-                                             }
-                                         }),
+                                         set: { draft.leave?.hour = $0 }),
                           palette: palette, range: 0...24)
 
                 if !fullLeave {
-                    Text("剩下 \(Cal.num(24 - leaveHour)) 小时照常上班，工时填在下面「工时」里")
+                    Text("这天仍来上班，上班时长填在下面「工时」里")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.gsSecondary)
+                } else {
+                    Text("整天不在岗，班次、工时、补贴都已收起；要是还来加班，打开上面「当天仍上班」")
                         .font(.system(size: 10))
                         .foregroundStyle(Color.gsSecondary)
                 }
 
-                Text("计薪倍率")
-                    .font(.system(size: 15))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("请假扣款倍率")
+                        .font(.system(size: 15))
+                    Text("请假小时 × 正班单价 × 倍率，从当天工资里扣")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.gsSecondary)
+                }
 
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
                           spacing: 8) {
@@ -575,7 +599,7 @@ struct DayEditor: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
                     .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(palette.deep))
+                        .fill(palette.deep.opacity(0.58)))
                     .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
             .buttonStyle(PressableStyle())
@@ -627,7 +651,8 @@ struct DayEditor: View {
     }
 
     private func save() {
-        if let l = draft.leave, l.hour >= 8 {
+        // 整天不在岗才算休假类型；请了假还来上班的，类型留着他选的班/周末/节假
+        if let l = draft.leave, !l.alsoWork {
             draft.type = "xiu"
         }
         if draft.work.total > 24 * 4 {

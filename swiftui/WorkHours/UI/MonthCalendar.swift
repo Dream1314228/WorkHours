@@ -196,7 +196,7 @@ struct MonthCalendar: View {
         let makeup = Cal.isMakeupWorkday(key)
 
         var mark = ""
-        if hasLeave { mark = "假" }
+        if hasLeave { mark = rec?.leave?.alsoWork == true ? "½" : "假" }
         else if isPayday { mark = "薪" }
         else if kind == "jj" { mark = "节" }
         else if kind == "zm" { mark = "休" }

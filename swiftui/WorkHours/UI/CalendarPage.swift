@@ -327,10 +327,10 @@ struct CalendarPage: View {
                 Spacer(minLength: 8)
                 if let rec = selectedRecord {
                     VStack(alignment: .trailing, spacing: 1) {
-                        Text(Cal.money(store.dayPay(rec)))
+                        Text(Cal.signedMoney(store.dayPay(rec)))
                             .font(.system(size: 20, weight: .bold))
                             .monospacedDigit()
-                            .foregroundStyle(Color.gsOrange)
+                            .foregroundStyle(store.dayPay(rec) < 0 ? Color.gsRed : Color.gsOrange)
                             .contentTransition(.numericText())
                         Text("当天合计")
                             .font(.system(size: 9))
@@ -611,7 +611,7 @@ struct DayEditorStage: View {
                 .frame(height: 48)
                 .contentShape(Rectangle())
                 .gesture(
-                    DragGesture(minimumDistance: 2)
+                    DragGesture(minimumDistance: 10)
                         .updating($dragY) { v, state, _ in
                             state = max(0, v.translation.height)
                         }
@@ -619,8 +619,8 @@ struct DayEditorStage: View {
                             if !dragging { dragging = true }
                         }
                         .onEnded { v in
-                            let far = v.translation.height > 110
-                            let fling = v.predictedEndTranslation.height > 280
+                            let far = v.translation.height > 150
+                            let fling = v.predictedEndTranslation.height > 430
                             if far || fling {
                                 // 接住当前位移，手势值归零时画面才不会跳回原位
                                 settle = max(0, v.translation.height)

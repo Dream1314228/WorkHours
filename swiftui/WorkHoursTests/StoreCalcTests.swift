@@ -34,17 +34,31 @@ struct DayPayTests {
         expectClose(s.dayPay(s.record("2026-03-02")!), 320)
     }
 
-    @Test func 请假按金额直加() {
+    @Test func 请假按金额从当天扣() {
         let rec = FX.rec(leave: LeaveInfo(type: "xiu", hour: 8, rule: "money", multiple: 0, money: 50))
         let s = FX.store(FX.payload(records: ["2026-03-03": rec]))
-        expectClose(s.dayPay(s.record("2026-03-03")!), 50)
+        expectClose(s.dayPay(s.record("2026-03-03")!), -50)
     }
 
-    @Test func 请假按小时乘正班单价乘倍数() {
+    @Test func 请假按小时扣款() {
         let rec = FX.rec(leave: LeaveInfo(type: "xiu", hour: 4, rule: "hour", multiple: 1.5))
         let s = FX.store(FX.payload(records: ["2026-03-03": rec]))
-        // 4 × 12.82 × 1.5 = 76.92
-        expectClose(s.dayPay(s.record("2026-03-03")!), 76.92)
+        // 扣 4 × 12.82 × 1.5 = 76.92
+        expectClose(s.dayPay(s.record("2026-03-03")!), -76.92)
+    }
+
+    @Test func 整天请假仍上班按加班算并按请假扣款() {
+        // 请 8 小时假，又回来加 4 小时班，倍率 1：加班 4×19.23=76.92，扣 8×12.82=102.56
+        let rec = FX.rec(jb: 4, leave: LeaveInfo(type: "xiu", hour: 8, multiple: 1, alsoWork: true))
+        let s = FX.store(FX.payload(records: ["2026-03-03": rec]))
+        expectClose(s.dayPay(s.record("2026-03-03")!), -25.64)
+    }
+
+    @Test func 请半天不扣就不减钱() {
+        let rec = FX.rec(zb: 4, jb: 2, leave: LeaveInfo(type: "xiu", hour: 4, multiple: 0, alsoWork: true))
+        let s = FX.store(FX.payload(records: ["2026-03-03": rec]))
+        // 4×12.82 + 2×19.23 = 89.74，倍率 0 不扣
+        expectClose(s.dayPay(s.record("2026-03-03")!), 89.74)
     }
 
     @Test func 负数补助从合计里扣() {

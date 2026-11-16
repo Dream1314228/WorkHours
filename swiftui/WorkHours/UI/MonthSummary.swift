@@ -411,7 +411,8 @@ struct MonthSummaryContent: View {
                                 .foregroundStyle(Ledger.ink)
                                 .frame(width: 44, alignment: .trailing)
                             Spacer()
-                            AmountText(text: Cal.money(store.dayPay(rec)), size: 13)
+                            AmountText(text: Cal.signedMoney(store.dayPay(rec)), size: 13,
+                                       color: store.dayPay(rec) < 0 ? Ledger.red : Ledger.ink)
                                 .frame(width: 76, alignment: .trailing)
                         }
                         .frame(height: 38)

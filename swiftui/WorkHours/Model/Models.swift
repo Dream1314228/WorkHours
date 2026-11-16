@@ -96,13 +96,18 @@ struct LeaveInfo: Codable, Hashable {
     var type: String = "xiu"          // xiu / shi / bing / nian
     var hour: Double = 8
     var rule: String = "hour"          // hour / money
-    var multiple: Double = 0
+    var multiple: Double = 0           // 扣款倍率：请假小时 × 正班单价 × 倍率
     var money: Double = 0
+    /// 这天是否仍来上班。请假 8 小时又加 4 小时班是有的，
+    /// 所以「全天/半天」不再靠小时数猜，由这个开关说了算。
+    var alsoWork: Bool = false
 
-    enum CodingKeys: String, CodingKey { case type, hour, rule, multiple, money }
+    enum CodingKeys: String, CodingKey { case type, hour, rule, multiple, money, alsoWork }
 
-    init(type: String = "xiu", hour: Double = 8, rule: String = "hour", multiple: Double = 0, money: Double = 0) {
-        self.type = type; self.hour = hour; self.rule = rule; self.multiple = multiple; self.money = money
+    init(type: String = "xiu", hour: Double = 8, rule: String = "hour", multiple: Double = 0,
+         money: Double = 0, alsoWork: Bool = false) {
+        self.type = type; self.hour = hour; self.rule = rule
+        self.multiple = multiple; self.money = money; self.alsoWork = alsoWork
     }
 
     init(from decoder: Decoder) throws {
@@ -112,7 +117,12 @@ struct LeaveInfo: Codable, Hashable {
         rule = c.strg(.rule, "hour")
         multiple = c.dbl(.multiple)
         money = c.dbl(.money)
+        // 老数据没有这个字段：以前请不满 8 小时的都是半天，按这个推断
+        alsoWork = c.boolv(.alsoWork, hour > 0 && hour < 8)
     }
+
+    /// 整天不在岗
+    var isFullDay: Bool { !alsoWork }
 }
 
 // MARK: - 一天的记录

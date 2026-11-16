@@ -204,5 +204,10 @@ enum Cal {
         "¥" + (moneyFormatter.string(from: NSNumber(value: v)) ?? String(format: "%.2f", v))
     }
 
+    /// 扣款要负号在前：-¥102.56，而不是 ¥-102.56
+    static func signedMoney(_ v: Double) -> String {
+        v < 0 ? "-" + money(-v) : money(v)
+    }
+
     static func round2(_ v: Double) -> Double { (v * 100).rounded() / 100 }
 }
