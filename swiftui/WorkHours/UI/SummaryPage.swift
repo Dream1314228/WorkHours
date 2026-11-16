@@ -396,25 +396,22 @@ struct MonthBarChart: View {
                                         .offset(y: -h - 10)
                                         .opacity(grown ? 1 : 0)
                                 }
-                                VStack(spacing: 1) {
-                                    if otH > 0.5 {
-                                        UnevenRoundedRectangle(topLeadingRadius: 3,
-                                                               bottomLeadingRadius: 0,
-                                                               bottomTrailingRadius: 0,
-                                                               topTrailingRadius: 3,
-                                                               style: .continuous)
-                                            .fill(Color.gsOrange.opacity(0.9))
-                                            .frame(height: otH)
-                                    }
-                                    if zbH > 0.5 {
-                                        UnevenRoundedRectangle(topLeadingRadius: otH > 0.5 ? 0 : 3,
-                                                               bottomLeadingRadius: 0,
-                                                               bottomTrailingRadius: 0,
-                                                               topTrailingRadius: otH > 0.5 ? 0 : 3,
-                                                               style: .continuous)
-                                            .fill(palette.primary.opacity(0.92))
-                                            .frame(height: zbH)
-                                    }
+                                // 两段常驻，一起动：条件插入会让紫段在换月时突然跳一截
+                                VStack(spacing: otH > 0.5 ? 1 : 0) {
+                                    UnevenRoundedRectangle(topLeadingRadius: 3,
+                                                           bottomLeadingRadius: 0,
+                                                           bottomTrailingRadius: 0,
+                                                           topTrailingRadius: 3,
+                                                           style: .continuous)
+                                        .fill(Color.gsOrange.opacity(0.9))
+                                        .frame(height: max(0, otH))
+                                    UnevenRoundedRectangle(topLeadingRadius: otH > 0.5 ? 0 : 3,
+                                                           bottomLeadingRadius: 0,
+                                                           bottomTrailingRadius: 0,
+                                                           topTrailingRadius: otH > 0.5 ? 0 : 3,
+                                                           style: .continuous)
+                                        .fill(palette.primary.opacity(0.92))
+                                        .frame(height: max(0, zbH))
                                 }
                                 .frame(height: max(0.5, h), alignment: .bottom)
                                 // 跟日柱一样：按最终高度画好，用裁切从底往上揭
@@ -430,6 +427,11 @@ struct MonthBarChart: View {
                                            ? .spring(response: 0.42, dampingFraction: 0.9)
                                            : nil,
                                            value: m.hours)
+                                // 总时长没变、加班占比变了，紫段橙段也要一起顺过去
+                                .animation(store.chartMotion
+                                           ? .spring(response: 0.42, dampingFraction: 0.9)
+                                           : nil,
+                                           value: m.jb + m.zm + m.jj)
                             }
                             .frame(height: plotH - 14, alignment: .bottom)
 

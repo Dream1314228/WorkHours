@@ -322,7 +322,7 @@ struct DayEditor: View {
             HStack(alignment: .firstTextBaseline) {
                 SectionTitle(title: "工时")
                 Spacer()
-                Text(isLeave ? "休假不记工时" : "小时")
+                Text(fullLeave ? "休假不记工时" : "小时")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.gsSecondary)
             }
@@ -339,8 +339,8 @@ struct DayEditor: View {
                 HourBox(title: "节假", color: Color.gsRed,
                         value: $draft.work.jj, palette: palette)
             }
-            .disabled(isLeave)
-            .opacity(isLeave ? 0.45 : 1)
+            .disabled(fullLeave)
+            .opacity(fullLeave ? 0.45 : 1)
 
             Divider().opacity(0.4).padding(.top, 2)
 

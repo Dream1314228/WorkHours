@@ -515,25 +515,23 @@ struct DayBarChart: View {
                                         .opacity(progress > 0.15 ? 1 : 0)
                                 }
 
-                                VStack(spacing: 1) {
-                                    if otH > 0.5 {
-                                        UnevenRoundedRectangle(topLeadingRadius: radius,
-                                                               bottomLeadingRadius: 0,
-                                                               bottomTrailingRadius: 0,
-                                                               topTrailingRadius: radius,
-                                                               style: .continuous)
-                                            .fill(Color.gsOrange.opacity(0.92))
-                                            .frame(width: barW, height: otH)
-                                    }
-                                    if zbH > 0.5 {
-                                        UnevenRoundedRectangle(topLeadingRadius: otH > 0.5 ? 0 : radius,
-                                                               bottomLeadingRadius: 0,
-                                                               bottomTrailingRadius: 0,
-                                                               topTrailingRadius: otH > 0.5 ? 0 : radius,
-                                                               style: .continuous)
-                                            .fill(palette.primary.opacity(isToday ? 1 : 0.88))
-                                            .frame(width: barW, height: zbH)
-                                    }
+                                // 橙段和紫段常驻：条件插入会在换期时整块闪掉，
+                                // 两段高度都跟着同一个 animation 走，才会像一根柱子一起长
+                                VStack(spacing: otH > 0.5 ? 1 : 0) {
+                                    UnevenRoundedRectangle(topLeadingRadius: radius,
+                                                           bottomLeadingRadius: 0,
+                                                           bottomTrailingRadius: 0,
+                                                           topTrailingRadius: radius,
+                                                           style: .continuous)
+                                        .fill(Color.gsOrange.opacity(0.92))
+                                        .frame(width: barW, height: max(0, otH))
+                                    UnevenRoundedRectangle(topLeadingRadius: otH > 0.5 ? 0 : radius,
+                                                           bottomLeadingRadius: 0,
+                                                           bottomTrailingRadius: 0,
+                                                           topTrailingRadius: otH > 0.5 ? 0 : radius,
+                                                           style: .continuous)
+                                        .fill(palette.primary.opacity(isToday ? 1 : 0.88))
+                                        .frame(width: barW, height: max(0, zbH))
                                 }
                                 .frame(height: max(0.5, full), alignment: .bottom)
                                 // 从根部揭开：底边不动，顶边往上长
@@ -558,6 +556,11 @@ struct DayBarChart: View {
                                        ? .spring(response: 0.42, dampingFraction: 0.9)
                                        : nil,
                                        value: total)
+                            // 总量没变但加班占比变了，也要整根一起动
+                            .animation(store.chartMotion
+                                       ? .spring(response: 0.42, dampingFraction: 0.9)
+                                       : nil,
+                                       value: ot)
                         }
                     }
                     .frame(height: usable, alignment: .bottom)

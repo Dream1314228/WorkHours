@@ -584,10 +584,10 @@ struct DayEditorStage: View {
                         sheetShape.strokeBorder(Ledger.rule, lineWidth: 0.8)
                     }
                     .offset(y: shown ? pull : sheetH + 48)
-
-                if shown && !closing {
-                    dragCatcher(height: sheetH)
-                }
+                    // 接指区贴在 sheet 顶上：宽度跟 sheet 一致，整条都能拖
+                    .overlay(alignment: .top) {
+                        if shown && !closing { dragZone }
+                    }
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -602,16 +602,15 @@ struct DayEditorStage: View {
 
     /// 透明的接指区：固定不动，所以拖动时它不会被重建，手势也就不会断。
     /// 做得够高，手指一路往下拉到关闭阈值都还在范围内。
-    private func dragCatcher(height: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-            // 左边整条都能拖；右边 84 让给叉键，不然点了没反应
+    /// 顶部整条都能拖：左边一直铺到边，右边 88 让给叉键。
+    private var dragZone: some View {
+        HStack(spacing: 0) {
             Color.clear
                 .frame(maxWidth: .infinity)
-                .frame(height: 48)
+                .frame(height: 52)
                 .contentShape(Rectangle())
                 .gesture(
-                    DragGesture(minimumDistance: 10)
+                    DragGesture(minimumDistance: 8)
                         .updating($dragY) { v, state, _ in
                             state = max(0, v.translation.height)
                         }
@@ -622,11 +621,9 @@ struct DayEditorStage: View {
                             let far = v.translation.height > 150
                             let fling = v.predictedEndTranslation.height > 430
                             if far || fling {
-                                // 接住当前位移，手势值归零时画面才不会跳回原位
                                 settle = max(0, v.translation.height)
                                 close()
                             } else {
-                                // 先无动画接住当前位移，再让它弹回去，中间不留缝
                                 settle = max(0, v.translation.height)
                                 DispatchQueue.main.async {
                                     withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
@@ -637,12 +634,9 @@ struct DayEditorStage: View {
                             dragging = false
                         }
                 )
-            Color.clear.frame(width: 84)
-            }
-            Spacer(minLength: 0)
+            Color.clear.frame(width: 88)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: height, alignment: .top)
     }
 
     private func close() {
