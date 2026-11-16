@@ -584,10 +584,10 @@ struct DayEditorStage: View {
                         sheetShape.strokeBorder(Ledger.rule, lineWidth: 0.8)
                     }
                     .offset(y: shown ? pull : sheetH + 48)
-                    // 接指区贴在 sheet 顶上：宽度跟 sheet 一致，整条都能拖
-                    .overlay(alignment: .top) {
-                        if shown && !closing { dragZone }
-                    }
+
+                if shown && !closing {
+                    dragZone(height: sheetH)
+                }
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -603,40 +603,49 @@ struct DayEditorStage: View {
     /// 透明的接指区：固定不动，所以拖动时它不会被重建，手势也就不会断。
     /// 做得够高，手指一路往下拉到关闭阈值都还在范围内。
     /// 顶部整条都能拖：左边一直铺到边，右边 88 让给叉键。
-    private var dragZone: some View {
-        HStack(spacing: 0) {
-            Color.clear
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 8)
-                        .updating($dragY) { v, state, _ in
-                            state = max(0, v.translation.height)
-                        }
-                        .onChanged { _ in
-                            if !dragging { dragging = true }
-                        }
-                        .onEnded { v in
-                            let far = v.translation.height > 150
-                            let fling = v.predictedEndTranslation.height > 430
-                            if far || fling {
-                                settle = max(0, v.translation.height)
-                                close()
-                            } else {
-                                settle = max(0, v.translation.height)
-                                DispatchQueue.main.async {
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                        settle = 0
+    ///
+    /// 参考 lucaszischka/BottomSheet：它把拖拽手势挂在有填充的 Capsule 上，
+    /// 靠 padding 撑大命中区。透明层（Color.clear）是画不出像素的，
+    /// 手势经常挂不上去 —— 这里用近乎透明的实心矩形代替，彻底避开这个坑。
+    private func dragZone(height: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.black.opacity(0.001))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 46)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 8)
+                            .updating($dragY) { v, state, _ in
+                                state = max(0, v.translation.height)
+                            }
+                            .onChanged { _ in
+                                if !dragging { dragging = true }
+                            }
+                            .onEnded { v in
+                                let far = v.translation.height > 150
+                                let fling = v.predictedEndTranslation.height > 430
+                                if far || fling {
+                                    settle = max(0, v.translation.height)
+                                    close()
+                                } else {
+                                    settle = max(0, v.translation.height)
+                                    DispatchQueue.main.async {
+                                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                            settle = 0
+                                        }
                                     }
                                 }
+                                dragging = false
                             }
-                            dragging = false
-                        }
-                )
-            Color.clear.frame(width: 88)
+                    )
+                Color.clear.frame(width: 88)
+            }
+            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
+        .frame(height: height, alignment: .top)
     }
 
     private func close() {
