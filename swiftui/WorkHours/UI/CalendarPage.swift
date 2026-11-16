@@ -567,9 +567,9 @@ struct DayEditorStage: View {
             let bottomInset = geo.safeAreaInsets.bottom
             let sheetH = min(full.height - 56, max(420, full.height * 0.76)) + bottomInset
             let pull = max(0, dragY + settle)
-            let sheetShape = UnevenRoundedRectangle(topLeadingRadius: 30,
-                                                    topTrailingRadius: 30,
-                                                    style: .continuous)
+            // 底部两个圆角永远在屏幕外，用普通圆角就行：
+            // UnevenRoundedRectangle 每帧重建一次路径，拖动时整屏跟着重绘
+            let sheetShape = RoundedRectangle(cornerRadius: 30, style: .continuous)
 
             ZStack(alignment: .bottom) {
                 Color.black
@@ -581,7 +581,12 @@ struct DayEditorStage: View {
                 EditorBox(date: date, palette: palette, onClose: close,
                           bottomInset: bottomInset, dragging: dragging,
                           dragY: Binding(get: { dragY },
-                                         set: { dragY = $0; dragging = $0 > 0 }),
+                                         set: { v in
+                                             dragY = v
+                                             // 只在第一次拉起时置真：按 v > 0 每帧判会让 dragging 反复翻，
+                                             // 编辑页整棵跟着重建，拖动就一顿一顿的
+                                             if v > 0 && !dragging { dragging = true }
+                                         }),
                           onDragEnd: endDrag)
                     .equatable()
                     .frame(width: full.width, height: sheetH)
@@ -607,6 +612,7 @@ struct DayEditorStage: View {
     /// 松手：拉得够远或者甩得够快就关，否则弹回去。
     /// 手势由编辑页里的抓手发起，这里只做结算。
     private func endDrag(_ translation: CGFloat, _ predicted: CGFloat) {
+        dragging = false
         let far = translation > 150
         let fling = predicted > 430
         settle = max(0, translation)

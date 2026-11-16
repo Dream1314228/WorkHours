@@ -59,6 +59,8 @@ final class Store: ObservableObject {
         load()
         migrateClasses()
         loaded = true
+        // 1.8.6 起整天休假不再发补助；清掉老库里已经挂上去的那批
+        reconcileAutoAllowance()
         autoCarry()
         saveNow()
     }
@@ -291,7 +293,8 @@ final class Store: ObservableObject {
 
     /// 当天到手：工时钱 + 补贴 − 请假扣款。请一天假就是负的，界面上按负数显示。
     func dayPay(_ rec: DayRecord) -> Double {
-        let extra = bonusTotal(rec)
+        // 整天休假的日子，历史数据里可能还挂着补助，这里一律不计
+        let extra = Self.offAllDay(rec) ? 0 : bonusTotal(rec)
         var p = 0.0
         if rec.settle > 0 {
             p = rec.settle
@@ -325,21 +328,53 @@ final class Store: ObservableObject {
         return nil
     }
 
+    /// 整天不在岗：请假且没勾「当天仍上班」，或者干脆记成休假又没工时。
+    /// 这种日子一分补助都不该有。
+    static func offAllDay(_ rec: DayRecord) -> Bool {
+        if rec.leave != nil && !(rec.leave?.alsoWork ?? false) { return true }
+        if rec.type == "xiu" && rec.work.total <= 0 { return true }
+        return false
+    }
+
     func ensureAutoAllowance(_ rec: inout DayRecord) {
         guard data.settings.autoBonus else { return }
+        let name = allowanceName(forClass: rec.classId)
+
+        // 先摘掉这条班次的旧自动补助，该发再往下发。
+        // 原来这里只「不加」，摘不掉：先按正班存一次、再改成整天休假，
+        // 那条自动补助就一直挂在那天，算钱时照样加进去。
+        if let n = name {
+            rec.bt.removeAll { ($0.autoAllowance || $0.note == "自动补助") && $0.name == n }
+        }
+
         // 整天休假没上班就别发补助；请了假但还来上班的（加班），照发
-        if rec.type == "xiu" && rec.work.total <= 0 { return }
-        let hasLeave = rec.leave != nil
-        if rec.work.total <= 0 && !hasLeave { return }
-        guard let name = allowanceName(forClass: rec.classId) else { return }
+        if Self.offAllDay(rec) { return }
+        if rec.work.total <= 0 { return }
+        guard let name = name else { return }
         let night = name == "夜班补助"
         let amount = night ? data.settings.nightAllowance : data.settings.dayAllowance
-        if amount <= 0 {
-            rec.bt.removeAll { ($0.autoAllowance || $0.note == "自动补助") && $0.name == name }
-            return
-        }
+        if amount <= 0 { return }
         if rec.bt.contains(where: { $0.name == name }) { return }
         rec.bt.append(BonusItem(name: name, money: amount, note: "自动补助", autoAllowance: true))
+    }
+
+    /// 把每天的自动补助重新对一遍。改了请假、班次、补贴开关之后，
+    /// 残留的自动补助在这里摘掉；没变化的记录不写回。
+    @discardableResult
+    func reconcileAutoAllowance() -> Int {
+        guard data.settings.autoBonus else { return 0 }
+        var changed = 0
+        for (k, var r) in data.records {
+            // 比名称和金额，不比 id：ensureAutoAllowance 会重建那条记录，id 每次都是新的
+            let before = r.bt.map { "\($0.name)|\($0.money)" }
+            ensureAutoAllowance(&r)
+            let after = r.bt.map { "\($0.name)|\($0.money)" }
+            if before != after {
+                data.records[k] = r
+                changed += 1
+            }
+        }
+        return changed
     }
 
     /// 按「这天算什么」把班次默认工时摊到对应的一栏。

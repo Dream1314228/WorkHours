@@ -352,6 +352,8 @@ struct MonthSummaryContent: View {
     private func dailyExtras(positive: Bool) -> [(name: String, money: Double, note: String)] {
         var out: [(name: String, money: Double, note: String)] = []
         for (key, rec) in rows {
+            // 整天休假那天不该有补助，历史残留的不列进来
+            if Store.offAllDay(rec) { continue }
             for b in rec.bt where positive ? b.money >= 0 : b.money < 0 {
                 let name = b.name.isEmpty ? (positive ? "补贴" : "扣款") : b.name
                 let note = Cal.shortDate(key) + (b.note.isEmpty ? "" : " · " + b.note)
