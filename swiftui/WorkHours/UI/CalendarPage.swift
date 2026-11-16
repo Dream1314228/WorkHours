@@ -549,7 +549,10 @@ struct DayEditorStage: View {
     @EnvironmentObject private var store: Store
     @State private var shown = false
     @State private var closing = false
-    @State private var dragY: CGFloat = 0
+    /// 实时位移放系统层：每帧重建视图时手势不会被打断，慢慢拉也不会跳
+    @GestureState private var dragY: CGFloat = 0
+    /// 松手后接住当前位移，再动画归位
+    @State private var settle: CGFloat = 0
     /// 拖动的时候要按住里面的滚动列表，否则两边一起动，画面就在抖
     @State private var dragging = false
 
@@ -559,7 +562,7 @@ struct DayEditorStage: View {
             // 底部安全区要算进去，不然 sheet 停在家居条上方，底下会漏一条缝
             let bottomInset = geo.safeAreaInsets.bottom
             let sheetH = min(full.height - 56, max(420, full.height * 0.76)) + bottomInset
-            let pull = max(0, dragY)
+            let pull = max(0, dragY + settle)
             let sheetShape = UnevenRoundedRectangle(topLeadingRadius: 30,
                                                     topTrailingRadius: 30,
                                                     style: .continuous)
@@ -575,16 +578,15 @@ struct DayEditorStage: View {
                           bottomInset: bottomInset, dragging: dragging)
                     .equatable()
                     .frame(width: full.width, height: sheetH)
+                    .background(sheetShape.fill(Ledger.paper))
                     .clipShape(sheetShape)
-                    .overlay {
+                    .overlay(alignment: .top) {
                         sheetShape.strokeBorder(Ledger.rule, lineWidth: 0.8)
                     }
-                    .compositingGroup()
                     .offset(y: shown ? pull : sheetH + 48)
 
                 if shown && !closing {
-                    dragHandle(height: sheetH)
-                        .offset(y: pull)
+                    dragCatcher(height: sheetH)
                 }
             }
             .ignoresSafeArea(edges: .bottom)
@@ -598,37 +600,41 @@ struct DayEditorStage: View {
         }
     }
 
-    /// 顶部抓手：整块跟手下沉，过 110pt 或甩出去就关，不到就弹回去
-    private func dragHandle(height: CGFloat) -> some View {
+    /// 透明的接指区：固定不动，所以拖动时它不会被重建，手势也就不会断。
+    /// 做得够高，手指一路往下拉到关闭阈值都还在范围内。
+    private func dragCatcher(height: CGFloat) -> some View {
         VStack(spacing: 0) {
-            Capsule()
-                .fill(Color.primary.opacity(dragY > 0 ? 0.55 : 0.34))
-                .frame(width: 52, height: 6)
-                .padding(.top, 9)
-                .padding(.bottom, 24)   // 热区跟着加高，手指不至于老滑到内容上
-                .frame(maxWidth: .infinity)
+            Color.clear
+                .frame(height: 170)
                 .contentShape(Rectangle())
-                .highPriorityGesture(
-                    DragGesture(minimumDistance: 4)
-                        .onChanged { v in
-                            guard !closing else { return }
+                .gesture(
+                    DragGesture(minimumDistance: 2)
+                        .updating($dragY) { v, state, _ in
+                            state = max(0, v.translation.height)
+                        }
+                        .onChanged { _ in
                             if !dragging { dragging = true }
-                            dragY = v.translation.height
                         }
                         .onEnded { v in
                             let far = v.translation.height > 110
                             let fling = v.predictedEndTranslation.height > 280
-                            if dragY > 0 && (far || fling) {
+                            if far || fling {
                                 close()
                             } else {
-                                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { dragY = 0 }
+                                // 先无动画接住当前位移，再让它弹回去，中间不留缝
+                                settle = max(0, v.translation.height)
+                                DispatchQueue.main.async {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                                        settle = 0
+                                    }
+                                }
                             }
                             dragging = false
                         }
                 )
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity)
         .frame(height: height, alignment: .top)
     }
 
@@ -640,6 +646,7 @@ struct DayEditorStage: View {
             return
         }
         // 关的时候不再回弹，直接往下压，手感比进的时候更利落
+        settle = 0
         withAnimation(.easeIn(duration: 0.24)) { shown = false }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { onClose() }
     }

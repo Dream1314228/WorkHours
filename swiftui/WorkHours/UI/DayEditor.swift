@@ -36,7 +36,7 @@ struct DayEditor: View {
     private var total: Double { store.dayPay(draft) }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             AppBackdrop(palette: palette)
             ScrollView {
                 VStack(spacing: 12) {
@@ -70,6 +70,13 @@ struct DayEditor: View {
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .scrollDisabled(dragging)
+
+            // 抓手画在编辑器里，跟着整块一起走，不再由外面那层每帧重画
+            Capsule()
+                .fill(Color.primary.opacity(0.28))
+                .frame(width: 52, height: 6)
+                .padding(.top, 9)
+                .allowsHitTesting(false)
         }
         .safeAreaInset(edge: .bottom) {
             bottomBar
