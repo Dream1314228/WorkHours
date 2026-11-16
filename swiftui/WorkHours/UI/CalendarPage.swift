@@ -525,13 +525,16 @@ private struct EditorBox: View, Equatable {
     var palette: Palette
     var onClose: () -> Void
     var bottomInset: CGFloat
+    var dragging: Bool
 
     static func == (a: EditorBox, b: EditorBox) -> Bool {
-        a.date == b.date && a.bottomInset == b.bottomInset && a.palette == b.palette
+        a.date == b.date && a.bottomInset == b.bottomInset
+            && a.palette == b.palette && a.dragging == b.dragging
     }
 
     var body: some View {
-        DayEditor(date: date, palette: palette, onClose: onClose, bottomInset: bottomInset)
+        DayEditor(date: date, palette: palette, onClose: onClose,
+                  bottomInset: bottomInset, dragging: dragging)
     }
 }
 
@@ -547,6 +550,8 @@ struct DayEditorStage: View {
     @State private var shown = false
     @State private var closing = false
     @State private var dragY: CGFloat = 0
+    /// 拖动的时候要按住里面的滚动列表，否则两边一起动，画面就在抖
+    @State private var dragging = false
 
     var body: some View {
         GeometryReader { geo in
@@ -566,7 +571,8 @@ struct DayEditorStage: View {
                     .onTapGesture { if store.pageMotion { close() } }
 
                 // 拖的时候只留描边：阴影 + 每次重算圆角路径会把整屏重绘一遍，手感全被吃掉
-                EditorBox(date: date, palette: palette, onClose: close, bottomInset: bottomInset)
+                EditorBox(date: date, palette: palette, onClose: close,
+                          bottomInset: bottomInset, dragging: dragging)
                     .equatable()
                     .frame(width: full.width, height: sheetH)
                     .clipShape(sheetShape)
@@ -574,7 +580,6 @@ struct DayEditorStage: View {
                         sheetShape.strokeBorder(Ledger.rule, lineWidth: 0.8)
                     }
                     .compositingGroup()
-                    .shadow(color: Color.black.opacity(0.16), radius: 10, y: -2)
                     .offset(y: shown ? pull : sheetH + 48)
 
                 if shown && !closing {
@@ -600,13 +605,14 @@ struct DayEditorStage: View {
                 .fill(Color.primary.opacity(dragY > 0 ? 0.55 : 0.34))
                 .frame(width: 52, height: 6)
                 .padding(.top, 9)
-                .padding(.bottom, 12)
+                .padding(.bottom, 24)   // 热区跟着加高，手指不至于老滑到内容上
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .highPriorityGesture(
                     DragGesture(minimumDistance: 4)
                         .onChanged { v in
                             guard !closing else { return }
+                            if !dragging { dragging = true }
                             dragY = v.translation.height
                         }
                         .onEnded { v in
@@ -617,6 +623,7 @@ struct DayEditorStage: View {
                             } else {
                                 withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) { dragY = 0 }
                             }
+                            dragging = false
                         }
                 )
             Spacer(minLength: 0)

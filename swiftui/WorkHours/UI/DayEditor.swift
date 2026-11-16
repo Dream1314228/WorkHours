@@ -8,6 +8,8 @@ struct DayEditor: View {
     var onClose: (() -> Void)? = nil
     /// 半屏弹层盖住底部安全区时，底栏要自己躲开家居条
     var bottomInset: CGFloat = 0
+    /// 正在被下拉：先把列表滚动锁住，不然两手抢位移，画面会抖
+    var dragging: Bool = false
 
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
@@ -67,6 +69,7 @@ struct DayEditor: View {
             }
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
+            .scrollDisabled(dragging)
         }
         .safeAreaInset(edge: .bottom) {
             bottomBar
