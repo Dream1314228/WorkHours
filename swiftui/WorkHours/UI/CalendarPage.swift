@@ -528,7 +528,9 @@ struct DayEditorStage: View {
     var body: some View {
         GeometryReader { geo in
             let full = geo.frame(in: .global)
-            let sheetH = min(full.height - 56, max(420, full.height * 0.76))
+            // 底部安全区要算进去，不然 sheet 停在家居条上方，底下会漏一条缝
+            let bottomInset = geo.safeAreaInsets.bottom
+            let sheetH = min(full.height - 56, max(420, full.height * 0.76)) + bottomInset
             let pull = max(0, dragY)
 
             ZStack(alignment: .bottom) {
@@ -537,7 +539,7 @@ struct DayEditorStage: View {
                     .ignoresSafeArea()
                     .onTapGesture { if store.pageMotion { close() } }
 
-                DayEditor(date: date, palette: palette, onClose: close)
+                DayEditor(date: date, palette: palette, onClose: close, bottomInset: bottomInset)
                     .frame(width: full.width, height: sheetH)
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 30,
                                                      topTrailingRadius: 30,
@@ -556,6 +558,7 @@ struct DayEditorStage: View {
                         .offset(y: pull)
                 }
             }
+            .ignoresSafeArea(edges: .bottom)
         }
         .onAppear {
             guard store.pageMotion else {

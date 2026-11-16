@@ -6,6 +6,8 @@ struct DayEditor: View {
     var palette: Palette
     /// 从全屏浮层（日历格子放大）进来时用这个关；走 sheet 时留空，退回 dismiss。
     var onClose: (() -> Void)? = nil
+    /// 半屏弹层盖住底部安全区时，底栏要自己躲开家居条
+    var bottomInset: CGFloat = 0
 
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
@@ -523,20 +525,20 @@ struct DayEditor: View {
     private var bottomBar: some View {
         HStack(spacing: 10) {
             Button {
-                close()
-            } label: {
-                Text("关闭")
-            }
-            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: false, height: 48))
-            .frame(width: 96)
-
-            Button {
                 save()
             } label: {
                 Text("保存")
             }
             .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
             .frame(maxWidth: .infinity)
+
+            Button {
+                close()
+            } label: {
+                Text("关闭")
+            }
+            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: false, height: 48))
+            .frame(width: 96)
         }
         .padding(.horizontal, 14)
         .padding(.top, 10)
@@ -545,7 +547,7 @@ struct DayEditor: View {
         .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
         .shadow(color: Color.black.opacity(0.06), radius: 12, y: 4)
         .padding(.horizontal, 12)
-        .padding(.bottom, 6)
+        .padding(.bottom, 6 + bottomInset)
     }
 
     // MARK: 数据
