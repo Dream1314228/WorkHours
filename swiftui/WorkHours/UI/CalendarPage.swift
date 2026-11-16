@@ -527,6 +527,8 @@ private struct EditorBox: View, Equatable {
     var onClose: () -> Void
     var bottomInset: CGFloat
     var dragging: Bool
+    var dragY: Binding<CGFloat>
+    var onDragEnd: (CGFloat, CGFloat) -> Void
 
     static func == (a: EditorBox, b: EditorBox) -> Bool {
         a.date == b.date && a.bottomInset == b.bottomInset
@@ -535,7 +537,8 @@ private struct EditorBox: View, Equatable {
 
     var body: some View {
         DayEditor(date: date, palette: palette, onClose: onClose,
-                  bottomInset: bottomInset, dragging: dragging)
+                  bottomInset: bottomInset, dragging: dragging,
+                  dragY: dragY, onDragEnd: onDragEnd)
     }
 }
 
@@ -550,8 +553,8 @@ struct DayEditorStage: View {
     @EnvironmentObject private var store: Store
     @State private var shown = false
     @State private var closing = false
-    /// 实时位移放系统层：每帧重建视图时手势不会被打断，慢慢拉也不会跳
-    @GestureState private var dragY: CGFloat = 0
+    /// 实时位移：由编辑器里的抓手写进来（抓手本身不可滚动，永远不会和按钮抢触摸）
+    @State private var dragY: CGFloat = 0
     /// 松手后接住当前位移，再动画归位
     @State private var settle: CGFloat = 0
     /// 拖动的时候要按住里面的滚动列表，否则两边一起动，画面就在抖
@@ -576,7 +579,10 @@ struct DayEditorStage: View {
 
                 // 拖的时候只留描边：阴影 + 每次重算圆角路径会把整屏重绘一遍，手感全被吃掉
                 EditorBox(date: date, palette: palette, onClose: close,
-                          bottomInset: bottomInset, dragging: dragging)
+                          bottomInset: bottomInset, dragging: dragging,
+                          dragY: Binding(get: { dragY },
+                                         set: { dragY = $0; dragging = $0 > 0 }),
+                          onDragEnd: endDrag)
                     .equatable()
                     .frame(width: full.width, height: sheetH)
                     .background(sheetShape.fill(Ledger.paper))
@@ -586,9 +592,6 @@ struct DayEditorStage: View {
                     }
                     .offset(y: shown ? pull : sheetH + 48)
 
-                if shown && !closing {
-                    dragZone(height: sheetH)
-                }
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -601,53 +604,21 @@ struct DayEditorStage: View {
         }
     }
 
-    /// 透明的接指区：固定不动，所以拖动时它不会被重建，手势也就不会断。
-    /// 做得够高，手指一路往下拉到关闭阈值都还在范围内。
-    /// 顶部整条都能拖：左边一直铺到边，右边 88 让给叉键。
-    ///
-    /// 参考 lucaszischka/BottomSheet：它把拖拽手势挂在有填充的 Capsule 上，
-    /// 靠 padding 撑大命中区。透明层（Color.clear）是画不出像素的，
-    /// 手势经常挂不上去 —— 这里用近乎透明的实心矩形代替，彻底避开这个坑。
-    private func dragZone(height: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(Color.black.opacity(0.001))
-                    .frame(maxWidth: .infinity)
-                    // 28 以下就是标题行：再高就把标题盖住、列表也没法从上往下滑
-                    .frame(height: 28)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture(minimumDistance: 8)
-                            .updating($dragY) { v, state, _ in
-                                state = max(0, v.translation.height)
-                            }
-                            .onChanged { _ in
-                                if !dragging { dragging = true }
-                            }
-                            .onEnded { v in
-                                let far = v.translation.height > 150
-                                let fling = v.predictedEndTranslation.height > 430
-                                if far || fling {
-                                    settle = max(0, v.translation.height)
-                                    close()
-                                } else {
-                                    settle = max(0, v.translation.height)
-                                    DispatchQueue.main.async {
-                                        withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
-                                            settle = 0
-                                        }
-                                    }
-                                }
-                                dragging = false
-                            }
-                    )
-                Color.clear.frame(width: 88)
+    /// 松手：拉得够远或者甩得够快就关，否则弹回去。
+    /// 手势由编辑页里的抓手发起，这里只做结算。
+    private func endDrag(_ translation: CGFloat, _ predicted: CGFloat) {
+        let far = translation > 150
+        let fling = predicted > 430
+        settle = max(0, translation)
+        if far || fling {
+            close()
+        } else {
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.86)) {
+                    settle = 0
+                }
             }
-            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: height, alignment: .top)
     }
 
     private func close() {

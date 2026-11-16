@@ -10,6 +10,10 @@ struct DayEditor: View {
     var bottomInset: CGFloat = 0
     /// 正在被下拉：先把列表滚动锁住，不然两手抢位移，画面会抖
     var dragging: Bool = false
+    /// 抓手拖动时往外写实时位移。留空表示这份不支持下拉关闭（全屏浮层用）。
+    var dragY: Binding<CGFloat>? = nil
+    /// 松手：(当前位移, 预测位移)
+    var onDragEnd: ((CGFloat, CGFloat) -> Void)? = nil
 
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
@@ -68,21 +72,36 @@ struct DayEditor: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 28)   // 顶上给抓手和圆角留位置，日期别贴着边
+                // 34 = 抓手热区（0–23）+ 一道缝：内容滚到顶也停在抓手下面，
+                // 手指点标题、点班次都不会被抓手那一条抢走
+                .padding(.top, 34)
                 .padding(.bottom, 150)
             }
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .scrollDisabled(dragging)
 
-            // 抓手画在编辑器里，跟着整块一起走；按下时变宽变深，给一点反馈
+            // 抓手画在编辑器里，跟着整块一起走；按下时变宽变深，给一点反馈。
+            // 拖拽手势就挂在这条胶囊上（padding 撑出约 160×22 的热区）：
+            // 它是浮层里唯一不会被内容滚到的东西，绝不会和下面的按钮抢触摸。
             Capsule()
                 .fill(Color.primary.opacity(dragging ? 0.52 : 0.28))
                 .frame(width: dragging ? 68 : 56, height: dragging ? 7 : 6)
-                .padding(.top, dragging ? 8 : 9)
+                .padding(.horizontal, 52)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 4)
+                        .onChanged { v in
+                            dragY?.wrappedValue = max(0, v.translation.height)
+                        }
+                        .onEnded { v in
+                            dragY?.wrappedValue = 0
+                            onDragEnd?(v.translation.height, v.predictedEndTranslation.height)
+                        }
+                )
                 .animation(store.pageMotion ? .spring(response: 0.28, dampingFraction: 0.7) : nil,
                            value: dragging)
-                .allowsHitTesting(false)
         }
         .overlay(alignment: .bottom) {
             bottomBar
