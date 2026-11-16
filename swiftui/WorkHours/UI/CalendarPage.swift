@@ -605,7 +605,7 @@ struct DayEditorStage: View {
     private func dragCatcher(height: CGFloat) -> some View {
         VStack(spacing: 0) {
             Color.clear
-                .frame(height: 170)
+                .frame(height: 24)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 2)
@@ -619,6 +619,8 @@ struct DayEditorStage: View {
                             let far = v.translation.height > 110
                             let fling = v.predictedEndTranslation.height > 280
                             if far || fling {
+                                // 接住当前位移，手势值归零时画面才不会跳回原位
+                                settle = max(0, v.translation.height)
                                 close()
                             } else {
                                 // 先无动画接住当前位移，再让它弹回去，中间不留缝
@@ -646,7 +648,6 @@ struct DayEditorStage: View {
             return
         }
         // 关的时候不再回弹，直接往下压，手感比进的时候更利落
-        settle = 0
         withAnimation(.easeIn(duration: 0.24)) { shown = false }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { onClose() }
     }
