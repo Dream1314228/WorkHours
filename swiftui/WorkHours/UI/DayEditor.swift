@@ -283,8 +283,8 @@ struct DayEditor: View {
                     .pickerStyle(.menu)
                     .tint(palette.primary)
                 }
+                .frame(height: 40)
             }
-            .frame(height: 40)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius, padding: 14)

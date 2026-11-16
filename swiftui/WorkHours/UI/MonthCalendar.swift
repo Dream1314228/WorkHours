@@ -260,8 +260,8 @@ struct DayCellData: Identifiable, Hashable {
     let isHoliday: Bool
     let isMakeupWorkday: Bool
     /// 这天有请假：图标位换成请假图标，右上角挂「假」字
-    let isLeave: Bool = false
-    let isFullLeave: Bool = false
+    var isLeave: Bool = false
+    var isFullLeave: Bool = false
 
     var id: String { key }
 }
