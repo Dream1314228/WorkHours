@@ -305,7 +305,7 @@ final class Store: ObservableObject {
             return "\(Cal.num(rec.work.zb))+\(Cal.num(rec.work.jb))"
         }
         if rec.work.total > 0 { return "\(Cal.num(rec.work.total))h" }
-        if let l = rec.leave { return "休\(Cal.num(l.hour))" }
+        if let l = rec.leave { return "假\(Cal.num(l.hour))" }
         if rec.settle > 0 { return "日结" }
         return "记"
     }

@@ -26,6 +26,9 @@ struct DayEditor: View {
     ]
 
     private var isLeave: Bool { draft.leave != nil }
+    /// 请满 8 小时算全天：这时候不上班，班次、项目、工时、补贴都不该再占地方
+    private var fullLeave: Bool { (draft.leave?.hour ?? 0) >= 8 && draft.leave != nil }
+    private var leaveHour: Double { draft.leave?.hour ?? 0 }
 
     /// 当天排班表里排的班次
     private var plannedShift: ShiftClass? {
@@ -63,22 +66,24 @@ struct DayEditor: View {
                         .buttonStyle(PressableStyle())
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 26)   // 顶上给抓手和圆角留位置，日期别贴着边
-                .padding(.bottom, 130)
+                .padding(.horizontal, 20)
+                .padding(.top, 28)   // 顶上给抓手和圆角留位置，日期别贴着边
+                .padding(.bottom, 150)
             }
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .scrollDisabled(dragging)
 
-            // 抓手画在编辑器里，跟着整块一起走，不再由外面那层每帧重画
+            // 抓手画在编辑器里，跟着整块一起走；按下时变宽变深，给一点反馈
             Capsule()
-                .fill(Color.primary.opacity(0.28))
-                .frame(width: 52, height: 6)
-                .padding(.top, 9)
+                .fill(Color.primary.opacity(dragging ? 0.52 : 0.28))
+                .frame(width: dragging ? 68 : 56, height: dragging ? 7 : 6)
+                .padding(.top, dragging ? 8 : 9)
+                .animation(store.pageMotion ? .spring(response: 0.28, dampingFraction: 0.7) : nil,
+                           value: dragging)
                 .allowsHitTesting(false)
         }
-        .safeAreaInset(edge: .bottom) {
+        .overlay(alignment: .bottom) {
             bottomBar
         }
         .onAppear(perform: loadDraft)
@@ -130,10 +135,10 @@ struct DayEditor: View {
     /// 顶上这行给焦点：现在能拿多少、几小时、哪个班，不用滚到底看
     private var summary: some View {
         HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(Cal.money(total))
+            Text(total < 0 ? "-" + Cal.money(-total) : Cal.money(total))
                 .font(.system(size: 30, weight: .bold))
                 .monospacedDigit()
-                .foregroundStyle(Color.gsOrange)
+                .foregroundStyle(total < 0 ? Color.gsRed : Color.gsOrange)
                 .contentTransition(.numericText())
                 .animation(store.pageMotion ? .snappy(duration: 0.2) : nil, value: total)
             Spacer(minLength: 8)
@@ -147,10 +152,11 @@ struct DayEditor: View {
 
     private var summaryDetail: String {
         var parts: [String] = []
-        if isLeave {
-            parts.append("请假")
+        if fullLeave {
+            parts.append("全天请假 \(Cal.num(leaveHour)) 小时")
         } else {
-            parts.append("\(Cal.num(draft.work.total)) 小时")
+            if draft.work.total > 0 { parts.append("\(Cal.num(draft.work.total)) 小时") }
+            if let l = draft.leave { parts.append("请假 \(Cal.num(l.hour)) 小时") }
         }
         if let c = store.classes.first(where: { $0.id == draft.classId }) {
             parts.append(c.name)
@@ -175,105 +181,108 @@ struct DayEditor: View {
                 }
             }
 
-            HStack(spacing: 8) {
-                SectionTitle(title: "班次")
-                Spacer(minLength: 6)
-                Button {
-                    draft.work = store.defaultWork(forClass: draft.classId)
-                    ToastCenter.shared.show("已套用班次默认工时")
-                } label: {
-                    Text("套用默认工时")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.primary)
-                        .padding(.horizontal, 10)
-                        .frame(height: 30)
-                        .background(Capsule().fill(Color.primary.opacity(0.06)))
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(PressableStyle())
-            }
-
-            if let planned = plannedShift {
+            // 全天休假不上班，班次和项目都收起来
+            if !fullLeave {
                 HStack(spacing: 8) {
-                    Image(systemName: "square.grid.3x3.topleft.filled")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(palette.primary)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("排班表：\(planned.name)")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(Color.primary)
-                        Text(draft.classId == planned.id
-                             ? "已自动套用这个班的工时，不用再挑"
-                             : "点右边直接套用，省得再挑一次")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.gsSecondary)
-                    }
+                    SectionTitle(title: "班次")
                     Spacer(minLength: 6)
                     Button {
-                        draft.classId = planned.id
-                        draft.work = store.defaultWork(forClass: planned.id)
-                        ToastCenter.shared.show("已按排班套用 \(planned.name)")
+                        draft.work = store.defaultWork(forClass: draft.classId)
+                        ToastCenter.shared.show("已套用班次默认工时")
                     } label: {
-                        Text("套用")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(palette.onPrimary)
-                            .padding(.horizontal, 12)
-                            .frame(height: 28)
-                            .background(Capsule().fill(palette.primary))
+                        Text("套用默认工时")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color.primary)
+                            .padding(.horizontal, 10)
+                            .frame(height: 30)
+                            .background(Capsule().fill(Color.primary.opacity(0.06)))
                             .contentShape(Capsule())
                     }
                     .buttonStyle(PressableStyle())
                 }
-                .padding(8)
-                .background {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(palette.primary.opacity(0.07))
-                }
-            }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(store.classes) { c in
+                if let planned = plannedShift {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.grid.3x3.topleft.filled")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(palette.primary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("排班表：\(planned.name)")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color.primary)
+                            Text(draft.classId == planned.id
+                                 ? "已自动套用这个班的工时，不用再挑"
+                                 : "点右边直接套用，省得再挑一次")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.gsSecondary)
+                        }
+                        Spacer(minLength: 6)
                         Button {
-                            draft.classId = c.id
+                            draft.classId = planned.id
+                            draft.work = store.defaultWork(forClass: planned.id)
+                            ToastCenter.shared.show("已按排班套用 \(planned.name)")
                         } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: c.symbol)
-                                    .font(.system(size: 12, weight: .semibold))
-                                Text(c.name)
-                                    .font(.system(size: 13, weight: draft.classId == c.id ? .semibold : .regular))
-                            }
-                            .foregroundStyle(draft.classId == c.id ? Theme.readableOn(c.color) : Color.primary)
-                            .padding(.horizontal, 14)
-                            .frame(height: 42)
-                            .background {
-                                Capsule().fill(draft.classId == c.id
-                                               ? Color(hex: c.color)
-                                               : Color.primary.opacity(0.06))
-                            }
-                            .overlay {
-                                Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8)
-                            }
+                            Text("套用")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(palette.onPrimary)
+                                .padding(.horizontal, 12)
+                                .frame(height: 28)
+                                .background(Capsule().fill(palette.primary))
+                                .contentShape(Capsule())
                         }
                         .buttonStyle(PressableStyle())
                     }
-                }
-                .padding(.horizontal, 1)
-            }
-
-            Divider().opacity(0.4)
-
-            HStack {
-                Text("项目")
-                    .font(.system(size: 15))
-                Spacer()
-                Picker("项目", selection: $draft.projectId) {
-                    ForEach(store.projects) { p in
-                        Text(p.name).tag(p.id)
+                    .padding(8)
+                    .background {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(palette.primary.opacity(0.07))
                     }
                 }
-                .pickerStyle(.menu)
-                .tint(palette.primary)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(store.classes) { c in
+                            Button {
+                                draft.classId = c.id
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Image(systemName: c.symbol)
+                                        .font(.system(size: 12, weight: .semibold))
+                                    Text(c.name)
+                                        .font(.system(size: 13, weight: draft.classId == c.id ? .semibold : .regular))
+                                }
+                                .foregroundStyle(draft.classId == c.id ? Theme.readableOn(c.color) : Color.primary)
+                                .padding(.horizontal, 14)
+                                .frame(height: 42)
+                                .background {
+                                    Capsule().fill(draft.classId == c.id
+                                                   ? Color(hex: c.color)
+                                                   : Color.primary.opacity(0.06))
+                                }
+                                .overlay {
+                                    Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8)
+                                }
+                            }
+                            .buttonStyle(PressableStyle())
+                        }
+                    }
+                    .padding(.horizontal, 1)
+                }
+
+                Divider().opacity(0.4)
+
+                HStack {
+                    Text("项目")
+                        .font(.system(size: 15))
+                    Spacer()
+                    Picker("项目", selection: $draft.projectId) {
+                        ForEach(store.projects) { p in
+                            Text(p.name).tag(p.id)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(palette.primary)
+                }
             }
             .frame(height: 40)
         }
@@ -281,19 +290,23 @@ struct DayEditor: View {
         .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
+    /// 换类型 = 换成这个类型在设置里配好的工时，不用再手动改一遍数字。
+    /// 只有请假是个例外：请半天时还得照常上班，工时不能清。
     private func setType(_ type: String) {
         draft.type = type
+        let def = store.defaultWork(forClass: draft.classId)
         if type == "xiu" {
-            draft.work = WorkHours()
             if draft.leave == nil {
                 draft.leave = LeaveInfo(type: "xiu", hour: 8, multiple: 0)
             }
+            if (draft.leave?.hour ?? 8) >= 8 {
+                draft.work = WorkHours()
+            } else if draft.work.total == 0 {
+                draft.work = Store.workForType("zb", from: def)
+            }
         } else {
             draft.leave = nil
-            if draft.work.total == 0 {
-                let def = store.defaultWork(forClass: draft.classId)
-                draft.work = Store.workForType(type, from: def)
-            }
+            draft.work = Store.workForType(type, from: def)
         }
     }
 
@@ -301,7 +314,9 @@ struct DayEditor: View {
 
     // MARK: 工时
 
+    @ViewBuilder
     private var workCard: some View {
+        if !fullLeave {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 SectionTitle(title: "工时")
@@ -341,6 +356,7 @@ struct DayEditor: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(radius: store.settings.cardRadius, padding: 14)
+        }
     }
 
     // MARK: 请假
@@ -360,6 +376,9 @@ struct DayEditor: View {
                         } else {
                             draft.leave = nil
                             if draft.type == "xiu" { draft.type = Cal.dayKind(date) }
+                            if draft.work.total == 0 {
+                                draft.work = Store.workForType(draft.type, from: store.defaultWork(forClass: draft.classId))
+                            }
                         }
                     }
                 ))
@@ -384,36 +403,47 @@ struct DayEditor: View {
 
                 NumberRow(title: "请假小时", unit: "H",
                           value: Binding(get: { draft.leave?.hour ?? 0 },
-                                         set: { draft.leave?.hour = $0 }),
+                                         set: { v in
+                                             draft.leave?.hour = v
+                                             if v >= 8 {
+                                                 // 整天不在，工时没有意义
+                                                 draft.work = WorkHours()
+                                             } else if draft.work.total == 0 {
+                                                 // 只请半天，剩下半天照常上班，先把默认工时铺上
+                                                 draft.work = Store.workForType("zb", from: store.defaultWork(forClass: draft.classId))
+                                             }
+                                         }),
                           palette: palette, range: 0...24)
 
-                HStack {
-                    Text("计薪倍率")
-                        .font(.system(size: 15))
-                    Spacer()
-                    HStack(spacing: 6) {
-                        ForEach([0.0, 0.5, 1.0, 1.5, 2.0, 3.0], id: \.self) { m in
-                            Button {
-                                draft.leave?.multiple = m
-                                draft.leave?.rule = "hour"
-                            } label: {
-                                Text(m == 0 ? "不扣" : Cal.num(m) + "×")
-                                    .font(.system(size: 12, weight: leave.multiple == m && leave.rule == "hour" ? .semibold : .regular))
-                                    .foregroundStyle(leave.multiple == m && leave.rule == "hour" ? palette.onPrimary : Color.primary)
-                                    .padding(.horizontal, 9)
-                                    .frame(height: 30)
-                                    .padding(.vertical, 7)
-                                    .background {
-                                        Capsule().fill(leave.multiple == m && leave.rule == "hour"
-                                                       ? palette.primary
-                                                       : Color.primary.opacity(0.06))
-                                    }
-                                    .overlay {
-                                        Capsule().strokeBorder(Color.primary.opacity(0.10), lineWidth: 0.8)
-                                    }
-                            }
-                            .buttonStyle(PressableStyle())
+                if !fullLeave {
+                    Text("剩下 \(Cal.num(24 - leaveHour)) 小时照常上班，工时填在下面「工时」里")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Color.gsSecondary)
+                }
+
+                Text("计薪倍率")
+                    .font(.system(size: 15))
+
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+                          spacing: 8) {
+                    ForEach([0.0, 0.5, 1.0, 1.5, 2.0, 3.0], id: \.self) { m in
+                        let on = leave.multiple == m && leave.rule == "hour"
+                        Button {
+                            draft.leave?.multiple = m
+                            draft.leave?.rule = "hour"
+                        } label: {
+                            Text(m == 0 ? "不扣" : Cal.num(m) + "×")
+                                .font(.system(size: 13, weight: on ? .semibold : .regular))
+                                .foregroundStyle(on ? palette.onPrimary : Color.primary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 38)
+                                .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(on ? palette.primary : Color.primary.opacity(0.06)))
+                                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .strokeBorder(Color.primary.opacity(on ? 0 : 0.10), lineWidth: 0.8))
+                                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
+                        .buttonStyle(PressableStyle())
                     }
                 }
 
@@ -510,8 +540,10 @@ struct DayEditor: View {
     /// 补贴、请假、备注合成一张卡：原来各占一张，三张卡的边距和间隙比内容还占地方
     private var extrasCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            bonusSection
-            Divider().opacity(0.4)
+            if !fullLeave {
+                bonusSection
+                Divider().opacity(0.4)
+            }
             leaveSection
             Divider().opacity(0.4)
             noteSection
@@ -538,25 +570,32 @@ struct DayEditor: View {
                 save()
             } label: {
                 Text("保存")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(palette.onPrimary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(palette.deep))
+                    .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
-            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: true, height: 48))
-            .frame(maxWidth: .infinity)
+            .buttonStyle(PressableStyle())
 
             Button {
                 close()
             } label: {
                 Text("关闭")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.primary)
+                    .frame(width: 96, height: 50)
+                    .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.primary.opacity(0.06)))
+                    .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             }
-            .buttonStyle(GlassActionButtonStyle(palette: palette, prominent: false, height: 48))
-            .frame(width: 96)
+            .buttonStyle(PressableStyle())
         }
+        .padding(8)
+        .glassEffect(.regular, in: .rect(cornerRadius: 28))
         .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 8)
-        .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(Ledger.paper))
-        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Ledger.rule, lineWidth: 0.8))
-        .shadow(color: Color.black.opacity(0.06), radius: 12, y: 4)
-        .padding(.horizontal, 12)
         .padding(.bottom, 6 + bottomInset)
     }
 
@@ -588,7 +627,7 @@ struct DayEditor: View {
     }
 
     private func save() {
-        if draft.leave != nil {
+        if let l = draft.leave, l.hour >= 8 {
             draft.type = "xiu"
         }
         if draft.work.total > 24 * 4 {

@@ -184,21 +184,28 @@ struct MonthCalendar: View {
         let clsName = clsId.isEmpty ? nil : store.shiftClass(clsId)?.name
         let isDay = clsName.map { $0.contains("白") || $0.contains("早") } ?? false
         let isNight = clsName.map { $0.contains("中") || $0.contains("晚") || $0.contains("夜") } ?? false
-        let icon: String? = clsName == nil ? nil
-            : (isDay ? "sunrise.fill" : (isNight ? "moon.stars.fill" : "briefcase.fill"))
+        let leaveHour = rec?.leave?.hour ?? 0
+        let hasLeave = (rec?.leave != nil) && leaveHour > 0
+        let fullLeave = hasLeave && leaveHour >= 8
+        let icon: String? = fullLeave ? "bed.double.fill"
+            : (clsName == nil ? nil
+               : (isDay ? "sunrise.fill" : (isNight ? "moon.stars.fill" : "briefcase.fill")))
 
         let holidayName = Cal.holidayName(key)
         let kind = Cal.dayKind(key)
         let makeup = Cal.isMakeupWorkday(key)
 
         var mark = ""
-        if isPayday { mark = "薪" }
+        if hasLeave { mark = "假" }
+        else if isPayday { mark = "薪" }
         else if kind == "jj" { mark = "节" }
         else if kind == "zm" { mark = "休" }
         else if makeup { mark = "班" }
 
         var hours: String?
-        if showsHours, let r = rec { hours = store.daySummary(r) }
+        if showsHours, let r = rec {
+            hours = hasLeave ? "假\(Cal.num(leaveHour))H" : store.daySummary(r)
+        }
 
         // 农历跟着"日历显示农历"开关走；关掉只留节假日名（原来这一格不看开关）
         let sub = holidayName ?? (store.settings.showLunar ? Cal.lunarCellText(key) : "")
@@ -210,7 +217,8 @@ struct MonthCalendar: View {
                            isPayday: isPayday, isToday: key == today,
                            useTextClass: store.settings.classDisplay == "text",
                            hasRecord: rec != nil,
-                           isHoliday: holidayName != nil, isMakeupWorkday: makeup)
+                           isHoliday: holidayName != nil, isMakeupWorkday: makeup,
+                           isLeave: hasLeave, isFullLeave: fullLeave)
     }
 }
 
@@ -251,6 +259,9 @@ struct DayCellData: Identifiable, Hashable {
     let hasRecord: Bool
     let isHoliday: Bool
     let isMakeupWorkday: Bool
+    /// 这天有请假：图标位换成请假图标，右上角挂「假」字
+    let isLeave: Bool = false
+    let isFullLeave: Bool = false
 
     var id: String { key }
 }
@@ -277,6 +288,7 @@ private struct CalendarDayCell: View {
     private var onSelectedInk: Color { isPayday ? goldInk : palette.onPrimary }
 
     private var markColor: Color {
+        if data.isLeave { return selected ? onSelectedInk : Color.gsRed }
         if selected { return onSelectedInk }
         if isPayday { return gold }
         if data.isHoliday { return Color.gsRed }
@@ -374,7 +386,9 @@ private struct CalendarDayCell: View {
                         Text(hours)
                             .font(.system(size: 9, weight: .bold))
                             .monospacedDigit()
-                            .foregroundStyle(selected ? onSelectedInk : (isPayday ? gold : palette.primary))
+                            .foregroundStyle(selected ? onSelectedInk
+                                             : (data.isLeave ? Color.gsRed
+                                                : (isPayday ? gold : palette.primary)))
                             .shadow(color: isPayday && !selected ? gold.opacity(0.22) : .clear,
                                     radius: 2)
                             .lineLimit(1)
@@ -453,7 +467,12 @@ private struct CalendarDayCell: View {
 
     @ViewBuilder
     private var shiftTop: some View {
-        if let name = data.shiftName {
+        if data.isFullLeave {
+            // 整天请假就不挂班次了，换成一枚请假图标
+            Image(systemName: "bed.double.fill")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(selected ? onSelectedInk : Color.gsRed)
+        } else if let name = data.shiftName {
             // 发薪日优先金：那天的班次图标也一律按金走，不再按白班/夜班上色
             let tint: Color = selected ? onSelectedInk
                 : (isPayday ? gold : (data.isDayShift ? Color.gsOrange

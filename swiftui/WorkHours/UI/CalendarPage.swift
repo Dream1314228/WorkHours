@@ -604,8 +604,11 @@ struct DayEditorStage: View {
     /// 做得够高，手指一路往下拉到关闭阈值都还在范围内。
     private func dragCatcher(height: CGFloat) -> some View {
         VStack(spacing: 0) {
+            HStack(spacing: 0) {
+            // 左边整条都能拖；右边 84 让给叉键，不然点了没反应
             Color.clear
-                .frame(height: 24)
+                .frame(maxWidth: .infinity)
+                .frame(height: 48)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 2)
@@ -634,6 +637,8 @@ struct DayEditorStage: View {
                             dragging = false
                         }
                 )
+            Color.clear.frame(width: 84)
+            }
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
