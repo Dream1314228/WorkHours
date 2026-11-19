@@ -626,7 +626,7 @@ struct SettingsPage: View {
 
     private var leaveSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionTitle(title: "年假", subtitle: "按 8 小时算一天")
+            SectionTitle(title: "年假", subtitle: "休整天算 1 天，休半天算 0.5 天")
             NumberRow(title: "年度额度", unit: "天",
                       value: $store.data.settings.annualLeaveDays,
                       palette: palette, range: 0...365)

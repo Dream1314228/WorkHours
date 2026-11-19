@@ -98,8 +98,8 @@ struct LeaveInfo: Codable, Hashable {
     var rule: String = "hour"          // hour / money
     var multiple: Double = 0           // 扣款倍率：请假小时 × 正班单价 × 倍率
     var money: Double = 0
-    /// 这天是否仍来上班。请假 8 小时又加 4 小时班是有的，
-    /// 所以「全天/半天」不再靠小时数猜，由这个开关说了算。
+    /// 1.9.0 起「全天/半天」由 DayRecord.type 的 xiu / xban 决定，
+    /// 这个字段只留给老数据读入，不再参与任何计算。
     var alsoWork: Bool = false
 
     enum CodingKeys: String, CodingKey { case type, hour, rule, multiple, money, alsoWork }
@@ -117,8 +117,8 @@ struct LeaveInfo: Codable, Hashable {
         rule = c.strg(.rule, "hour")
         multiple = c.dbl(.multiple)
         money = c.dbl(.money)
-        // 老数据没有这个字段：以前请不满 8 小时的都是半天，按这个推断
-        alsoWork = c.boolv(.alsoWork, hour > 0 && hour < 8)
+        // 老数据没有这个字段，读成 false；全天/半天交给 migrateLeaveKinds 折算成类型
+        alsoWork = c.boolv(.alsoWork, false)
     }
 
     /// 整天不在岗
@@ -130,7 +130,7 @@ struct LeaveInfo: Codable, Hashable {
 struct DayRecord: Codable, Hashable {
     var classId: String = "1"
     var projectId: String = "default"
-    var type: String = "zb"            // zb / zm / jj / xiu
+    var type: String = "zb"            // zb 正班 / zm 周末 / jj 节假 / xiu 休整天 / xban 休半天
     var work: WorkHours = WorkHours()
     var bt: [BonusItem] = []
     var leave: LeaveInfo? = nil

@@ -42,6 +42,16 @@ struct RootView: View {
                 .modifier(PageReveal(active: tab == 4))
         }
         .tint(palette.primary)
+        // 顶部留出一条给岛：页面内容整体下移，岛展开时盖在内容上，不挤动布局
+        .safeAreaInset(edge: .top, spacing: 0) {
+            ZStack(alignment: .top) {
+                Color.clear.frame(height: 44)
+                IslandBar(palette: palette)
+                    .environmentObject(store)
+                    // 外层锁死 44：岛展开时往下溢出，别把页面一起顶下去
+                    .frame(height: 44, alignment: .top)
+            }
+        }
         .onChange(of: tab) { _, _ in
             // 换标签页时让图表重新播一遍
             store.refreshCharts()

@@ -58,6 +58,8 @@ final class Store: ObservableObject {
         dataURL = Self.fileURL
         load()
         migrateClasses()
+        // 1.9.0 之前用「请假小时 + 当天仍上班」表达全天/半天，这里折成类型
+        migrateLeaveKinds()
         loaded = true
         // 1.8.6 起整天休假不再发补助；清掉老库里已经挂上去的那批
         reconcileAutoAllowance()
@@ -91,6 +93,38 @@ final class Store: ObservableObject {
             d.plans[key] = "1"
         }
         if d.settings.currentClass == "2" { d.settings.currentClass = "1" }
+    }
+
+    private func migrateLeaveKinds() { Self.migrateLeaveKinds(&data) }
+
+    /// 1.9.0：休半天独立成 xban。老库里「全天/半天」是靠请假小时和
+    /// 「当天仍上班」开关推出来的，这里一次性折成记录类型：
+    /// 请满 = xiu 休整天，没请满 = xban 休半天，类型写着休假却没假 = 补一条整天假。
+    @discardableResult
+    static func migrateLeaveKinds(_ d: inout AppData) -> Int {
+        var changed = 0
+        for (k, var r) in d.records {
+            let cd = d.settings.classDefaults[r.classId]
+            var need = cd?.zb ?? 0
+            if need <= 0 { need = d.settings.defaultWork.zb }
+            if need <= 0 { need = 8 }
+            var touched = false
+            if let l = r.leave, l.hour > 0.01 {
+                let want = l.hour + 0.01 >= need ? "xiu" : "xban"
+                if r.type != want { r.type = want; touched = true }
+            } else if r.type == "xiu" {
+                var l = LeaveInfo(type: "xiu", hour: need, multiple: 0)
+                l.alsoWork = false
+                r.leave = l
+                touched = true
+            } else if r.type == "xban" {
+                // 半天却没有请假时长，退回归属类型，别留一条算不出钱的记录
+                r.type = Cal.dayKind(k)
+                touched = true
+            }
+            if touched { d.records[k] = r; changed += 1 }
+        }
+        return changed
     }
 
     /// 测试专用：直接注入一份数据，不读不写磁盘，也不触发自动保存。
@@ -245,6 +279,32 @@ final class Store: ObservableObject {
 
     func record(_ key: String) -> DayRecord? { data.records[key] }
 
+    /// 这天算不算真记过账：空壳记录（点开又没填）不算，
+    /// 和 hasRecord 的区别在这里——hasRecord 只看有没有这条数据
+    func hasContent(_ key: String) -> Bool {
+        guard let r = data.records[key] else { return false }
+        return r.work.total > 0 || r.leave != nil || r.settle > 0 || !r.bt.isEmpty
+    }
+
+    /// 连续记账天数：今天记了从今天数，今天还没记从昨天数（当天没记不算断）
+    func recordStreak(endingAt todayKey: String) -> Int {
+        var key = hasContent(todayKey) ? todayKey : Cal.addDays(todayKey, -1)
+        var n = 0
+        while hasContent(key) && n < 3660 {
+            n += 1
+            key = Cal.addDays(key, -1)
+        }
+        return n
+    }
+
+    /// 今天是不是发薪日
+    func isPayday(_ key: String) -> Bool {
+        let p = data.settings.payday
+        guard p > 0 else { return false }
+        let days = Cal.daysInMonth(Cal.year(key), Cal.month(key))
+        return Cal.day(key) == min(p, days)
+    }
+
     func hasRecord(_ key: String) -> Bool { data.records[key] != nil }
 
     func setRecord(_ rec: DayRecord, for key: String) {
@@ -311,6 +371,9 @@ final class Store: ObservableObject {
 
     func daySummary(_ rec: DayRecord?) -> String {
         guard let rec = rec else { return "未记录" }
+        // 休假优先：这两天即使记了工时，格子上也要先看出「这天是休的」
+        if rec.type == "xiu" { return "休" }
+        if rec.type == "xban" { return "半休" }
         if rec.work.zb > 0 && rec.work.jb > 0 {
             return "\(Cal.num(rec.work.zb))+\(Cal.num(rec.work.jb))"
         }
@@ -328,18 +391,40 @@ final class Store: ObservableObject {
         return nil
     }
 
-    /// 整天不在岗：假时长把当天该上的工时请满了（或者干脆记成休假又没工时）。
-    /// 半天假不算——请 4 小时、上 4 小时的日子照常有补助。
-    /// 判据必须是时长，不能只看「有没有请假」：那会把半天假一并算成整天。
+    /// 这天该上多少小时：取班次的「正班」时长。
+    /// 不能拿四栏总和——默认班次是 8 正班 + 2 加班 = 10，拿 10 当应上，
+    /// 请 8 小时一整天假会被判成「还来上 2 小时」，这正是之前半天/整天分不清的源头。
+    func needHours(_ rec: DayRecord) -> Double {
+        let n = defaultWork(forClass: rec.classId).zb
+        return n > 0 ? n : 8
+    }
+
+    /// 一天的全貌，界面和算钱都从这里取，不再各算各的。
+    struct DayMath {
+        var need: Double      // 应上几小时
+        var leaveHour: Double // 请了几小时
+        var workHour: Double  // 实际上了几小时
+        var deduct: Double    // 请假扣多少钱（正数）
+        var fullLeave: Bool   // 整天不在岗
+        var halfLeave: Bool   // 休半天
+    }
+
+    func dayMath(_ rec: DayRecord) -> DayMath {
+        let need = needHours(rec)
+        let lh = rec.leave?.hour ?? 0
+        let full = offAllDay(rec)
+        let half = !full && (rec.type == "xban" || lh > 0)
+        return DayMath(need: need, leaveHour: lh, workHour: rec.work.total,
+                       deduct: leaveDeduct(rec), fullLeave: full, halfLeave: half)
+    }
+
+    /// 整天不在岗：类型是休整天，或者请假时长把当天该上的工时请满了。
+    /// 休半天（xban）永远不算整天，那半天照常发补助。
     func offAllDay(_ rec: DayRecord) -> Bool {
-        if let l = rec.leave {
-            if l.alsoWork { return false }
-            let need = defaultWork(forClass: rec.classId).total
-            let base = need > 0 ? need : 8
-            if l.hour + 0.01 >= base { return true }
-            return l.hour < 0.5 && rec.work.total <= 0
-        }
-        return rec.type == "xiu" && rec.work.total <= 0
+        if rec.type == "xban" { return false }
+        if rec.type == "xiu" { return true }
+        guard let l = rec.leave, l.hour > 0 else { return false }
+        return l.hour + 0.01 >= needHours(rec)
     }
 
     func ensureAutoAllowance(_ rec: inout DayRecord) {
@@ -391,6 +476,9 @@ final class Store: ObservableObject {
         case "zm": return WorkHours(zb: 0, jb: 0, zm: def.zm > 0 ? def.zm : def.zb + def.jb, jj: 0)
         case "jj": return WorkHours(zb: 0, jb: 0, zm: 0, jj: def.jj > 0 ? def.jj : def.zb + def.jb)
         case "xiu": return WorkHours()
+        // 休半天留空：这天还剩哪半段要上、落哪一栏，得看日期性质，
+        // 由编辑页按 dayKind 填，store 这里不猜
+        case "xban": return WorkHours()
         default: return WorkHours(zb: def.zb, jb: def.jb, zm: 0, jj: 0)
         }
     }
@@ -418,11 +506,20 @@ final class Store: ObservableObject {
 
     func annualLeaveUsed(year: Int) -> Double {
         let prefix = String(format: "%04d-", year)
-        var hours = 0.0
+        var days = 0.0
         for (k, r) in data.records where k.hasPrefix(prefix) {
-            if let l = r.leave, l.type == "xiu" { hours += l.hour }
+            guard let l = r.leave, l.type == "xiu" else { continue }
+            // 按天记：休整天 1 天，休半天 0.5 天。原来一律按「小时 ÷ 8」，
+            // 12 小时班请一天会算成 1.5 天。
+            if r.type == "xiu" { days += 1 }
+            else if r.type == "xban" { days += 0.5 }
+            else {
+                // 没走类型、只挂了请假小时的老记录：退回按小时折算，3 小时这种零头留得住
+                let need = needHours(r)
+                days += l.hour / (need > 0 ? need : 8)
+            }
         }
-        return Cal.round2(hours / 8)
+        return Cal.round2(days)
     }
 
     func annualLeaveRemaining(year: Int) -> Double {
