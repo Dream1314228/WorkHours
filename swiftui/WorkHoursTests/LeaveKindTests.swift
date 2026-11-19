@@ -42,8 +42,8 @@ struct LeaveKindTests {
 
     @Test func 休半天扣一半钱且照发补助() {
         let rec = FX.rec(type: "xban", zb: 4,
-                         leave: LeaveInfo(type: "xiu", hour: 4, multiple: 1),
-                         bt: [BonusItem(name: "餐补", money: 20)])
+                         bt: [BonusItem(name: "餐补", money: 20)],
+                         leave: LeaveInfo(type: "xiu", hour: 4, multiple: 1))
         let s = FX.store(FX.payload(records: ["2026-03-02": rec]))
         let r = s.record("2026-03-02")!
         let m = s.dayMath(r)
@@ -56,8 +56,8 @@ struct LeaveKindTests {
 
     @Test func 休整天不发补助() {
         let rec = FX.rec(type: "xiu", zb: 0,
-                         leave: LeaveInfo(type: "xiu", hour: 8, multiple: 1),
-                         bt: [BonusItem(name: "餐补", money: 20)])
+                         bt: [BonusItem(name: "餐补", money: 20)],
+                         leave: LeaveInfo(type: "xiu", hour: 8, multiple: 1))
         let s = FX.store(FX.payload(records: ["2026-03-02": rec]))
         let r = s.record("2026-03-02")!
         #expect(s.dayMath(r).fullLeave)
