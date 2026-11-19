@@ -279,17 +279,18 @@ final class Store: ObservableObject {
 
     func record(_ key: String) -> DayRecord? { data.records[key] }
 
-    /// 这天算不算记过账：空壳记录（点开又没填）不算
-    func hasRecord(_ key: String) -> Bool {
+    /// 这天算不算真记过账：空壳记录（点开又没填）不算，
+    /// 和 hasRecord 的区别在这里——hasRecord 只看有没有这条数据
+    func hasContent(_ key: String) -> Bool {
         guard let r = data.records[key] else { return false }
         return r.work.total > 0 || r.leave != nil || r.settle > 0 || !r.bt.isEmpty
     }
 
     /// 连续记账天数：今天记了从今天数，今天还没记从昨天数（当天没记不算断）
     func recordStreak(endingAt todayKey: String) -> Int {
-        var key = hasRecord(todayKey) ? todayKey : Cal.addDays(todayKey, -1)
+        var key = hasContent(todayKey) ? todayKey : Cal.addDays(todayKey, -1)
         var n = 0
-        while hasRecord(key) && n < 3660 {
+        while hasContent(key) && n < 3660 {
             n += 1
             key = Cal.addDays(key, -1)
         }

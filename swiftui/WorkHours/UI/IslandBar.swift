@@ -11,7 +11,7 @@ struct IslandBar: View {
 
     private var today: String { Cal.todayKey() }
     private var rec: DayRecord? { store.record(today) }
-    private var done: Bool { store.hasRecord(today) }
+    private var done: Bool { store.hasContent(today) }
     private var hours: Double { rec?.work.total ?? 0 }
     private var pay: Double { rec.map { store.dayPay($0) } ?? 0 }
     private var streak: Int { store.recordStreak(endingAt: today) }
