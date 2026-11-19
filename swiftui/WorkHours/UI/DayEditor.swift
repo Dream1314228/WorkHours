@@ -20,24 +20,25 @@ struct DayEditor: View {
     @State private var bonusName = ""
     @State private var bonusMoney = 0.0
     @State private var confirmDelete = false
+    /// 从休假切回上班时，先把目标类型记下来，等用户确认「假要不要一起清」
+    @State private var pendingType: String? = nil
+    @State private var confirmClearLeave = false
 
-    private let typeOptions: [(key: String, name: String)] = [
-        ("zb", "正班"), ("zm", "周末"), ("jj", "节假"), ("xiu", "休假")
+    /// 日常三类一行，休假两类一行：五个并排手机放不下
+    private let workTypes: [(key: String, name: String)] = [
+        ("zb", "正班"), ("zm", "周末"), ("jj", "节假")
+    ]
+    private let leaveTypes: [(key: String, name: String)] = [
+        ("xiu", "休整天"), ("xban", "休半天")
     ]
 
-    private var isLeave: Bool { draft.leave != nil }
+    private var isLeave: Bool { draft.type == "xiu" || draft.type == "xban" }
+    private var isHalfLeave: Bool { draft.type == "xban" }
     /// 当天这个班次该上多久。请假时长跟它比，才分得清整天假和半天假。
-    private var classNeed: Double {
-        let n = store.defaultWork(forClass: draft.classId).total
-        return n > 0 ? n : 8
-    }
-    /// 整天不在岗：班次、项目、工时、补贴都不占地方。
-    /// 判据是「假时长请满了应上工时」——请 4 小时上 4 小时是半天假，工时区照常出来。
-    private var fullLeave: Bool {
-        guard let l = draft.leave else { return false }
-        if l.alsoWork { return false }
-        return l.hour + 0.01 >= classNeed
-    }
+    private var classNeed: Double { store.needHours(draft) }
+    /// 算钱和显示都从这一个地方取，别处不许再自己推
+    private var math: Store.DayMath { store.dayMath(draft) }
+    private var fullLeave: Bool { math.fullLeave }
     private var leaveHour: Double { draft.leave?.hour ?? 0 }
 
     /// 当天排班表里排的班次
@@ -109,6 +110,15 @@ struct DayEditor: View {
             }
             Button("取消", role: .cancel) {}
         }
+        .alert("这天的假要一起清掉吗？", isPresented: $confirmClearLeave) {
+            Button("清掉假，改成\(pendingType.map { Cal.kindName($0) } ?? "上班")", role: .destructive) {
+                if let t = pendingType { applyType(t) }
+                pendingType = nil
+            }
+            Button("算了，不改", role: .cancel) { pendingType = nil }
+        } message: {
+            Text("清掉之后，这天的请假小时和扣款一起归零。想保留假就别换类型。")
+        }
     }
 
     // MARK: 顶部
@@ -168,8 +178,11 @@ struct DayEditor: View {
 
     private var summaryDetail: String {
         var parts: [String] = []
-        if fullLeave {
-            parts.append("整天请假 \(Cal.num(leaveHour)) 小时")
+        if draft.type == "xban" {
+            parts.append("休半天 \(Cal.num(leaveHour)) 小时")
+            if draft.work.total > 0 { parts.append("上 \(Cal.num(draft.work.total)) 小时") }
+        } else if fullLeave {
+            parts.append("休整天 \(Cal.num(leaveHour)) 小时")
         } else {
             if draft.work.total > 0 { parts.append("\(Cal.num(draft.work.total)) 小时") }
             if let l = draft.leave { parts.append("请假 \(Cal.num(l.hour)) 小时") }
@@ -186,14 +199,14 @@ struct DayEditor: View {
     private var mainCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: "这天算什么", subtitle: Cal.dayKind(date) == draft.type ? "按日历默认" : nil)
-            HStack(spacing: 6) {
-                ForEach(typeOptions, id: \.key) { opt in
-                    Button {
-                        setType(opt.key)
-                    } label: {
-                        ChipView(title: opt.name, selected: draft.type == opt.key, palette: palette)
-                    }
-                    .buttonStyle(PressableStyle())
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
+                ForEach(workTypes, id: \.key) { opt in
+                    typeChip(opt)
+                }
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+                ForEach(leaveTypes, id: \.key) { opt in
+                    typeChip(opt)
                 }
             }
 
@@ -306,23 +319,54 @@ struct DayEditor: View {
         .glassCard(radius: store.settings.cardRadius, padding: 14)
     }
 
-    /// 换类型 = 换成这个类型在设置里配好的工时，不用再手动改一遍数字。
-    /// 只有请假是个例外：请半天时还得照常上班，工时不能清。
+    private func typeChip(_ opt: (key: String, name: String)) -> some View {
+        Button {
+            setType(opt.key)
+        } label: {
+            ChipView(title: opt.name, selected: draft.type == opt.key, palette: palette)
+        }
+        .buttonStyle(PressableStyle())
+    }
+
+    /// 换类型只定初值，之后你改数字，App 不回头改类型。
     private func setType(_ type: String) {
+        // 从休假切回上班：假还挂着就先问一句，别偷偷删掉
+        if isLeave && (!type.isEmpty) && type != "xiu" && type != "xban" && draft.leave != nil {
+            pendingType = type
+            confirmClearLeave = true
+            return
+        }
+        applyType(type)
+    }
+
+    private func applyType(_ type: String) {
         draft.type = type
-        let def = store.defaultWork(forClass: draft.classId)
-        if type == "xiu" {
-            if draft.leave == nil {
-                draft.leave = LeaveInfo(type: "xiu", hour: 8, multiple: 0)
-            }
-            if draft.leave?.alsoWork == false {
-                draft.work = WorkHours()
-            } else if draft.work.total == 0 {
-                draft.work = Store.workForType("zb", from: def)
-            }
-        } else {
+        switch type {
+        case "xiu":
+            var l = draft.leave ?? LeaveInfo()
+            l.hour = classNeed
+            l.alsoWork = false
+            draft.leave = l
+            draft.work = WorkHours()
+        case "xban":
+            var l = draft.leave ?? LeaveInfo()
+            l.hour = Cal.round2(classNeed / 2)
+            l.alsoWork = true
+            draft.leave = l
+            draft.work = halfWork()
+        default:
             draft.leave = nil
-            draft.work = Store.workForType(type, from: def)
+            draft.work = Store.workForType(type, from: store.defaultWork(forClass: draft.classId))
+        }
+    }
+
+    /// 休半天要上的那半段：按当天性质落栏，工作日记正班、周六日记周末、法定节假记节假
+    private func halfWork() -> WorkHours {
+        let half = Cal.round2(classNeed / 2)
+        switch Cal.dayKind(date) {
+        case "zm": return WorkHours(zm: half)
+        case "jj": return WorkHours(jj: half)
+        default: return WorkHours(zb: half)
         }
     }
 
@@ -335,9 +379,10 @@ struct DayEditor: View {
         if !fullLeave {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
-                SectionTitle(title: "工时")
+                SectionTitle(title: "工时",
+                             subtitle: draft.type == "xban" ? "这半天按\(Cal.kindName(Cal.dayKind(date)))算" : nil)
                 Spacer()
-                Text(fullLeave ? "休假不记工时" : "小时")
+                Text("小时")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.gsSecondary)
             }
@@ -378,31 +423,12 @@ struct DayEditor: View {
     // MARK: 请假
 
     private var leaveSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                SectionTitle(title: "请假 / 调休")
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { draft.leave != nil },
-                    set: { on in
-                        if on {
-                            draft.type = "xiu"
-                            draft.work = WorkHours()
-                            draft.leave = LeaveInfo(type: "xiu", hour: classNeed, multiple: 0)
-                        } else {
-                            draft.leave = nil
-                            if draft.type == "xiu" { draft.type = Cal.dayKind(date) }
-                            if draft.work.total == 0 {
-                                draft.work = Store.workForType(draft.type, from: store.defaultWork(forClass: draft.classId))
-                            }
-                        }
-                    }
-                ))
-                .labelsHidden()
-                .tint(palette.primary)
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            SectionTitle(title: "请假", subtitle: draft.type == "xban" ? "休半天" : (fullLeave ? "休整天" : nil))
 
-            if draft.leave != nil {
+            if draft.leave == nil {
+                EmptyHint(text: "选上面「休整天」或「休半天」后，在这里填假种和扣款")
+            } else {
                 let leave = draft.leave ?? LeaveInfo()
 
                 HStack(spacing: 6) {
@@ -414,56 +440,46 @@ struct DayEditor: View {
                         }
                         .buttonStyle(PressableStyle())
                     }
-                    Spacer()
+                    Spacer(minLength: 0)
                 }
 
-                HStack(spacing: 8) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("当天仍上班")
-                            .font(.system(size: 15))
-                        Text("整天请假又回来加班时打开")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Color.gsSecondary)
-                    }
-                    Spacer(minLength: 6)
-                    Toggle("", isOn: Binding(
-                        get: { draft.leave?.alsoWork ?? false },
-                        set: { on in
-                            draft.leave?.alsoWork = on
-                            if on && draft.work.total == 0 {
-                                draft.work = Store.workForType("zb", from: store.defaultWork(forClass: draft.classId))
-                            }
-                            if !on { draft.work = WorkHours() }
-                        }
-                    ))
-                    .labelsHidden()
-                    .tint(palette.primary)
+                // 这行等式是给「到底扣几小时」看的：应上 − 请假 = 还上
+                HStack(spacing: 6) {
+                    Text("应上").foregroundStyle(Color.gsSecondary)
+                    Text(Cal.num(math.need)).monospacedDigit()
+                    Text("−").foregroundStyle(Color.gsSecondary)
+                    Text("请假").foregroundStyle(Color.gsSecondary)
+                    Text(Cal.num(leaveHour)).monospacedDigit().foregroundStyle(Color.gsRed)
+                    Text("=").foregroundStyle(Color.gsSecondary)
+                    Text("还上").foregroundStyle(Color.gsSecondary)
+                    Text(Cal.num(max(0, math.need - leaveHour))).monospacedDigit().foregroundStyle(palette.deep)
+                    Text("H").foregroundStyle(Color.gsSecondary)
+                    Spacer(minLength: 0)
                 }
+                .font(.system(size: 12, weight: .medium))
 
                 NumberRow(title: "请假小时", unit: "H",
                           value: Binding(get: { draft.leave?.hour ?? 0 },
-                                         set: { h in
-                                             draft.leave?.hour = h
-                                             // 改成半天假：把没请的那段补成正班工时；
-                                             // 请满了就把工时收掉。用户自己填过更少的工时就不动它。
-                                             let need = classNeed
-                                             if h + 0.01 >= need {
-                                                 draft.work = WorkHours()
-                                             } else if draft.work.total == 0 || draft.work.total > need - h + 0.01 {
-                                                 draft.work = WorkHours(zb: max(0, need - h))
-                                             }
-                                         }),
+                                         set: { draft.leave?.hour = $0 }),
                           palette: palette, range: 0...24)
 
-                if !fullLeave {
-                    Text("这天仍来上班，上班时长填在下面「工时」里")
+                if isHalfLeave && leaveHour + 0.01 >= math.need {
+                    swapHint(text: "请假已经请满 \(Cal.num(math.need)) 小时", target: "xiu", action: "换成休整天")
+                }
+                if draft.type == "xiu" && leaveHour + 0.01 < math.need {
+                    swapHint(text: "只请了 \(Cal.num(leaveHour)) 小时", target: "xban", action: "换成休半天")
+                }
+                if draft.type == "xban" {
+                    Text("这半天按\(Cal.kindName(Cal.dayKind(date)))算钱，另一半上了几小时填在下面工时里")
                         .font(.system(size: 10))
                         .foregroundStyle(Color.gsSecondary)
-                } else {
-                    Text("整天不在岗，班次、工时、补贴都已收起；要是还来加班，打开上面「当天仍上班」")
+                } else if fullLeave {
+                    Text("整天不在岗：工时、补贴都已收起，扣款按 \(Cal.num(leaveHour)) 小时算")
                         .font(.system(size: 10))
                         .foregroundStyle(Color.gsSecondary)
                 }
+
+                Divider().opacity(0.4)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text("请假扣款倍率")
@@ -517,6 +533,28 @@ struct DayEditor: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 类型和数字对不上时给一条可点的提示，替用户改类型这件事不做
+    private func swapHint(text: String, target: String, action: String) -> some View {
+        HStack(spacing: 8) {
+            Text(text)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.gsSecondary)
+            Spacer(minLength: 6)
+            Button {
+                applyType(target)
+            } label: {
+                Text(action)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(palette.onPrimary)
+                    .padding(.horizontal, 10)
+                    .frame(height: 28)
+                    .background(Capsule().fill(palette.deep))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(PressableStyle())
+        }
     }
 
     // MARK: 补贴
@@ -676,10 +714,14 @@ struct DayEditor: View {
     }
 
     private func save() {
-        // 只有整天不在岗才算休假类型：半天假照常是正班/周末/节假，
-        // 类型一改成休假，工时和补助就跟着被当成「这天没上班」处理了
-        if let l = draft.leave, !l.alsoWork, l.hour + 0.01 >= classNeed {
-            draft.type = "xiu"
+        // 类型由用户在上面选，这里不再按请假小时偷偷改类型。
+        // 只有一种兜底：类型是休整天、请假小时却被改成 0，补回整天，
+        // 否则会存下一条「休整天但扣 0 元」的记录。
+        if draft.type == "xiu" && (draft.leave?.hour ?? 0) <= 0.01 {
+            draft.leave?.hour = classNeed
+        }
+        if draft.type == "xban" && (draft.leave?.hour ?? 0) <= 0.01 {
+            draft.leave?.hour = Cal.round2(classNeed / 2)
         }
         if draft.work.total > 24 * 4 {
             ToastCenter.shared.show("工时看起来太大了，检查一下")
