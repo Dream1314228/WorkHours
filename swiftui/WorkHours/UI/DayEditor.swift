@@ -200,14 +200,11 @@ struct DayEditor: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: "这天算什么", subtitle: Cal.dayKind(date) == draft.type ? "按日历默认" : nil)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3), spacing: 6) {
-                ForEach(workTypes, id: \.key) { opt in
-                    typeChip(opt)
-                }
-            }
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
-                ForEach(leaveTypes, id: \.key) { opt in
-                    typeChip(opt)
-                }
+                ForEach(workTypes, id: \.key) { typeChip($0) }
+                ForEach(leaveTypes, id: \.key) { typeChip($0) }
+                // 补一个空格子：第二行只有两个时也保持和第一行同宽，
+                // 不再出现两个超宽胶囊夹三个窄的
+                Color.clear.frame(height: 44)
             }
 
             // 全天休假不上班，班次和项目都收起来
@@ -481,16 +478,17 @@ struct DayEditor: View {
 
                 Divider().opacity(0.4)
 
-                VStack(alignment: .leading, spacing: 1) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("请假扣款倍率")
                         .font(.system(size: 15))
-                    Text("请假小时 × 正班单价 × 倍率，从当天工资里扣")
+                    Text("小时 × 单价 × 倍率")
                         .font(.system(size: 10))
                         .foregroundStyle(Color.gsSecondary)
+                    Spacer(minLength: 0)
                 }
 
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
-                          spacing: 8) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 6),
+                          spacing: 6) {
                     ForEach([0.0, 0.5, 1.0, 1.5, 2.0, 3.0], id: \.self) { m in
                         let on = leave.multiple == m && leave.rule == "hour"
                         Button {
@@ -498,10 +496,12 @@ struct DayEditor: View {
                             draft.leave?.rule = "hour"
                         } label: {
                             Text(m == 0 ? "不扣" : Cal.num(m) + "×")
-                                .font(.system(size: 13, weight: on ? .semibold : .regular))
+                                .font(.system(size: 12, weight: on ? .semibold : .regular))
                                 .foregroundStyle(on ? palette.onPrimary : Color.primary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 38)
+                                .frame(height: 36)
                                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
                                     .fill(on ? palette.deep : Color.primary.opacity(0.06)))
                                 .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -631,8 +631,12 @@ struct DayEditor: View {
                 bonusSection
                 Divider().opacity(0.4)
             }
-            leaveSection
-            Divider().opacity(0.4)
+            // 没请假就别占着一整块：以前这块固定显示一句空提示，
+            // 把备注挤到屏幕外，看着像是坏了
+            if draft.leave != nil {
+                leaveSection
+                Divider().opacity(0.4)
+            }
             noteSection
         }
         .frame(maxWidth: .infinity, alignment: .leading)

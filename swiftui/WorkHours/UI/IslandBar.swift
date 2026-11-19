@@ -20,25 +20,8 @@ struct IslandBar: View {
         store.monthStats(year: Cal.year(today), month: Cal.month(today)).pay
     }
 
-    private var boxWidth: CGFloat { expanded ? 338 : (done ? 162 : 136) }
-    private var boxHeight: CGFloat { expanded ? 136 : 38 }
-    private var cornerRadius: CGFloat { expanded ? 30 : 19 }
-
     var body: some View {
-        content
-            .frame(width: boxWidth, height: boxHeight)
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(fill)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(payday ? Color(hex: "#F2C14E").opacity(0.7) : Color.white.opacity(0.10),
-                                  lineWidth: payday ? 1.2 : 0.8)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .shadow(color: .black.opacity(0.26), radius: 16, y: 7)
-            .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        islandShape
             .onTapGesture {
                 autoTask?.cancel()
                 withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
@@ -63,6 +46,33 @@ struct IslandBar: View {
             .onDisappear { autoTask?.cancel() }
     }
 
+    /// 收起时宽度跟着内容走（金额多一位也不换行），展开时固定宽度
+    @ViewBuilder
+    private var islandShape: some View {
+        if expanded {
+            shell(expandedContent, width: 338, height: 136, radius: 30)
+        } else {
+            shell(compact, width: nil, height: 38, radius: 19)
+        }
+    }
+
+    private func shell<V: View>(_ v: V, width: CGFloat?, height: CGFloat, radius: CGFloat) -> some View {
+        v
+            .frame(width: width, height: height)
+            .fixedSize(horizontal: width == nil, vertical: false)
+            .background(
+                RoundedRectangle(cornerRadius: radius, style: .continuous).fill(fill)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(payday ? Color(hex: "#F2C14E").opacity(0.7) : Color.white.opacity(0.10),
+                                  lineWidth: payday ? 1.2 : 0.8)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .shadow(color: .black.opacity(0.26), radius: 16, y: 7)
+            .contentShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+    }
+
     private var fill: LinearGradient {
         if payday {
             return LinearGradient(colors: [Color(hex: "#3B2E08"), Color(hex: "#161104")],
@@ -85,11 +95,13 @@ struct IslandBar: View {
             Text(done ? "\(Cal.num(hours))H" : "记一笔")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.white)
+                .lineLimit(1)
             if done {
                 Text("¥" + Cal.num(pay))
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .monospacedDigit()
-                    .foregroundStyle(Color.white.opacity(0.66))
+                    .foregroundStyle(Color.white.opacity(0.68))
+                    .lineLimit(1)
             }
             if streak >= 3 {
                 HStack(spacing: 2) {
@@ -98,6 +110,7 @@ struct IslandBar: View {
                     Text("\(streak)")
                         .font(.system(size: 11, weight: .semibold))
                         .monospacedDigit()
+                        .lineLimit(1)
                 }
                 .foregroundStyle(Color(hex: "#FF9F0A"))
             }

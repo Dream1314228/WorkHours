@@ -42,15 +42,12 @@ struct RootView: View {
                 .modifier(PageReveal(active: tab == 4))
         }
         .tint(palette.primary)
-        // 顶部留出一条给岛：页面内容整体下移，岛展开时盖在内容上，不挤动布局
-        .safeAreaInset(edge: .top, spacing: 0) {
-            ZStack(alignment: .top) {
-                Color.clear.frame(height: 44)
-                IslandBar(palette: palette)
-                    .environmentObject(store)
-                    // 外层锁死 44：岛展开时往下溢出，别把页面一起顶下去
-                    .frame(height: 44, alignment: .top)
-            }
+        // 岛浮在最上层；页面各自留 48 的顶白，两边互不挤。
+        // 不再用 safeAreaInset：iOS 26 的 TabView 不透传它，内容照样顶上来
+        .overlay(alignment: .top) {
+            IslandBar(palette: palette)
+                .environmentObject(store)
+                .padding(.top, 4)
         }
         .onChange(of: tab) { _, _ in
             // 换标签页时让图表重新播一遍

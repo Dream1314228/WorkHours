@@ -56,7 +56,7 @@ struct SettingsPage: View {
                     aboutSection
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 6)
+                .padding(.top, 52)
                 .padding(.bottom, 120)
             }
             .scrollIndicators(.hidden)
