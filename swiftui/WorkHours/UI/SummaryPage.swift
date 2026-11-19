@@ -30,7 +30,7 @@ struct SummaryPage: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 52)
+                .padding(.top, 6)
                 .padding(.bottom, 110)
             }
             .scrollIndicators(.hidden)

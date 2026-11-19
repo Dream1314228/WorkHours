@@ -30,14 +30,39 @@ targets:
         PRODUCT_NAME: WorkHours
         INFOPLIST_FILE: WorkHours/Info.plist
         GENERATE_INFOPLIST_FILE: "NO"
-        MARKETING_VERSION: "1.9.1"
-        CURRENT_PROJECT_VERSION: "33"
+        MARKETING_VERSION: "1.9.0"
+        CURRENT_PROJECT_VERSION: "32"
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         SWIFT_STRICT_CONCURRENCY: minimal
         SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY: "NO"
+    dependencies:
+      - target: WorkHoursWidget
+        embed: true
+
+  WorkHoursWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: WorkHoursWidget
+        excludes:
+          - "Info.plist"
+      - path: WorkHours/Model/WorkIslandAttributes.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cn.gongshijilu.jxt.swiftui.widget
+        PRODUCT_NAME: WorkHoursWidget
+        INFOPLIST_FILE: WorkHoursWidget/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        MARKETING_VERSION: "1.9.0"
+        CURRENT_PROJECT_VERSION: "32"
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: "YES"
+        APPLICATION_EXTENSION_API_ONLY: "YES"
+        SWIFT_STRICT_CONCURRENCY: minimal
 
   WorkHoursTests:
     type: bundle.unit-test

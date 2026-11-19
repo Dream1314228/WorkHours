@@ -1,8 +1,14 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct WorkHoursApp: App {
     @StateObject private var store = Store.shared
+
+    init() {
+        // App 在前台时也要把通知弹出来，否则「记错日期」那条永远看不见
+        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -42,12 +48,10 @@ struct RootView: View {
                 .modifier(PageReveal(active: tab == 4))
         }
         .tint(palette.primary)
-        // 岛浮在最上层；页面各自留 48 的顶白，两边互不挤。
-        // 不再用 safeAreaInset：iOS 26 的 TabView 不透传它，内容照样顶上来
-        .overlay(alignment: .top) {
-            IslandBar(palette: palette)
-                .environmentObject(store)
-                .padding(.top, 4)
+        // 数据一变就把灵动岛对齐一次；转后台不会走这里，岛停在最后一帧
+        .task { IslandManager.shared.sync(store: store) }
+        .onChange(of: store.revision) { _, _ in
+            IslandManager.shared.sync(store: store)
         }
         .onChange(of: tab) { _, _ in
             // 换标签页时让图表重新播一遍

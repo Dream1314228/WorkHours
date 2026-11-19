@@ -9,6 +9,7 @@ struct SettingsPage: View {
     @State private var editingProject: Project?
     @State private var isNewProject = false
     @State private var showPeriodEditor = false
+    @State private var showIsland = false
     @State private var showWage = false
     @State private var showImporter = false
     /// 备份导入是覆盖式操作，先停下来问一次再动手（DEF-02）
@@ -49,6 +50,7 @@ struct SettingsPage: View {
                     bonusSection
                     leaveSection
                     periodSection
+                    islandSection
                     reminderSection
                     holidaySection
                     appearanceSection
@@ -56,13 +58,17 @@ struct SettingsPage: View {
                     aboutSection
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 52)
+                .padding(.top, 6)
                 .padding(.bottom, 120)
             }
             .scrollIndicators(.hidden)
         }
         .sheet(item: $editingProject) { p in
             ProjectEditor(project: p, isNew: isNewProject, palette: palette)
+                .environmentObject(store)
+        }
+        .sheet(isPresented: $showIsland) {
+            IslandSettingsView(palette: palette)
                 .environmentObject(store)
         }
         .sheet(isPresented: $showPeriodEditor) {
@@ -626,7 +632,7 @@ struct SettingsPage: View {
 
     private var leaveSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionTitle(title: "年假", subtitle: "休整天算 1 天，休半天算 0.5 天")
+            SectionTitle(title: "年假", subtitle: "按 8 小时算一天")
             NumberRow(title: "年度额度", unit: "天",
                       value: $store.data.settings.annualLeaveDays,
                       palette: palette, range: 0...365)
@@ -727,6 +733,43 @@ struct SettingsPage: View {
     }
 
     // MARK: 提醒
+
+    // MARK: 灵动岛
+
+    private var islandSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionTitle(title: "灵动岛",
+                         subtitle: store.settings.island.enabled ? "已开启" : "已关闭")
+            Button {
+                showIsland = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "capsule.portrait.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(palette.deep)
+                        .frame(width: 34, height: 34)
+                        .background(Circle().fill(palette.primary.opacity(0.12)))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("配置灵动岛")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color.primary)
+                        Text("显示哪些数据、两侧放什么、配色")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.gsSecondary)
+                    }
+                    Spacer(minLength: 6)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.gsSecondary)
+                }
+                .frame(height: 48)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressableStyle())
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(radius: store.settings.cardRadius)
+    }
 
     private var reminderSection: some View {
         VStack(alignment: .leading, spacing: 8) {

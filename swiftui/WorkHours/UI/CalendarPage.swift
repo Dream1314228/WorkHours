@@ -43,8 +43,7 @@ struct CalendarPage: View {
                     dayCard
                 }
                 .padding(.horizontal, 16)
-                // 46 = 顶部岛的 38 + 上下缝，内容从岛下面开始，不再被压
-                .padding(.top, 48)
+                .padding(.top, 2)
                 .padding(.bottom, 96)
             }
             .scrollIndicators(.hidden)

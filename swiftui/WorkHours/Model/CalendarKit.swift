@@ -35,12 +35,6 @@ enum Cal {
         return gregorian.date(from: comps) ?? Date()
     }
     static func todayKey() -> String { key(Date()) }
-
-    /// 日期加减天数，跨月跨年都对；解析不出来就原样返回
-    static func addDays(_ key: String, _ delta: Int) -> String {
-        guard let d = gregorian.date(byAdding: .day, value: delta, to: date(key)) else { return key }
-        return Cal.key(d)
-    }
     static func year(_ key: String) -> Int { Int(key.prefix(4)) ?? 0 }
     static func month(_ key: String) -> Int {
         guard key.count >= 7 else { return 0 }
@@ -176,7 +170,6 @@ enum Cal {
         case "jj": return "节假"
         case "zm": return "周末"
         case "xiu": return "休假"
-        case "xban": return "休半天"
         default: return "正班"
         }
     }
