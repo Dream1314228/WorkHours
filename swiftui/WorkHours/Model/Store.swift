@@ -508,11 +508,16 @@ final class Store: ObservableObject {
         let prefix = String(format: "%04d-", year)
         var days = 0.0
         for (k, r) in data.records where k.hasPrefix(prefix) {
-            guard r.leave?.type == "xiu" else { continue }
-            // 按天记：整天 1 天，休半天 0.5 天。原来按「小时 ÷ 8」，
+            guard let l = r.leave, l.type == "xiu" else { continue }
+            // 按天记：休整天 1 天，休半天 0.5 天。原来一律按「小时 ÷ 8」，
             // 12 小时班请一天会算成 1.5 天。
             if r.type == "xiu" { days += 1 }
             else if r.type == "xban" { days += 0.5 }
+            else {
+                // 没走类型、只挂了请假小时的老记录：退回按小时折算，3 小时这种零头留得住
+                let need = needHours(r)
+                days += l.hour / (need > 0 ? need : 8)
+            }
         }
         return Cal.round2(days)
     }
