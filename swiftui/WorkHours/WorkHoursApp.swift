@@ -52,6 +52,7 @@ struct RootView: View {
         .task { IslandManager.shared.sync(store: store) }
         .onChange(of: store.revision) { _, _ in
             IslandManager.shared.sync(store: store)
+            Reminder.shared.rebuild(store: store)
         }
         .onChange(of: tab) { _, _ in
             // 换标签页时让图表重新播一遍
@@ -69,8 +70,7 @@ struct RootView: View {
         }
         .overlay(ToastOverlay())
         .onAppear {
-            let s = store.settings
-            Reminder.shared.sync(enabled: s.reminderEnabled, hour: s.reminderHour, minute: s.reminderMinute)
+            Reminder.shared.rebuild(store: store)
             // 启动时数据文件读不出来，开屏说一次，别让用户以为记录凭空没了
             if let issue = store.loadIssue {
                 ToastCenter.shared.show(issue)

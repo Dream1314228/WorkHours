@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct SettingsPage: View {
@@ -10,6 +11,7 @@ struct SettingsPage: View {
     @State private var isNewProject = false
     @State private var showPeriodEditor = false
     @State private var showIsland = false
+    @State private var currentIcon: String? = UIApplication.shared.alternateIconName
     @State private var showWage = false
     @State private var showImporter = false
     /// 备份导入是覆盖式操作，先停下来问一次再动手（DEF-02）
@@ -43,19 +45,44 @@ struct SettingsPage: View {
             ScrollView {
                 LazyVStack(spacing: 14) {
                     header
-                    recordSettingsSection
-                    defaultHoursSection
-                    allowanceSection
-                    wageSection
-                    bonusSection
-                    leaveSection
-                    periodSection
-                    islandSection
-                    reminderSection
-                    holidaySection
-                    appearanceSection
-                    dataSection
-                    aboutSection
+
+                    FoldGroup(id: "work", title: "记录与工时",
+                              summary: store.settings.recordMode == "hour" ? "按小时记" : "按天记",
+                              defaultOpen: true) {
+                        recordSettingsSection
+                        defaultHoursSection
+                    }
+
+                    FoldGroup(id: "pay", title: "薪资与补贴",
+                              summary: store.project(store.settings.projectId).name) {
+                        wageSection
+                        allowanceSection
+                        bonusSection
+                    }
+
+                    FoldGroup(id: "leave", title: "假勤与周期",
+                              summary: "年假余 \(Cal.num(store.annualLeaveRemaining(year: Cal.year(Cal.todayKey())))) 天") {
+                        leaveSection
+                        periodSection
+                    }
+
+                    FoldGroup(id: "remind", title: "提醒与灵动岛",
+                              summary: reminderSummary) {
+                        islandSection
+                        reminderSection
+                        holidaySection
+                    }
+
+                    FoldGroup(id: "look", title: "外观",
+                              summary: Theme.of(store.settings.theme).name) {
+                        appearanceSection
+                    }
+
+                    FoldGroup(id: "data", title: "数据与关于",
+                              summary: "共 \(store.data.records.count) 天记录") {
+                        dataSection
+                        aboutSection
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
@@ -115,8 +142,7 @@ struct SettingsPage: View {
             Text("工时、排班、补贴、扣款都会清掉。设置和项目保留。想留底就先导出备份。")
         }
         .onChange(of: reminderSignature) { _, _ in
-            let s = store.settings
-            Reminder.shared.sync(enabled: s.reminderEnabled, hour: s.reminderHour, minute: s.reminderMinute)
+            Reminder.shared.rebuild(store: store)
         }
     }
 
@@ -734,6 +760,48 @@ struct SettingsPage: View {
 
     // MARK: 提醒
 
+    // MARK: 应用图标
+
+    private var iconChoices: [(key: String?, name: String, color: Color)] {
+        [
+            (nil, "默认", Color(hex: "#1D6BF5")),
+            ("AppIconInkGold", "墨金", Color(hex: "#E8B84B")),
+            ("AppIconPine", "松绿", Color(hex: "#2E9E5B")),
+            ("AppIconPaper", "纸面", Color(hex: "#DFD3BB"))
+        ]
+    }
+
+    private func iconName(_ key: String?) -> String {
+        switch key {
+        case "AppIconInkGold": return "墨金"
+        case "AppIconPine": return "松绿"
+        case "AppIconPaper": return "纸面"
+        default: return "默认"
+        }
+    }
+
+    private func applyIcon(_ key: String?) {
+        guard UIApplication.shared.alternateIconName != key else { return }
+        UIApplication.shared.setAlternateIconName(key) { err in
+            DispatchQueue.main.async {
+                if err == nil {
+                    currentIcon = key
+                    ToastCenter.shared.show(key == nil ? "图标换回默认" : "图标已更换")
+                } else {
+                    ToastCenter.shared.show("系统没接受这个图标，检查 Info.plist 里的声明",
+                                            kind: .error)
+                }
+            }
+        }
+    }
+
+    private var reminderSummary: String {
+        let s = store.settings
+        let time = String(format: "%02d:%02d", s.reminderHour, s.reminderMinute)
+        if !s.reminderEnabled { return "提醒关 · 岛\(s.island.enabled ? "开" : "关")" }
+        return "\(time) · 岛\(s.island.enabled ? "开" : "关")"
+    }
+
     // MARK: 灵动岛
 
     private var islandSection: some View {
@@ -746,7 +814,7 @@ struct SettingsPage: View {
                 HStack(spacing: 10) {
                     Image(systemName: "capsule.portrait.fill")
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(palette.deep)
+                        .foregroundStyle(palette.primary)
                         .frame(width: 34, height: 34)
                         .background(Circle().fill(palette.primary.opacity(0.12)))
                     VStack(alignment: .leading, spacing: 2) {
@@ -839,6 +907,61 @@ struct SettingsPage: View {
                         }
                     }
                     .buttonStyle(PressableStyle())
+                }
+            }
+
+            if let clash = Theme.clashesWith(store.settings.theme) {
+                HStack(alignment: .top, spacing: 5) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.system(size: 10))
+                        .padding(.top, 1)
+                    Text("这套色和「\(clash)」接近，工资数字容易看混，介意就换一套")
+                        .font(.system(size: 10))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .foregroundStyle(Color.gsOrange)
+            }
+
+            Divider().opacity(0.35)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("应用图标")
+                        .font(.system(size: 14))
+                    Spacer()
+                    Text(iconName(currentIcon))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.gsSecondary)
+                }
+                HStack(spacing: 12) {
+                    ForEach(iconChoices, id: \.name) { item in
+                        Button {
+                            applyIcon(item.key)
+                        } label: {
+                            VStack(spacing: 5) {
+                                Circle()
+                                    .fill(item.color)
+                                    .frame(width: 42, height: 42)
+                                    .overlay(Circle().strokeBorder(
+                                        currentIcon == item.key ? palette.primary : Color.clear,
+                                        lineWidth: 2.5))
+                                    .overlay(alignment: .bottomTrailing) {
+                                        if currentIcon == item.key {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.system(size: 13))
+                                                .foregroundStyle(palette.primary)
+                                                .background(Circle().fill(Ledger.paper))
+                                        }
+                                    }
+                                Text(item.name)
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(Color.gsSecondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(PressableStyle())
+                    }
+                    Spacer(minLength: 0)
                 }
             }
 

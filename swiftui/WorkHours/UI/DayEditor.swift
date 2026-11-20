@@ -221,7 +221,7 @@ struct DayEditor: View {
                     HStack(spacing: 8) {
                         Image(systemName: "square.grid.3x3.topleft.filled")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(palette.deep)
+                            .foregroundStyle(palette.primary)
                         VStack(alignment: .leading, spacing: 1) {
                             Text("排班表：\(planned.name)")
                                 .font(.system(size: 12, weight: .medium))

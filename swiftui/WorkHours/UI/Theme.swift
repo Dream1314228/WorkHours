@@ -57,9 +57,20 @@ extension Color {
 struct Palette {
     let key: String
     let name: String
+    /// 强调色：图标、标题、选中态描边。深色下自动提亮，压在深底上才看得见
     let primary: Color
+    /// 实心填充：主按钮、选中胶囊。深色下换一档「深但没黑透」的值，
+    /// 否则按钮跟背景糊成一片，只看得见白字浮在空中
     let deep: Color
     let onPrimary: Color
+}
+
+/// 同一个色相给浅色/深色两套值，SwiftUI 按当前外观自己挑。
+/// 以前只写一套，墨蓝 #1F3A5F 压在深色卡片 #1C1E21 上对比 1.6:1，等于没有。
+private func dyn(_ light: String, _ dark: String) -> Color {
+    Color(uiColor: UIColor { trait in
+        UIColor(Color(hex: trait.userInterfaceStyle == .dark ? dark : light))
+    })
 }
 
 enum Theme {
@@ -86,29 +97,54 @@ enum Theme {
         return lum > 0.22 ? Color(hex: "#12161C") : .white
     }
 
+    /// 这个主题色和哪类数据色最像，给设置页提示用
+    static func clashesWith(_ key: String) -> String? {
+        switch key {
+        case "red": return "扣款红"
+        case "green": return "补贴绿"
+        case "orange": return "加班橙"
+        case "teal": return "补贴绿"
+        default: return nil
+        }
+    }
+
     static func of(_ key: String) -> Palette {
         switch key {
         case "teal":
-            return Palette(key: key, name: "青绿", primary: Color(hex: "#0E9F8E"),
-                           deep: Color(hex: "#087267"), onPrimary: .white)
+            return Palette(key: key, name: "青绿",
+                           primary: dyn("#0E9F8E", "#4FD3C2"),
+                           deep: dyn("#087267", "#0F6A60"),
+                           onPrimary: .white)
         case "green":
-            return Palette(key: key, name: "松绿", primary: Color(hex: "#2E9E5B"),
-                           deep: Color(hex: "#1F7A44"), onPrimary: .white)
+            return Palette(key: key, name: "松绿",
+                           primary: dyn("#2E9E5B", "#57D289"),
+                           deep: dyn("#1F7A44", "#1A6338"),
+                           onPrimary: .white)
         case "purple":
-            return Palette(key: key, name: "黛紫", primary: Color(hex: "#7A4DFF"),
-                           deep: Color(hex: "#5730CC"), onPrimary: .white)
+            return Palette(key: key, name: "黛紫",
+                           primary: dyn("#7A4DFF", "#AE93FF"),
+                           deep: dyn("#5730CC", "#5230BE"),
+                           onPrimary: .white)
         case "orange":
-            return Palette(key: key, name: "赤橙", primary: Color(hex: "#E06A00"),
-                           deep: Color(hex: "#B45309"), onPrimary: .white)
+            return Palette(key: key, name: "赤橙",
+                           primary: dyn("#E06A00", "#FFAC5C"),
+                           deep: dyn("#B45309", "#8F4408"),
+                           onPrimary: .white)
         case "red":
-            return Palette(key: key, name: "朱红", primary: Color(hex: "#D93A3A"),
-                           deep: Color(hex: "#A82626"), onPrimary: .white)
+            return Palette(key: key, name: "朱红",
+                           primary: dyn("#D93A3A", "#FF8681"),
+                           deep: dyn("#A82626", "#962320"),
+                           onPrimary: .white)
         case "graphite":
-            return Palette(key: key, name: "石墨", primary: Color(hex: "#55606F"),
-                           deep: Color(hex: "#333B47"), onPrimary: .white)
+            return Palette(key: key, name: "石墨",
+                           primary: dyn("#55606F", "#A6B2C2"),
+                           deep: dyn("#333B47", "#3A4450"),
+                           onPrimary: .white)
         default:
-            return Palette(key: "blue", name: "墨蓝", primary: Color(hex: "#1F3A5F"),
-                           deep: Color(hex: "#14263D"), onPrimary: .white)
+            return Palette(key: "blue", name: "墨蓝",
+                           primary: dyn("#1F3A5F", "#84ADDF"),
+                           deep: dyn("#14263D", "#2A4B78"),
+                           onPrimary: .white)
         }
     }
 }

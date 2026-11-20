@@ -32,6 +32,32 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>CFBundleIcons</key>
+	<dict>
+		<key>CFBundlePrimaryIcon</key>
+		<dict>
+			<key>CFBundleIconName</key>
+			<string>AppIcon</string>
+		</dict>
+		<key>CFBundleAlternateIcons</key>
+		<dict>
+			<key>AppIconInkGold</key>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIconInkGold</string>
+			</dict>
+			<key>AppIconPine</key>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIconPine</string>
+			</dict>
+			<key>AppIconPaper</key>
+			<dict>
+				<key>CFBundleIconName</key>
+				<string>AppIconPaper</string>
+			</dict>
+		</dict>
+	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSSupportsLiveActivities</key>

@@ -75,7 +75,7 @@ struct StatsPage: View {
                                 Text("本期")
                                     .font(.system(size: 10, weight: .semibold))
                             }
-                            .foregroundStyle(palette.deep)
+                            .foregroundStyle(palette.primary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
                             .background(Capsule().fill(palette.primary.opacity(0.12)))
