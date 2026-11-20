@@ -43,7 +43,7 @@ struct SettingsPage: View {
         ZStack {
             AppBackdrop(palette: palette)
             ScrollView {
-                LazyVStack(spacing: 14) {
+                VStack(spacing: 14) {
                     header
 
                     FoldGroup(id: "work", title: "记录与工时",
@@ -142,7 +142,10 @@ struct SettingsPage: View {
             Text("工时、排班、补贴、扣款都会清掉。设置和项目保留。想留底就先导出备份。")
         }
         .onChange(of: reminderSignature) { _, _ in
-            Reminder.shared.rebuild(store: store)
+            Reminder.shared.refresh(store: store)
+        }
+        .onAppear {
+            currentIcon = UIApplication.shared.alternateIconName
         }
     }
 
@@ -781,15 +784,20 @@ struct SettingsPage: View {
     }
 
     private func applyIcon(_ key: String?) {
-        guard UIApplication.shared.alternateIconName != key else { return }
+        guard UIApplication.shared.supportsAlternateIcons else {
+            ToastCenter.shared.show("这台设备不支持换图标", kind: .error)
+            return
+        }
         UIApplication.shared.setAlternateIconName(key) { err in
             DispatchQueue.main.async {
-                if err == nil {
-                    currentIcon = key
-                    ToastCenter.shared.show(key == nil ? "图标换回默认" : "图标已更换")
+                // 以系统返回值为准；它偶尔比回调慢一拍，才用点下去的值兜底
+                let systemValue = UIApplication.shared.alternateIconName
+                if let err {
+                    currentIcon = systemValue
+                    ToastCenter.shared.show("换图标失败：\(err.localizedDescription)", kind: .error)
                 } else {
-                    ToastCenter.shared.show("系统没接受这个图标，检查 Info.plist 里的声明",
-                                            kind: .error)
+                    currentIcon = systemValue ?? key
+                    ToastCenter.shared.show(key == nil ? "图标换回默认" : "图标已更换")
                 }
             }
         }

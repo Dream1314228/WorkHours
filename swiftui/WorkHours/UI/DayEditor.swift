@@ -687,11 +687,6 @@ struct DayEditor: View {
         }
         store.setRecord(draft, for: date)
         store.saveNow()
-        // 记的是别的日子就提醒一句；记的就是今天，什么都不弹
-        let today = Cal.todayKey()
-        if date != today {
-            Reminder.shared.notifyDateMismatch(recorded: date, today: today)
-        }
         ToastCenter.shared.show("已保存 \(Cal.shortDate(date))")
         close()
     }
